@@ -11,6 +11,7 @@ alibi = "*"
 matplotlib = "*"
 pyqt5 = "*"
 sympy = "*"
+joblib = "*"
 
 [requires]
 python_version = "3.8"
