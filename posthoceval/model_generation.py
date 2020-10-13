@@ -1,9 +1,9 @@
 import string
 import random
 from functools import partial
-from itertools import repeat
 from collections.abc import Iterable
 from collections.abc import Callable
+from collections import namedtuple
 
 import sympy as sym
 
@@ -13,6 +13,107 @@ from joblib import delayed
 
 from .utils import as_sized
 from .utils import assert_same_size
+from .utils import as_iterator_of_size
+
+InteractionOp = namedtuple(
+    'Interaction',
+    ('name', 'n_args', 'func')
+)
+# For determination of continuity of functions:
+#  sympy.calculus.util.continuous_domain(...)
+INTERACTION_OPS = (
+    InteractionOp(
+        name='cos',
+        n_args=1,
+        func=sym.cos
+    ),
+    InteractionOp(
+        name='cosh',
+        n_args=1,
+        func=sym.cosh
+    ),
+    InteractionOp(
+        name='sin',
+        n_args=1,
+        func=sym.sin
+    ),
+    InteractionOp(
+        name='sinh',
+        n_args=1,
+        func=sym.sinh
+    ),
+    InteractionOp(
+        name='tan',
+        n_args=1,
+        func=sym.tan
+    ),
+    InteractionOp(
+        name='tanh',
+        n_args=1,
+        func=sym.tanh
+    ),
+    InteractionOp(
+        name='Abs',
+        n_args=1,
+        func=sym.Abs
+    ),
+    InteractionOp(
+        name='Mul',
+        n_args=2,
+        func=sym.Mul
+    ),
+    InteractionOp(
+        name='',
+        n_args=2,
+        func=sym
+    ),
+    InteractionOp(
+        name='',
+        n_args=2,
+        func=sym
+    ),
+    InteractionOp(
+        name='',
+        n_args=2,
+        func=sym
+    ),
+    InteractionOp(
+        name='',
+        n_args=2,
+        func=sym
+    ),
+    InteractionOp(
+        name='',
+        n_args=2,
+        func=sym
+    ),
+    InteractionOp(
+        name='',
+        n_args=2,
+        func=sym
+    ),
+    InteractionOp(
+        name='',
+        n_args=2,
+        func=sym
+    ),
+    InteractionOp(
+        name='',
+        n_args=2,
+        func=sym
+    ),
+)
+
+# TODO:
+#  - random interaction triangular matrices, one per interaction
+#  - matrix of ints, sum of elements equal to number of interaction terms
+#  - int is order of interaction
+#  - M_ij (i=j) --> interacts with self, e.g. x**2 (don't allow division)
+#  - generate models intelligently - don't just alternate which variables
+#    interact e.g. if input distributions are the same
+#  - ensure interactions unique, no duplicate terms
+#  - allow for integer interactions (scaling, exponent, etc.)
+#  - do by classes of interaction, START WITH POLYNOMIALS
 
 
 def symbol_names(n_features):
@@ -29,10 +130,11 @@ def symbol_names(n_features):
     return ret
 
 
-class LinearModel(object):
+class AdditiveModel(object):
     def __init__(self,
                  n_features: int,
                  coefficients=partial(random.uniform, -1, +1),
+                 interactions=None,
                  domain='real'):
         """
 
@@ -58,14 +160,8 @@ class LinearModel(object):
 
     def _generate_model(self) -> sym.Expr:
         n_coefs_expect = self.n_features + 1
-        if isinstance(self.coefficients, Iterable):
-            self.coefficients = as_sized(self.coefficients)
-            assert_same_size(n_coefs_expect, len(self.coefficients),
-                             'coefficients')
-            coefs = iter(self.coefficients)
-        else:
-            coefs = repeat(self.coefficients, n_coefs_expect)
-
+        coefs = as_iterator_of_size(
+            self.coefficients, n_coefs_expect, 'coefficients')
         bias = next(coefs)
         total = bias() if isinstance(bias, Callable) else bias
         for xi, ci in zip(self.symbols, coefs):
@@ -101,3 +197,8 @@ class LinearModel(object):
 
     def __repr__(self):
         return str(self.expr)
+
+
+class LinearModel(AdditiveModel):
+    def __init__(self, *args, **kwargs):
+        super(LinearModel, self).__init__(*args, interactions=None, **kwargs)
