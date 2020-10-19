@@ -3,6 +3,9 @@ from pprint import pprint
 import numpy as np
 from alibi.explainers import KernelShap
 
+# TODO: gSHAP-linear, gSHAP-spline, etc.
+from posthoceval.global_shap import GlobalKernelShap
+
 
 class DummyModel(object):
     def inference(self, x):

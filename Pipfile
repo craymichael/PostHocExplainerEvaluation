@@ -12,6 +12,7 @@ matplotlib = "*"
 pyqt5 = "*"
 sympy = "*"
 joblib = "*"
+scipy = "*"
 
 [requires]
 python_version = "3.8"
