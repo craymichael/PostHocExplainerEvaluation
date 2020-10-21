@@ -5,10 +5,10 @@ from functools import partial
 from collections.abc import Iterable
 from collections.abc import Callable
 from typing import Sequence
-from typing import Optional
+from typing import Tuple
 from typing import Union
 
-from itertools import chain
+from functools import cache
 
 import logging
 
@@ -128,6 +128,20 @@ INTERACTION_OPS = (
 #  - do by classes of interaction, START WITH POLYNOMIALS
 
 
+@cache
+def split_effects(expr: sym.Expr,
+                  symbols: Sequence[sym.Symbol]) -> (sym.Expr, Tuple[sym.Expr]):
+    expr_expanded = expr.expand(add=True)
+    all_symbol_set = set(symbols)
+    main_effects = sym.Integer(0)
+    for xi in symbols:
+        all_minus_xi = all_symbol_set - {xi}
+        main, _ = expr_expanded.as_independent(*all_minus_xi, as_Add=True)
+        main_effects += main
+    interaction_effects = set(expr_expanded.args) - set(main_effects.args)
+    return main_effects, tuple(interaction_effects)
+
+
 def symbol_names(n_features):
     """Generate Excel-like names for symbols"""
     assert n_features >= 1, 'Invalid number of features < 1: %d' % n_features
@@ -199,13 +213,23 @@ class AdditiveModel(object):
 
         model._check()
 
-    def get_symbol(self, symbol_name):
+    def get_symbol(self, symbol_name: str) -> sym.Symbol:
         if self._symbol_map is None:
             self._symbol_map = dict(zip(self.symbol_names, self.symbols))
         return self._symbol_map[symbol_name]
 
     @property
-    def independent_terms(self):
+    def main_effects(self):
+        main_effects, _ = split_effects(self.expr, self.symbols)
+        return main_effects
+
+    @property
+    def interaction_effects(self):
+        _, interaction_effects = split_effects(self.expr, self.symbols)
+        return interaction_effects
+
+    @property
+    def independent_terms(self) -> Tuple[sym.Expr]:
         if isinstance(self.expr, sym.Add):
             return self.expr.args
         return self.expr,  # ',' for tuple return
@@ -257,9 +281,12 @@ class LinearModel(AdditiveModel):
 
 
 def tsang_iclr18_models(name=None):
-    all_symbols = sym.symbols('x1:10')
+    all_symbols = sym.symbols('x1:11')  # 10 variables
+    # TODO: figure out how many samples the authors used....otherwise sample
+    #  within some expected error?
     x1, x2, x3, x4, x5, x6, x7, x8, x9, x10 = all_symbols
     synthetic_functions = dict(
+        # TODO: figure out input data ranges from the paper for this....
         f1=
         sym.pi ** (x1 * x2) * sym.sqrt(2 * x3)
         - sym.asin(x4)
@@ -292,46 +319,43 @@ def tsang_iclr18_models(name=None):
         + 1 / (1 + x10 ** 2)
         ,
         f5=
-        sym.pi ** (x1 * x2) * sym.sqrt(2 * x3)
-        - sym.asin(x4)
-        + sym.log(x3 + x5)
-        - x9 / x10 * sym.sqrt(x7 / x8)
-        - x2 * x7
+        1 / (1 + x1 ** 2 + x2 ** 2 + x3 ** 2)
+        + sym.sqrt(sym.exp(x4 + x5))
+        + abs(x6 + x7)
+        + x8 * x9 * x10
         ,
         f6=
-        sym.pi ** (x1 * x2) * sym.sqrt(2 * x3)
-        - sym.asin(x4)
-        + sym.log(x3 + x5)
-        - x9 / x10 * sym.sqrt(x7 / x8)
-        - x2 * x7
+        sym.exp(abs(x1 * x2) + 1)
+        - sym.exp(abs(x3 + x4) + 1)
+        + sym.cos(x5 + x6 - x8)
+        + sym.sqrt(x8 ** 2 + x9 ** 2 + x10 ** 2)
         ,
         f7=
-        sym.pi ** (x1 * x2) * sym.sqrt(2 * x3)
-        - sym.asin(x4)
-        + sym.log(x3 + x5)
-        - x9 / x10 * sym.sqrt(x7 / x8)
-        - x2 * x7
-        ,
+        (sym.atan(x1) + sym.atan(x2)) ** 2
+        + sym.Max(x3 * x4 + x6, 0)
+        - 1 / (1 + (x4 * x5 * x6 * x7 * x8) ** 2)
+        + (abs(x7) / (1 + abs(x9))) ** 5
+        + sum(all_symbols)
+        ,  # sum(all_symbols) = \sum_{i=1}^{10} x_i
         f8=
-        sym.pi ** (x1 * x2) * sym.sqrt(2 * x3)
-        - sym.asin(x4)
-        + sym.log(x3 + x5)
-        - x9 / x10 * sym.sqrt(x7 / x8)
-        - x2 * x7
+        x1 * x2
+        + 2 ** (x3 + x5 + x6)
+        + 2 ** (x3 + x4 + x5 + x7)
+        + sym.sin(x7 * sym.sin(x8 + x9))
+        + sym.acos(sym.Integer(9) / sym.Integer(10) * x10)
         ,
         f9=
-        sym.pi ** (x1 * x2) * sym.sqrt(2 * x3)
-        - sym.asin(x4)
-        + sym.log(x3 + x5)
-        - x9 / x10 * sym.sqrt(x7 / x8)
-        - x2 * x7
+        sym.tanh(x1 * x2 + x3 * x4) * sym.sqrt(abs(x5))
+        + sym.exp(x5 + x6)
+        + sym.log((x6 * x7 * x8) ** 2 + 1)
+        + x9 * x10
+        + 1 / (1 + abs(x10))
         ,
         f10=
-        sym.pi ** (x1 * x2) * sym.sqrt(2 * x3)
-        - sym.asin(x4)
-        + sym.log(x3 + x5)
-        - x9 / x10 * sym.sqrt(x7 / x8)
-        - x2 * x7
+        sym.sinh(x1 + x2)
+        + sym.acos(sym.tanh(x3 + x5 + x7))
+        + sym.cos(x4 + x5)
+        + sym.sec(x7 * x9)
         ,
     )
 
