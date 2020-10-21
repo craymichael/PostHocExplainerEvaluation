@@ -1,8 +1,17 @@
 import string
 import random
 from functools import partial
+
 from collections.abc import Iterable
 from collections.abc import Callable
+from typing import Sequence
+from typing import Optional
+from typing import Union
+
+from itertools import chain
+
+import logging
+
 from collections import namedtuple
 
 import sympy as sym
@@ -14,6 +23,8 @@ from joblib import delayed
 from .utils import as_sized
 from .utils import assert_same_size
 from .utils import as_iterator_of_size
+
+logger = logging.getLogger(__name__)
 
 InteractionOp = namedtuple(
     'Interaction',
@@ -104,6 +115,7 @@ INTERACTION_OPS = (
     ),
 )
 
+
 # TODO:
 #  - random interaction triangular matrices, one per interaction
 #  - matrix of ints, sum of elements equal to number of interaction terms
@@ -143,25 +155,65 @@ class AdditiveModel(object):
         :param domain:
         """
         self.n_features = n_features
-        self.domain = domain
-        self.coefficients = coefficients
 
         kwargs = dict()
-        if self.domain == 'real':
+        if domain == 'real':
             kwargs['real'] = True
-        elif self.domain == 'integer':
+        elif domain == 'integer':
             kwargs['integer'] = True
         else:
-            raise ValueError('Unknown variable domain: %s' % self.domain)
+            raise ValueError('Unknown variable domain: %s' % domain)
 
         # Generate n_features symbols with unique names from domain
-        self.symbols = sym.symbols(symbol_names(self.n_features), **kwargs)
-        self.expr = self._generate_model()
+        self.symbol_names = symbol_names(self.n_features)
+        self.symbols = sym.symbols(self.symbol_names, **kwargs)
+        self.expr = self._generate_model(coefficients)
+        self._symbol_map = None
 
-    def _generate_model(self) -> sym.Expr:
+        self._check()
+
+    def _check(self):
+        if not isinstance(self.expr, sym.Add):
+            logger.warning('Expression is not additive! Output is dependent on '
+                           'all input variables: '
+                           'optype {}'.format(type(self.expr)))
+
+    @classmethod
+    def from_expr(cls,
+                  expr: sym.Expr,
+                  symbols: Union[Sequence[sym.Symbol], sym.Symbol]):
+        """Symbols needs to be ordered properly"""
+        # Ensure expr symbols are a subset of symbols
+        symbols = (symbols,) if isinstance(symbols, sym.Symbol) else symbols
+        missing_symbols = set(expr.free_symbols) - set(symbols)
+        if missing_symbols:
+            raise ValueError('expr contains symbols not specified in symbols: '
+                             '{}'.format(missing_symbols))
+
+        model = cls.__new__(cls)
+        model.expr = expr
+        model.symbols = symbols
+        model.symbol_names = tuple(s.name for s in symbols)
+        model.n_features = len(symbols)
+        model._symbol_map = None
+
+        model._check()
+
+    def get_symbol(self, symbol_name):
+        if self._symbol_map is None:
+            self._symbol_map = dict(zip(self.symbol_names, self.symbols))
+        return self._symbol_map[symbol_name]
+
+    @property
+    def independent_terms(self):
+        if isinstance(self.expr, sym.Add):
+            return self.expr.args
+        return self.expr,  # ',' for tuple return
+
+    def _generate_model(self, coefficients) -> sym.Expr:
         n_coefs_expect = self.n_features + 1
         coefs = as_iterator_of_size(
-            self.coefficients, n_coefs_expect, 'coefficients')
+            coefficients, n_coefs_expect, 'coefficients')
         bias = next(coefs)
         total = bias() if isinstance(bias, Callable) else bias
         for xi, ci in zip(self.symbols, coefs):
@@ -202,3 +254,90 @@ class AdditiveModel(object):
 class LinearModel(AdditiveModel):
     def __init__(self, *args, **kwargs):
         super(LinearModel, self).__init__(*args, interactions=None, **kwargs)
+
+
+def tsang_iclr18_models(name=None):
+    all_symbols = sym.symbols('x1:10')
+    x1, x2, x3, x4, x5, x6, x7, x8, x9, x10 = all_symbols
+    synthetic_functions = dict(
+        f1=
+        sym.pi ** (x1 * x2) * sym.sqrt(2 * x3)
+        - sym.asin(x4)
+        + sym.log(x3 + x5)
+        - x9 / x10 * sym.sqrt(x7 / x8)
+        - x2 * x7
+        ,
+        f2=
+        sym.pi ** (x1 * x2) * sym.sqrt(2 * abs(x3))
+        - sym.asin(x4 / 2)
+        + sym.log(abs(x3 + x5) + 1)
+        + x9 / (1 + abs(x10)) * sym.sqrt(x7 / (1 + abs(x8)))
+        - x2 * x7
+        ,
+        f3=
+        sym.exp(abs(x1 - x2))
+        + abs(x2 * x3)
+        - x3 ** (2 * abs(x4))
+        + sym.log(x4 ** 2 + x5 ** 2 + x7 ** 2 + x8 ** 2)
+        + x9
+        + 1 / (1 + x10 ** 2)
+        ,
+        f4=
+        sym.exp(abs(x1 - x2))
+        + abs(x2 * x3)
+        - x3 ** (2 * abs(x4))
+        + (x1 * x4) ** 2
+        + sym.log(x4 ** 2 + x5 ** 2 + x7 ** 2 + x8 ** 2)
+        + x9
+        + 1 / (1 + x10 ** 2)
+        ,
+        f5=
+        sym.pi ** (x1 * x2) * sym.sqrt(2 * x3)
+        - sym.asin(x4)
+        + sym.log(x3 + x5)
+        - x9 / x10 * sym.sqrt(x7 / x8)
+        - x2 * x7
+        ,
+        f6=
+        sym.pi ** (x1 * x2) * sym.sqrt(2 * x3)
+        - sym.asin(x4)
+        + sym.log(x3 + x5)
+        - x9 / x10 * sym.sqrt(x7 / x8)
+        - x2 * x7
+        ,
+        f7=
+        sym.pi ** (x1 * x2) * sym.sqrt(2 * x3)
+        - sym.asin(x4)
+        + sym.log(x3 + x5)
+        - x9 / x10 * sym.sqrt(x7 / x8)
+        - x2 * x7
+        ,
+        f8=
+        sym.pi ** (x1 * x2) * sym.sqrt(2 * x3)
+        - sym.asin(x4)
+        + sym.log(x3 + x5)
+        - x9 / x10 * sym.sqrt(x7 / x8)
+        - x2 * x7
+        ,
+        f9=
+        sym.pi ** (x1 * x2) * sym.sqrt(2 * x3)
+        - sym.asin(x4)
+        + sym.log(x3 + x5)
+        - x9 / x10 * sym.sqrt(x7 / x8)
+        - x2 * x7
+        ,
+        f10=
+        sym.pi ** (x1 * x2) * sym.sqrt(2 * x3)
+        - sym.asin(x4)
+        + sym.log(x3 + x5)
+        - x9 / x10 * sym.sqrt(x7 / x8)
+        - x2 * x7
+        ,
+    )
+
+    if name is None:
+        return synthetic_functions
+    elif isinstance(name, Iterable):
+        return tuple(synthetic_functions[n] for n in name)
+    else:
+        return synthetic_functions[name]

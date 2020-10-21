@@ -5,47 +5,53 @@ from alibi.explainers import KernelShap
 
 # TODO: gSHAP-linear, gSHAP-spline, etc.
 from posthoceval.global_shap import GlobalKernelShap
+from posthoceval.model_generation import AdditiveModel
 
 
-class DummyModel(object):
-    def inference(self, x):
-        return np.asarray([*map(self.infer_once, x)])
-
-    def infer_once(self, x):
-        x1, x2, x3 = x
-        if x1 >= 50:
-            return x2 * x3
-        elif x2 < 0:
-            return x1
-        else:
-            return x3
-
-
-def generate_data(n_samples, n_features, a=-100, b=100):
-    return np.random.uniform(a, b, size=(n_samples, n_features))
-
-
-def main():
-    model = DummyModel()
-    data = generate_data(100_000, 3)
+def evaluate_shap():
+    # Make model
 
     explainer = KernelShap(
-        model.inference,
-        feature_names=['x1', 'x2', 'x3']
+        pred_func,
+        feature_names=feature_names,
+        task='regression'
     )
     explainer.fit(data)
-
-    outputs = model.inference(data)
-    print('E[Y] =', outputs.mean())
 
     # explanation = explainer.explain(data[:100])
     # pprint(explanation)
 
-    test = np.asarray([[175, 2, 2]])
-    print('input ', test)
-    print('output', model.inference(test))
-    explanation = explainer.explain(test)
-    pprint(explanation)
+    # Note: explanation.raw['importances'] has aggregated scores per output with
+    # corresponding keys, e.g., '0' & '1' for two outputs. Also has 'aggregated' for
+    # the aggregated scores over all outputs
+    explanation = explainer.explain(data)
+    expected_value = explanation.expected_value
+    shap_values = explanation.shap_values[0]
+    outputs = explanation.raw['raw_prediction']
+    shap_values_g = explanation.raw['importances']['0']
+
+    print(expected_value, type(expected_value))
+
+    print('outputs', outputs)
+
+    print('shap_values', shap_values)
+
+    print('shap_values_g', shap_values_g)
+
+    shap_preds = np.sum(shap_values, axis=1) + expected_value
+    print('sum of abs local error', (shap_preds - outputs).sum())
+
+    gshap = GlobalKernelShap(data, shap_values, expected_value)
+    gshap_preds, gshap_vals = gshap.predict(data, return_shap_values=True)
+
+    print('gshap_preds', gshap_preds)
+
+    print('sum of abs global error', (gshap_preds - outputs).sum())
+
+    print('gshap_vals', gshap_vals)
+
+def main():
+    pass
 
 
 if __name__ == '__main__':
