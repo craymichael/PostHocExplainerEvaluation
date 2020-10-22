@@ -19,6 +19,7 @@ def evaluate_shap(debug=False):
     # Make data
     n_samples = 30_000 if not debug else 100
     # TODO: better data ranges based on continuity of function
+    # TODO: use valid_variable_domains when properly+cleanly integrated
     # data = np.random.uniform(-1, +1, size=(n_samples, model.n_features))
     data = np.random.uniform(0, +1, size=(n_samples, model.n_features))
 

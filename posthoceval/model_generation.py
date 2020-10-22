@@ -172,6 +172,7 @@ class AdditiveModel(object):
             extended_real nonpositive extended_negative extended_nonzero
             hermitian positive extended_nonnegative zero prime infinite
             extended_nonpositive extended_positive complex composite
+            See [sympy assumptions](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.assumptions)  # noqa
         """
         self.n_features = n_features
 
@@ -251,6 +252,7 @@ class AdditiveModel(object):
 
     @property
     def valid_variable_domains(self):
+        """Real domains only! TODO: allow other domains?"""
         # TODO: cache this function like the other one
         domains = {}
         terms = self.independent_terms
@@ -323,7 +325,6 @@ class AdditiveModel(object):
         if isinstance(x, Iterable):
             x = as_sized(x)
             if isinstance(x[0], Iterable):
-                print('drugs')
                 assert_func = partial(assert_same_size,
                                       expected=self.n_features,
                                       units='features')
@@ -334,16 +335,15 @@ class AdditiveModel(object):
                     ) for xi in x
                 )
             else:
-                print('not drugs')
                 assert_same_size(self.n_features, len(x), 'features')
                 ret = self.expr.subs(zip(self.symbols, x))
         else:
-            print('especially not drugs')
             assert_same_size(self.n_features, 1, 'features')
             ret = self.expr.subs((self.symbols[0], x))
         if as_np:
-            print(ret)
-            ret = np.asarray(ret)
+            # Note: this only works for expressions that return a single output
+            #  (assumed always to be the case)
+            ret = np.asarray(ret)[:, np.newaxis]
         return ret
 
     def feature_attribution(self):
