@@ -1,29 +1,41 @@
 from pprint import pprint
 
 import numpy as np
-from alibi.explainers import KernelShap
 
-# TODO: gSHAP-linear, gSHAP-spline, etc.
+from alibi.explainers import KernelShap
+from alibi.explainers.shap_wrappers import KERNEL_SHAP_BACKGROUND_THRESHOLD
+
 from posthoceval.global_shap import GlobalKernelShap
 from posthoceval.model_generation import AdditiveModel
+from posthoceval.model_generation import tsang_iclr18_models
 
 
-def evaluate_shap():
+def evaluate_shap(debug=False):
+    # TODO: gSHAP-linear, gSHAP-spline, etc.
+
     # Make model
+    model = tsang_iclr18_models('f2')
+
+    # Make data
+    n_samples = 30_000 if not debug else 100
+    # TODO: better data ranges based on continuity of function
+    # data = np.random.uniform(-1, +1, size=(n_samples, model.n_features))
+    data = np.random.uniform(0, +1, size=(n_samples, model.n_features))
 
     explainer = KernelShap(
-        pred_func,
-        feature_names=feature_names,
-        task='regression'
+        model,
+        feature_names=model.symbol_names,
+        task='regression',
     )
-    explainer.fit(data)
+    fit_kwargs = {}
+    if KERNEL_SHAP_BACKGROUND_THRESHOLD < n_samples:
+        fit_kwargs['summarise_background'] = True
 
-    # explanation = explainer.explain(data[:100])
-    # pprint(explanation)
+    explainer.fit(data, **fit_kwargs)
 
     # Note: explanation.raw['importances'] has aggregated scores per output with
-    # corresponding keys, e.g., '0' & '1' for two outputs. Also has 'aggregated' for
-    # the aggregated scores over all outputs
+    # corresponding keys, e.g., '0' & '1' for two outputs. Also has 'aggregated'
+    # for the aggregated scores over all outputs
     explanation = explainer.explain(data)
     expected_value = explanation.expected_value
     shap_values = explanation.shap_values[0]
@@ -50,9 +62,19 @@ def evaluate_shap():
 
     print('gshap_vals', gshap_vals)
 
-def main():
-    pass
-
 
 if __name__ == '__main__':
+    def main():
+        import argparse
+
+        parser = argparse.ArgumentParser(
+            description=''
+        )
+        parser.add_argument('--debug', '-B', action='store_true',
+                            help='Use fewer samples to make sure things work.')
+        args = parser.parse_args()
+
+        evaluate_shap(debug=args.debug)
+
+
     main()

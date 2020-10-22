@@ -1,21 +1,22 @@
 import string
 import random
-from functools import partial
-
+import logging
 from collections.abc import Iterable
 from collections.abc import Callable
 from typing import Sequence
+from typing import Dict
 from typing import Tuple
 from typing import Union
-
-from functools import cache
-
-import logging
-
+from functools import partial
+from functools import lru_cache
+from itertools import repeat
+from itertools import combinations
+from itertools import product
+from collections import OrderedDict
 from collections import namedtuple
 
 import sympy as sym
-
+import numpy as np
 from joblib import cpu_count
 from joblib import Parallel
 from joblib import delayed
@@ -128,7 +129,7 @@ INTERACTION_OPS = (
 #  - do by classes of interaction, START WITH POLYNOMIALS
 
 
-@cache
+@lru_cache()
 def split_effects(expr: sym.Expr,
                   symbols: Sequence[sym.Symbol]) -> (sym.Expr, Tuple[sym.Expr]):
     expr_expanded = expr.expand(add=True)
@@ -161,22 +162,25 @@ class AdditiveModel(object):
                  n_features: int,
                  coefficients=partial(random.uniform, -1, +1),
                  interactions=None,
-                 domain='real'):
+                 domain: Union[str, Sequence[str]] = 'real'):
         """
 
         :param n_features:
         :param coefficients: first coef is the bias term
         :param domain:
+            negative nonnegative commutative imaginary nonzero real finite
+            extended_real nonpositive extended_negative extended_nonzero
+            hermitian positive extended_nonnegative zero prime infinite
+            extended_nonpositive extended_positive complex composite
         """
         self.n_features = n_features
 
         kwargs = dict()
-        if domain == 'real':
-            kwargs['real'] = True
-        elif domain == 'integer':
-            kwargs['integer'] = True
-        else:
-            raise ValueError('Unknown variable domain: %s' % domain)
+        if isinstance(domain, str):
+            kwargs[domain] = True
+        else:  # assume iterable of str
+            for d in domain:
+                kwargs[d] = True
 
         # Generate n_features symbols with unique names from domain
         self.symbol_names = symbol_names(self.n_features)
@@ -212,6 +216,7 @@ class AdditiveModel(object):
         model._symbol_map = None
 
         model._check()
+        return model
 
     def get_symbol(self, symbol_name: str) -> sym.Symbol:
         if self._symbol_map is None:
@@ -244,27 +249,102 @@ class AdditiveModel(object):
             total += xi * (ci() if isinstance(ci, Callable) else ci)
         return total
 
+    @property
+    def valid_variable_domains(self):
+        # TODO: cache this function like the other one
+        domains = {}
+        terms = self.independent_terms
+        for term in terms:
+            errored_symbols = []
+            for xi in term.free_symbols:
+                try:
+                    domain = sym.calculus.util.continuous_domain(term, xi,
+                                                                 sym.Reals)
+                    domains[xi] = domains.get(xi, sym.Reals).intersect(domain)
+                except NotImplementedError:
+                    errored_symbols.append(xi)
+            assumptions = (None, 'positive', 'negative')
+            great_success = False
+            # TODO: move this shit out into another function
+            # Time to figure out if assumptions help automatically figure out
+            # valid continuous ranges...
+            for i in range(1, len(errored_symbols) + 1):
+                for sym_subset in combinations(errored_symbols, i):
+                    # print('sym_subset', sym_subset)
+                    for sym_comb in product(
+                            *(tuple(zip(repeat(xi_ss), assumptions)) for xi_ss
+                              in sym_subset)):
+                        try:
+                            # print('sym_comb', sym_comb)
+                            replacements = OrderedDict(
+                                (xi_ss, (xi_ss if ass is None else sym.Symbol(
+                                    xi_ss.name, **{ass: True})))
+                                for xi_ss, ass in sym_comb
+                            )
+                            intervals = (
+                                sym.Interval(0, sym.oo)
+                                if ass == 'positive' else
+                                sym.Interval(-sym.oo, 0)
+                                if ass == 'negative' else sym.Reals
+                                for _, ass in sym_comb)
+                            term_subs = term.subs(replacements)
+                            maybe_domains = {}
+                            for xi_ss, interval in zip(replacements.values(),
+                                                       intervals):
+                                domain = sym.calculus.util.continuous_domain(
+                                    term_subs, xi_ss, interval)
+                                maybe_domains[xi_ss] = domain
+                            # print('maybe_domains!!!!', maybe_domains)
+                            great_success = True
+                            for xi_ss in errored_symbols:
+                                xi_ss_new = replacements.get(xi_ss, xi_ss)
+                                # TODO: replace xi_ss in expression and model!!!!! This only replaces domain........
+                                # TODO: or just give the right domain for the original xi...
+                                domains[xi_ss] = domains.get(xi_ss,
+                                                             sym.Reals).intersect(
+                                    maybe_domains.get(xi_ss_new, sym.Reals))
+                            break
+                        except NotImplementedError as e:
+                            pass  # shit
+                    if great_success:
+                        break
+                if great_success:
+                    break
+            else:
+                if errored_symbols:
+                    # TODO raise this shit
+                    print('Failure!!!', great_success, term, errored_symbols)
+        return domains
+
     def __call__(self, *x, n_jobs=cpu_count()):
         if len(x) == 1:
             x = x[0]
+        as_np = isinstance(x, np.ndarray)
         if isinstance(x, Iterable):
             x = as_sized(x)
             if isinstance(x[0], Iterable):
+                print('drugs')
                 assert_func = partial(assert_same_size,
                                       expected=self.n_features,
                                       units='features')
-                return Parallel(n_jobs=n_jobs)(
+                ret = Parallel(n_jobs=n_jobs)(
                     delayed(self.expr.subs)(
                         zip(self.symbols,
                             assert_func(received=len(xi), ret=xi))
                     ) for xi in x
                 )
             else:
+                print('not drugs')
                 assert_same_size(self.n_features, len(x), 'features')
-                return self.expr.subs(zip(self.symbols, x))
+                ret = self.expr.subs(zip(self.symbols, x))
         else:
+            print('especially not drugs')
             assert_same_size(self.n_features, 1, 'features')
-            return self.expr.subs((self.symbols[0], x))
+            ret = self.expr.subs((self.symbols[0], x))
+        if as_np:
+            print(ret)
+            ret = np.asarray(ret)
+        return ret
 
     def feature_attribution(self):
         # for arg in sym.preorder_traversal(self.expr):
@@ -280,88 +360,104 @@ class LinearModel(AdditiveModel):
         super(LinearModel, self).__init__(*args, interactions=None, **kwargs)
 
 
-def tsang_iclr18_models(name=None):
+def tsang_iclr18_models(name=None) -> Union[Dict[str, AdditiveModel],
+                                            Tuple[AdditiveModel],
+                                            AdditiveModel]:
     all_symbols = sym.symbols('x1:11')  # 10 variables
-    # TODO: figure out how many samples the authors used....otherwise sample
-    #  within some expected error?
+    # TODO:
+    #  - 30k data points, 1/3 each train/valid/test
+    #  - tan et al. use 50k points and a modified equation
+    #  - uniformly distributed between [-1,+1] for f2-f10
+    #  - Lou et al. f1: x4, x5, x8, x10 are uniformly distributed in [0.6, 1]
+    #    and the other variables are uniformly distributed in [0, 1].
+    #    +2 corr. datasets: ρ(x1, x6) = 0.5 and ρ(x1, x6) = 0.95
     x1, x2, x3, x4, x5, x6, x7, x8, x9, x10 = all_symbols
     synthetic_functions = dict(
-        # TODO: figure out input data ranges from the paper for this....
-        f1=
-        sym.pi ** (x1 * x2) * sym.sqrt(2 * x3)
-        - sym.asin(x4)
-        + sym.log(x3 + x5)
-        - x9 / x10 * sym.sqrt(x7 / x8)
-        - x2 * x7
-        ,
-        f2=
-        sym.pi ** (x1 * x2) * sym.sqrt(2 * abs(x3))
-        - sym.asin(x4 / 2)
-        + sym.log(abs(x3 + x5) + 1)
-        + x9 / (1 + abs(x10)) * sym.sqrt(x7 / (1 + abs(x8)))
-        - x2 * x7
-        ,
-        f3=
-        sym.exp(abs(x1 - x2))
-        + abs(x2 * x3)
-        - x3 ** (2 * abs(x4))
-        + sym.log(x4 ** 2 + x5 ** 2 + x7 ** 2 + x8 ** 2)
-        + x9
-        + 1 / (1 + x10 ** 2)
-        ,
-        f4=
-        sym.exp(abs(x1 - x2))
-        + abs(x2 * x3)
-        - x3 ** (2 * abs(x4))
-        + (x1 * x4) ** 2
-        + sym.log(x4 ** 2 + x5 ** 2 + x7 ** 2 + x8 ** 2)
-        + x9
-        + 1 / (1 + x10 ** 2)
-        ,
-        f5=
-        1 / (1 + x1 ** 2 + x2 ** 2 + x3 ** 2)
-        + sym.sqrt(sym.exp(x4 + x5))
-        + abs(x6 + x7)
-        + x8 * x9 * x10
-        ,
-        f6=
-        sym.exp(abs(x1 * x2) + 1)
-        - sym.exp(abs(x3 + x4) + 1)
-        + sym.cos(x5 + x6 - x8)
-        + sym.sqrt(x8 ** 2 + x9 ** 2 + x10 ** 2)
-        ,
-        f7=
-        (sym.atan(x1) + sym.atan(x2)) ** 2
-        + sym.Max(x3 * x4 + x6, 0)
-        - 1 / (1 + (x4 * x5 * x6 * x7 * x8) ** 2)
-        + (abs(x7) / (1 + abs(x9))) ** 5
-        + sum(all_symbols)
-        ,  # sum(all_symbols) = \sum_{i=1}^{10} x_i
-        f8=
-        x1 * x2
-        + 2 ** (x3 + x5 + x6)
-        + 2 ** (x3 + x4 + x5 + x7)
-        + sym.sin(x7 * sym.sin(x8 + x9))
-        + sym.acos(sym.Integer(9) / sym.Integer(10) * x10)
-        ,
-        f9=
-        sym.tanh(x1 * x2 + x3 * x4) * sym.sqrt(abs(x5))
-        + sym.exp(x5 + x6)
-        + sym.log((x6 * x7 * x8) ** 2 + 1)
-        + x9 * x10
-        + 1 / (1 + abs(x10))
-        ,
-        f10=
-        sym.sinh(x1 + x2)
-        + sym.acos(sym.tanh(x3 + x5 + x7))
-        + sym.cos(x4 + x5)
-        + sym.sec(x7 * x9)
-        ,
+        f1=AdditiveModel.from_expr(
+            sym.pi ** (x1 * x2) * sym.sqrt(2 * x3)
+            - sym.asin(x4)
+            + sym.log(x3 + x5)
+            - x9 / x10 * sym.sqrt(x7 / x8)
+            - x2 * x7,
+            all_symbols
+        ),
+        f2=AdditiveModel.from_expr(
+            sym.pi ** (x1 * x2) * sym.sqrt(2 * abs(x3))
+            - sym.asin(x4 / 2)
+            + sym.log(abs(x3 + x5) + 1)
+            + x9 / (1 + abs(x10)) * sym.sqrt(x7 / (1 + abs(x8)))
+            - x2 * x7,
+            all_symbols
+        ),
+        f3=AdditiveModel.from_expr(
+            sym.exp(abs(x1 - x2))
+            + abs(x2 * x3)
+            - x3 ** (2 * abs(x4))
+            + sym.log(x4 ** 2 + x5 ** 2 + x7 ** 2 + x8 ** 2)
+            + x9
+            + 1 / (1 + x10 ** 2),
+            all_symbols
+        ),
+        f4=AdditiveModel.from_expr(
+            sym.exp(abs(x1 - x2))
+            + abs(x2 * x3)
+            - x3 ** (2 * abs(x4))
+            + (x1 * x4) ** 2
+            + sym.log(x4 ** 2 + x5 ** 2 + x7 ** 2 + x8 ** 2)
+            + x9
+            + 1 / (1 + x10 ** 2),
+            all_symbols
+        ),
+        f5=AdditiveModel.from_expr(
+            1 / (1 + x1 ** 2 + x2 ** 2 + x3 ** 2)
+            + sym.sqrt(sym.exp(x4 + x5))
+            + abs(x6 + x7)
+            + x8 * x9 * x10,
+            all_symbols
+        ),
+        f6=AdditiveModel.from_expr(
+            sym.exp(abs(x1 * x2) + 1)
+            - sym.exp(abs(x3 + x4) + 1)
+            + sym.cos(x5 + x6 - x8)
+            + sym.sqrt(x8 ** 2 + x9 ** 2 + x10 ** 2),
+            all_symbols
+        ),
+        f7=AdditiveModel.from_expr(
+            (sym.atan(x1) + sym.atan(x2)) ** 2
+            + sym.Max(x3 * x4 + x6, 0)
+            - 1 / (1 + (x4 * x5 * x6 * x7 * x8) ** 2)
+            + (abs(x7) / (1 + abs(x9))) ** 5
+            + sum(all_symbols),
+            all_symbols
+        ),  # sum(all_symbols) = \sum_{i=1}^{10} x_i
+        f8=AdditiveModel.from_expr(
+            x1 * x2
+            + 2 ** (x3 + x5 + x6)
+            + 2 ** (x3 + x4 + x5 + x7)
+            + sym.sin(x7 * sym.sin(x8 + x9))
+            + sym.acos(sym.Integer(9) / sym.Integer(10) * x10),
+            all_symbols
+        ),
+        f9=AdditiveModel.from_expr(
+            sym.tanh(x1 * x2 + x3 * x4) * sym.sqrt(abs(x5))
+            + sym.exp(x5 + x6)
+            + sym.log((x6 * x7 * x8) ** 2 + 1)
+            + x9 * x10
+            + 1 / (1 + abs(x10)),
+            all_symbols
+        ),
+        f10=AdditiveModel.from_expr(
+            sym.sinh(x1 + x2)
+            + sym.acos(sym.tanh(x3 + x5 + x7))
+            + sym.cos(x4 + x5)
+            + sym.sec(x7 * x9),
+            all_symbols
+        ),
     )
 
     if name is None:
         return synthetic_functions
-    elif isinstance(name, Iterable):
+    elif not isinstance(name, str):  # assume iterable
         return tuple(synthetic_functions[n] for n in name)
     else:
         return synthetic_functions[name]
