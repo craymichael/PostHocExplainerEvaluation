@@ -1,6 +1,7 @@
 import string
 import random
 import logging
+import warnings
 from collections.abc import Iterable
 from collections.abc import Callable
 from typing import Sequence
@@ -9,6 +10,7 @@ from typing import Tuple
 from typing import Union
 from functools import partial
 from functools import lru_cache
+from functools import cached_property
 from itertools import repeat
 from itertools import combinations
 from itertools import product
@@ -23,9 +25,10 @@ from joblib import delayed
 
 from .utils import as_sized
 from .utils import assert_same_size
+from .utils import assert_shape
 from .utils import as_iterator_of_size
 
-logger = logging.getLogger(__name__)
+# logger = logging.getLogger(__name__)
 
 InteractionOp = namedtuple(
     'Interaction',
@@ -193,9 +196,9 @@ class AdditiveModel(object):
 
     def _check(self):
         if not isinstance(self.expr, sym.Add):
-            logger.warning('Expression is not additive! Output is dependent on '
-                           'all input variables: '
-                           'optype {}'.format(type(self.expr)))
+            warnings.warn('Expression is not additive! Output is dependent on '
+                          'all input variables: '
+                          'optype {}'.format(type(self.expr)))
 
     @classmethod
     def from_expr(cls,
@@ -283,6 +286,7 @@ class AdditiveModel(object):
                                     xi_ss.name, **{ass: True})))
                                 for xi_ss, ass in sym_comb
                             )
+                            # TODO: consider existing domain of symbols...
                             intervals = (
                                 sym.Interval(0, sym.oo)
                                 if ass == 'positive' else
@@ -318,38 +322,151 @@ class AdditiveModel(object):
                     print('Failure!!!', great_success, term, errored_symbols)
         return domains
 
-    def __call__(self, *x, n_jobs=cpu_count()):
-        if len(x) == 1:
-            x = x[0]
-        as_np = isinstance(x, np.ndarray)
-        if isinstance(x, Iterable):
-            x = as_sized(x)
-            if isinstance(x[0], Iterable):
-                assert_func = partial(assert_same_size,
-                                      expected=self.n_features,
-                                      units='features')
-                ret = Parallel(n_jobs=n_jobs)(
-                    delayed(self.expr.subs)(
-                        zip(self.symbols,
-                            assert_func(received=len(xi), ret=xi))
-                    ) for xi in x
-                )
-            else:
-                assert_same_size(self.n_features, len(x), 'features')
-                ret = self.expr.subs(zip(self.symbols, x))
+    @cached_property
+    def theano_func(self):
+        """Theano-compiled function, 2D array as input (1D columns) and float32
+        dtype. Good for GPU acceleration."""
+        from sympy.printing.theanocode import theano_function
+
+        # on_unused_input='ignore': don't freak out with dummy variables
+        return theano_function(self.symbols,
+                               [self.expr],
+                               dims={xi: 1 for xi in self.symbols},
+                               dtypes={xi: 'float32' for xi in self.symbols},
+                               on_unused_input='ignore')
+
+    @cached_property
+    def numpy_func(self):
+        return sym.lambdify(self.symbols, self.expr, modules=['scipy', 'numpy'])
+
+    @cached_property
+    def numexpr_func(self):
+        return sym.lambdify(self.symbols, self.expr, modules='numexpr')
+
+    @cached_property
+    def tensorflow_func(self):
+        tf_func = sym.lambdify(self.symbols, self.expr, modules='tensorflow')
+
+        def wrapped(*args, **kwargs):
+            return tf_func(*args, **kwargs).numpy()
+
+        return wrapped
+
+    @cached_property
+    def ufuncify_numpy_func(self):
+        from sympy.utilities.autowrap import ufuncify
+
+        return ufuncify(self.symbols, self.expr, backend='numpy')
+
+    @cached_property
+    def cython_func(self):
+        from sympy.utilities.autowrap import ufuncify
+
+        cy_func = ufuncify(self.symbols, self.expr, backend='cython')
+
+        def wrapped(*args, **kwargs):
+            # cython ufuncify expects double_t arrays and hates floats
+            maybe_cast_args = []
+            for arr in args:
+                if (hasattr(arr, 'dtype') and
+                        np.issubdtype(arr.dtype, np.floating) and
+                        np.dtype != np.float64):
+                    warnings.warn('cython_func received a floating point value '
+                                  'with dtype {} and will be cast to {} for '
+                                  'compatibility with ufuncify Cython '
+                                  'backend.'.format(arr.dtype, np.float64))
+                    arr = arr.astype(np.float64)
+                maybe_cast_args.append(arr)
+            return cy_func(*maybe_cast_args, **kwargs)
+
+        return wrapped
+
+    @cached_property
+    def f2py_func(self):
+        from sympy.utilities.autowrap import ufuncify
+
+        return ufuncify(self.symbols, self.expr, backend='f2py')
+
+    def __call__(self, x: np.ndarray, backend='cython'):
+        assert_shape(x, (None, self.n_features))
+        if backend == 'numpy':
+            eval_func = self.numpy_func
+        elif backend == 'theano':
+            eval_func = self.theano_func
+        elif backend == 'tensorflow':
+            eval_func = self.tensorflow_func
+        elif backend == 'numexpr':
+            eval_func = self.numexpr_func
+        elif backend == 'f2py':
+            eval_func = self.f2py_func
+        elif backend == 'cython':
+            eval_func = self.cython_func
+        elif backend == 'ufuncify_numpy':
+            eval_func = self.ufuncify_numpy_func
         else:
-            assert_same_size(self.n_features, 1, 'features')
-            ret = self.expr.subs((self.symbols[0], x))
-        if as_np:
-            # Note: this only works for expressions that return a single output
-            #  (assumed always to be the case)
-            ret = np.asarray(ret)[:, np.newaxis]
-        return ret
+            raise ValueError(backend)
+
+        return eval_func(*(x[:, i] for i in range(self.n_features)))
+
+    # def __call__(self, *x, symbolic=None, n_jobs=cpu_count()):
+    #     """
+    #
+    #     :param x:
+    #     :param symbolic: bool, or None to infer based on x dtype (if ndarray).
+    #     :param n_jobs:
+    #     :return:
+    #     """
+    #     if len(x) == 1:
+    #         x = x[0]
+    #
+    #     as_np = isinstance(x, np.ndarray)
+    #     if isinstance(x, Iterable):
+    #         x = as_sized(x)
+    #         if isinstance(x[0], Iterable):
+    #             assert_func = partial(assert_same_size,
+    #                                   expected=self.n_features,
+    #                                   units='features')
+    #             # ret = Parallel(n_jobs=n_jobs)(
+    #             #     delayed(self.expr.subs)(
+    #             #         zip(self.symbols,
+    #             #             assert_func(received=len(xi), ret=xi))
+    #             #     ) for xi in x
+    #             # )
+    #             # TODO: use sympy matrix/vectors to speed shit up
+    #             #  SUBS IS HEAVILY INEFFICIENT
+    #             if as_np:
+    #                 assert_shape(x, (None, self.n_features))  # noqa
+    #                 ret = [
+    #                     self.expr.subs(
+    #                         zip(self.symbols, xi)
+    #                     ) for xi in x
+    #                 ]
+    #             else:
+    #                 ret = [
+    #                     self.expr.subs(
+    #                         zip(self.symbols,
+    #                             assert_func(received=len(xi), ret=xi))
+    #                     ) for xi in x
+    #                 ]
+    #         else:
+    #             assert_same_size(self.n_features, len(x), 'features')
+    #             ret = self.expr.subs(zip(self.symbols, x))
+    #     else:
+    #         assert_same_size(self.n_features, 1, 'features')
+    #         ret = self.expr.subs((self.symbols[0], x))
+    #     if as_np:
+    #         # Note: this only works for expressions that return a single output
+    #         #  (assumed always to be the case)
+    #         ret = np.asarray(ret, dtype=x.dtype)[:, np.newaxis]
+    #     return ret
 
     def feature_attribution(self):
         # for arg in sym.preorder_traversal(self.expr):
         #     pass
         self.expr.as_independent(self.symbols, as_Add=True)
+
+    def pprint(self):
+        sym.pprint(self.expr)
 
     def __repr__(self):
         return str(self.expr)

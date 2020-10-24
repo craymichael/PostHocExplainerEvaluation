@@ -13,6 +13,8 @@ pyqt5 = "*"
 sympy = "*"
 joblib = "*"
 scipy = "*"
+theano = "*"
+numexpr = "*"
 
 [requires]
 python_version = "3.8"
