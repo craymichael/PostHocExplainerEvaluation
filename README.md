@@ -5,8 +5,15 @@ change venv system due to that
 
 ## Debugging environment (internal notes, temporary...)
 
+TensorFlow
 ```shell script
+# CPU
+CUDA_VISIBLE_DEVICES="" python ...
+# GPU
 LD_LIBRARY_PATH=/opt/cudnn7-cuda10.1/lib/ python ...
+
+# shhh
+TF_CPP_MIN_LOG_LEVEL=1 python ...
 ```
 
 Theano
@@ -17,5 +24,8 @@ Theano
 `cd libgpuarray && pip install -e .`
 
 ```shell script
-THEANO_FLAGS='floatX=float32,device=cuda0'
+# CPU
+THEANO_FLAGS='floatX=float32,device=cpu' python ...
+# GPU
+THEANO_FLAGS='floatX=float32,device=cuda0' python ...
 ```

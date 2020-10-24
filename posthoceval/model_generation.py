@@ -330,22 +330,27 @@ class AdditiveModel(object):
 
         # on_unused_input='ignore': don't freak out with dummy variables
         return theano_function(self.symbols,
-                               [self.expr],
+                               [self.expr.expand()],
                                dims={xi: 1 for xi in self.symbols},
                                dtypes={xi: 'float32' for xi in self.symbols},
                                on_unused_input='ignore')
 
     @cached_property
     def numpy_func(self):
-        return sym.lambdify(self.symbols, self.expr, modules=['scipy', 'numpy'])
+        return sym.lambdify(self.symbols, self.expr.expand(),
+                            modules=['scipy', 'numpy'])
 
     @cached_property
     def numexpr_func(self):
-        return sym.lambdify(self.symbols, self.expr, modules='numexpr')
+        return sym.lambdify(self.symbols, self.expr.expand(), modules='numexpr')
 
     @cached_property
     def tensorflow_func(self):
-        tf_func = sym.lambdify(self.symbols, self.expr, modules='tensorflow')
+        expr = self.expr.expand()
+        int_atoms = expr.atoms(sym.Integer)
+        # To avoid TF typing problems, it's best to cast integers to floats
+        expr = expr.subs({int_a: float(int_a) for int_a in int_atoms})
+        tf_func = sym.lambdify(self.symbols, expr, modules='tensorflow')
 
         def wrapped(*args, **kwargs):
             return tf_func(*args, **kwargs).numpy()
@@ -356,13 +361,32 @@ class AdditiveModel(object):
     def ufuncify_numpy_func(self):
         from sympy.utilities.autowrap import ufuncify
 
-        return ufuncify(self.symbols, self.expr, backend='numpy')
+        return ufuncify(self.symbols, self.expr.expand(), backend='numpy')
 
     @cached_property
     def cython_func(self):
         from sympy.utilities.autowrap import ufuncify
 
-        cy_func = ufuncify(self.symbols, self.expr, backend='cython')
+        # math.h header can be missing in ufunc, these are the macros SymPy uses
+        # so pass as compilation args. f64 values taken from math.h for those
+        # listed in this file (at least as of commit 702bcea):
+        # https://github.com/sympy/sympy/blob/master/sympy/printing/c.py
+        extra_compile_args = [
+            '-DM_E=2.718281828459045235360287471352662498',
+            '-DM_LOG2E=1.442695040888963407359924681001892137',
+            '-DM_LN2=0.693147180559945309417232121458176568',
+            '-DM_LN10=2.302585092994045684017991454684364208',
+            '-DM_PI=3.141592653589793238462643383279502884',
+            '-DM_PI_2=1.570796326794896619231321691639751442',
+            '-DM_PI_4=0.785398163397448309615660845819875721',
+            '-DM_1_PI=0.318309886183790671537767526745028724',
+            '-DM_2_PI=0.636619772367581343075535053490057448',
+            '-DM_2_SQRTPI=1.128379167095512573896158903121545172',
+            '-DM_SQRT2=1.414213562373095048801688724209698079',
+            '-DM_SQRT1_2=0.707106781186547524400844362104849039',
+        ]
+        cy_func = ufuncify(self.symbols, self.expr.expand(), backend='cython',
+                           extra_compile_args=extra_compile_args)  # noqa
 
         def wrapped(*args, **kwargs):
             # cython ufuncify expects double_t arrays and hates floats
@@ -385,9 +409,9 @@ class AdditiveModel(object):
     def f2py_func(self):
         from sympy.utilities.autowrap import ufuncify
 
-        return ufuncify(self.symbols, self.expr, backend='f2py')
+        return ufuncify(self.symbols, self.expr.expand(), backend='f2py')
 
-    def __call__(self, x: np.ndarray, backend='cython'):
+    def __call__(self, x: np.ndarray, backend='numpy'):
         assert_shape(x, (None, self.n_features))
         if backend == 'numpy':
             eval_func = self.numpy_func
