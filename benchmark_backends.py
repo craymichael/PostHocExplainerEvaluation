@@ -1,4 +1,6 @@
 import time
+import sys
+import traceback
 
 import numpy as np
 
@@ -33,13 +35,14 @@ def print_stats(setup_times, stats):
 def benchmark(gpu=False, debug=False):
     print('GPU' if gpu else 'CPU')
     cpu_backends = (
-        'numpy',
-        'theano',
-        'tensorflow',
-        'numexpr',
-        'f2py',
-        'cython',
-        'ufuncify_numpy',
+        # 'numpy',
+        # 'theano',
+        # 'tensorflow',
+        # 'numexpr',
+        # 'f2py',
+        # 'cython',
+        # 'ufuncify_numpy',
+        'llvm',
     )
     gpu_backends = (
         'theano',
@@ -67,15 +70,25 @@ def benchmark(gpu=False, debug=False):
         setup_times = {}
         dummy_data = make_data(1, model.n_features)
         for backend in backends:
-            print('drugs', backend)
-            t0 = time.perf_counter()
-            model(dummy_data, backend=backend)
-            dur = time.perf_counter() - t0
-            setup_times[backend] = dur
+            try:
+                t0 = time.perf_counter()
+                model(dummy_data, backend=backend)
+                dur = time.perf_counter() - t0
+                setup_times[backend] = dur
 
-            all_durs = all_setup_times.get(backend, [])
-            all_durs.append(dur)
-            all_setup_times[backend] = all_durs
+                all_durs = all_setup_times.get(backend, [])
+                all_durs.append(dur)
+                all_setup_times[backend] = all_durs
+            except Exception:  # noqa
+                print('!' * 80)
+                print('!' * 80)
+                print(f'Equation failed for backend {backend}!',
+                      file=sys.stderr)
+                print('!' * 80)
+                traceback.print_exc(file=sys.stderr)
+                print('!' * 80)
+                print('!' * 80)
+                continue
 
         # Benchmark
         stats = {}
@@ -112,6 +125,15 @@ def benchmark(gpu=False, debug=False):
         print_stats(setup_times, stats)
 
     print()
+    print('Average stats over all equations:')
+    for kk, dd in all_setup_times.items():  # backends
+        all_setup_times[kk] = np.mean(dd)
+    for d in all_stats.values():  # samples
+        for kk, dd in d.items():  # backends
+            d[kk] = (
+                np.mean(dd), np.std(dd), np.median(dd),
+                np.min(dd), np.max(dd)
+            )
     print_stats(all_setup_times, all_stats)
 
 

@@ -29,3 +29,7 @@ THEANO_FLAGS='floatX=float32,device=cpu' python ...
 # GPU
 THEANO_FLAGS='floatX=float32,device=cuda0' python ...
 ```
+
+You need a version (not available yet) that provides the `_print_Exp1` method to the theanocode
+printer. If not, you'll need to modify `sympy/printing/theanocode.py` as done in
+[this PR](https://github.com/sympy/sympy/pull/20335).

@@ -2,7 +2,6 @@ import string
 import random
 import logging
 import warnings
-from collections.abc import Iterable
 from collections.abc import Callable
 from typing import Sequence
 from typing import Dict
@@ -10,7 +9,6 @@ from typing import Tuple
 from typing import Union
 from functools import partial
 from functools import lru_cache
-from functools import cached_property
 from itertools import repeat
 from itertools import combinations
 from itertools import product
@@ -19,14 +17,10 @@ from collections import namedtuple
 
 import sympy as sym
 import numpy as np
-from joblib import cpu_count
-from joblib import Parallel
-from joblib import delayed
 
-from .utils import as_sized
-from .utils import assert_same_size
 from .utils import assert_shape
 from .utils import as_iterator_of_size
+from .evaluate import symbolic_evaluate_func
 
 # logger = logging.getLogger(__name__)
 
@@ -134,16 +128,19 @@ INTERACTION_OPS = (
 
 @lru_cache()
 def split_effects(expr: sym.Expr,
-                  symbols: Sequence[sym.Symbol]) -> (sym.Expr, Tuple[sym.Expr]):
+                  symbols: Sequence[sym.Symbol]) -> Tuple[Tuple[sym.Expr],
+                                                          Tuple[sym.Expr]]:
+    """Additive effects"""
     expr_expanded = expr.expand(add=True)
     all_symbol_set = set(symbols)
-    main_effects = sym.Integer(0)
+    main_effects = []
     for xi in symbols:
         all_minus_xi = all_symbol_set - {xi}
         main, _ = expr_expanded.as_independent(*all_minus_xi, as_Add=True)
-        main_effects += main
-    interaction_effects = set(expr_expanded.args) - set(main_effects.args)
-    return main_effects, tuple(interaction_effects)
+        # Single main effect per symbol
+        main_effects.append(main)
+    interaction_effects = set(expr_expanded.args) - set(main_effects)
+    return tuple(main_effects), tuple(interaction_effects)
 
 
 def symbol_names(n_features):
@@ -189,7 +186,7 @@ class AdditiveModel(object):
         # Generate n_features symbols with unique names from domain
         self.symbol_names = symbol_names(self.n_features)
         self.symbols = sym.symbols(self.symbol_names, **kwargs)
-        self.expr = self._generate_model(coefficients)
+        self.expr = self._generate_model(coefficients)  # TODO interactions
         self._symbol_map = None
 
         self._check()
@@ -228,12 +225,12 @@ class AdditiveModel(object):
         return self._symbol_map[symbol_name]
 
     @property
-    def main_effects(self):
+    def main_effects(self) -> Tuple[sym.Expr]:
         main_effects, _ = split_effects(self.expr, self.symbols)
         return main_effects
 
     @property
-    def interaction_effects(self):
+    def interaction_effects(self) -> Tuple[sym.Expr]:
         _, interaction_effects = split_effects(self.expr, self.symbols)
         return interaction_effects
 
@@ -322,114 +319,10 @@ class AdditiveModel(object):
                     print('Failure!!!', great_success, term, errored_symbols)
         return domains
 
-    @cached_property
-    def theano_func(self):
-        """Theano-compiled function, 2D array as input (1D columns) and float32
-        dtype. Good for GPU acceleration."""
-        from sympy.printing.theanocode import theano_function
-
-        # on_unused_input='ignore': don't freak out with dummy variables
-        return theano_function(self.symbols,
-                               [self.expr.expand()],
-                               dims={xi: 1 for xi in self.symbols},
-                               dtypes={xi: 'float32' for xi in self.symbols},
-                               on_unused_input='ignore')
-
-    @cached_property
-    def numpy_func(self):
-        return sym.lambdify(self.symbols, self.expr.expand(),
-                            modules=['scipy', 'numpy'])
-
-    @cached_property
-    def numexpr_func(self):
-        return sym.lambdify(self.symbols, self.expr.expand(), modules='numexpr')
-
-    @cached_property
-    def tensorflow_func(self):
-        expr = self.expr.expand()
-        int_atoms = expr.atoms(sym.Integer)
-        # To avoid TF typing problems, it's best to cast integers to floats
-        expr = expr.subs({int_a: float(int_a) for int_a in int_atoms})
-        tf_func = sym.lambdify(self.symbols, expr, modules='tensorflow')
-
-        def wrapped(*args, **kwargs):
-            return tf_func(*args, **kwargs).numpy()
-
-        return wrapped
-
-    @cached_property
-    def ufuncify_numpy_func(self):
-        from sympy.utilities.autowrap import ufuncify
-
-        return ufuncify(self.symbols, self.expr.expand(), backend='numpy')
-
-    @cached_property
-    def cython_func(self):
-        from sympy.utilities.autowrap import ufuncify
-
-        # math.h header can be missing in ufunc, these are the macros SymPy uses
-        # so pass as compilation args. f64 values taken from math.h for those
-        # listed in this file (at least as of commit 702bcea):
-        # https://github.com/sympy/sympy/blob/master/sympy/printing/c.py
-        extra_compile_args = [
-            '-DM_E=2.718281828459045235360287471352662498',
-            '-DM_LOG2E=1.442695040888963407359924681001892137',
-            '-DM_LN2=0.693147180559945309417232121458176568',
-            '-DM_LN10=2.302585092994045684017991454684364208',
-            '-DM_PI=3.141592653589793238462643383279502884',
-            '-DM_PI_2=1.570796326794896619231321691639751442',
-            '-DM_PI_4=0.785398163397448309615660845819875721',
-            '-DM_1_PI=0.318309886183790671537767526745028724',
-            '-DM_2_PI=0.636619772367581343075535053490057448',
-            '-DM_2_SQRTPI=1.128379167095512573896158903121545172',
-            '-DM_SQRT2=1.414213562373095048801688724209698079',
-            '-DM_SQRT1_2=0.707106781186547524400844362104849039',
-        ]
-        cy_func = ufuncify(self.symbols, self.expr.expand(), backend='cython',
-                           extra_compile_args=extra_compile_args)  # noqa
-
-        def wrapped(*args, **kwargs):
-            # cython ufuncify expects double_t arrays and hates floats
-            maybe_cast_args = []
-            for arr in args:
-                if (hasattr(arr, 'dtype') and
-                        np.issubdtype(arr.dtype, np.floating) and
-                        np.dtype != np.float64):
-                    warnings.warn('cython_func received a floating point value '
-                                  'with dtype {} and will be cast to {} for '
-                                  'compatibility with ufuncify Cython '
-                                  'backend.'.format(arr.dtype, np.float64))
-                    arr = arr.astype(np.float64)
-                maybe_cast_args.append(arr)
-            return cy_func(*maybe_cast_args, **kwargs)
-
-        return wrapped
-
-    @cached_property
-    def f2py_func(self):
-        from sympy.utilities.autowrap import ufuncify
-
-        return ufuncify(self.symbols, self.expr.expand(), backend='f2py')
-
-    def __call__(self, x: np.ndarray, backend='numpy'):
+    def __call__(self, x: np.ndarray, backend=None):
         assert_shape(x, (None, self.n_features))
-        if backend == 'numpy':
-            eval_func = self.numpy_func
-        elif backend == 'theano':
-            eval_func = self.theano_func
-        elif backend == 'tensorflow':
-            eval_func = self.tensorflow_func
-        elif backend == 'numexpr':
-            eval_func = self.numexpr_func
-        elif backend == 'f2py':
-            eval_func = self.f2py_func
-        elif backend == 'cython':
-            eval_func = self.cython_func
-        elif backend == 'ufuncify_numpy':
-            eval_func = self.ufuncify_numpy_func
-        else:
-            raise ValueError(backend)
-
+        eval_func = symbolic_evaluate_func(self.expr, self.symbols,
+                                           x=x, backend=backend)
         return eval_func(*(x[:, i] for i in range(self.n_features)))
 
     # def __call__(self, *x, symbolic=None, n_jobs=cpu_count()):
@@ -504,6 +397,9 @@ class LinearModel(AdditiveModel):
 def tsang_iclr18_models(name=None) -> Union[Dict[str, AdditiveModel],
                                             Tuple[AdditiveModel],
                                             AdditiveModel]:
+    # TODO: https://github.com/sympy/sympy/issues/11027
+    #  Min/Max functions don't vectorize as expected. Here is a "beautiful" fix
+    #  https://stackoverflow.com/a/60725243/6557588
     all_symbols = sym.symbols('x1:11')  # 10 variables
     # TODO:
     #  - 30k data points, 1/3 each train/valid/test
@@ -513,6 +409,10 @@ def tsang_iclr18_models(name=None) -> Union[Dict[str, AdditiveModel],
     #    and the other variables are uniformly distributed in [0, 1].
     #    +2 corr. datasets: ρ(x1, x6) = 0.5 and ρ(x1, x6) = 0.95
     x1, x2, x3, x4, x5, x6, x7, x8, x9, x10 = all_symbols
+
+    # f7 equation intermediate component
+    f7_int = x3 * x4 + x6
+
     synthetic_functions = dict(
         f1=AdditiveModel.from_expr(
             sym.pi ** (x1 * x2) * sym.sqrt(2 * x3)
@@ -565,7 +465,11 @@ def tsang_iclr18_models(name=None) -> Union[Dict[str, AdditiveModel],
         ),
         f7=AdditiveModel.from_expr(
             (sym.atan(x1) + sym.atan(x2)) ** 2
-            + sym.Max(x3 * x4 + x6, 0)
+            # Ha! You think you could do this but nooooo
+            # + sym.Max(x3 * x4 + x6, 0)
+            # Have to do this $#!% instead to get it vectorized. Also note that
+            # the 0. has to be a float for certain backends to not complain.
+            + sym.Piecewise((f7_int, f7_int > 0), (0., True))
             - 1 / (1 + (x4 * x5 * x6 * x7 * x8) ** 2)
             + (abs(x7) / (1 + abs(x9))) ** 5
             + sum(all_symbols),
@@ -591,7 +495,7 @@ def tsang_iclr18_models(name=None) -> Union[Dict[str, AdditiveModel],
             sym.sinh(x1 + x2)
             + sym.acos(sym.tanh(x3 + x5 + x7))
             + sym.cos(x4 + x5)
-            + sym.sec(x7 * x9),
+            + 1 / sym.cos(x7 * x9),  # sec=1/cos (some backends don't have sec)
             all_symbols
         ),
     )
@@ -602,3 +506,9 @@ def tsang_iclr18_models(name=None) -> Union[Dict[str, AdditiveModel],
         return tuple(synthetic_functions[n] for n in name)
     else:
         return synthetic_functions[name]
+
+# TODO: others:
+#   F1(x) = 3 * x1 + x2 ** 3 - sym.pi ** x3 + sym.exp(-2 * x4 ** 2)
+#    + 1 / (2 + abs(x5)) + x6 * sym.log(abs(x6)) + sym.sqrt(2 * abs(x7))
+#    + sym.Max(0, x7) + x8 ** 4 + 2 * sym.cos(sym.pi * x8)
+#   F2(x) = F1(x) + x1 * x2 + abs(x3) ** (2 * abs(x4)) + sym.sec(x3 * x5 * x6)

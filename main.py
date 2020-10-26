@@ -1,6 +1,11 @@
-from pprint import pprint
+from math import sqrt
+from math import ceil
 
 import numpy as np
+import pandas as pd
+
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 from alibi.explainers import KernelShap
 from alibi.explainers.shap_wrappers import KERNEL_SHAP_BACKGROUND_THRESHOLD
@@ -8,6 +13,14 @@ from alibi.explainers.shap_wrappers import KERNEL_SHAP_BACKGROUND_THRESHOLD
 from posthoceval.global_shap import GlobalKernelShap
 from posthoceval.model_generation import AdditiveModel
 from posthoceval.model_generation import tsang_iclr18_models
+from posthoceval.evaluate import symbolic_evaluate_func
+
+sns.set()
+
+
+def grid_size(n):
+    x = sqrt(n)
+    return ceil(x), round(x)
 
 
 def evaluate_shap(debug=False):
@@ -15,20 +28,24 @@ def evaluate_shap(debug=False):
 
     # Make model
     print('Model')
-    # model = tsang_iclr18_models('f2')  # SHIT BREAKS
-    model = tsang_iclr18_models('f9')
-    print('Model:')
+    # model = tsang_iclr18_models('f9')
+    # TODO: this is temporary as I still haven't figured out the whole
+    #  attributing interaction effects as main effects thing...
+    import sympy as sym
+    symbols = sym.symbols('x1:11')
+    x1, x2, x3, x4, x5, x6, x7, x8, x9, x10 = symbols
+    expr = (sym.log(abs(x1)) * x1 - x2 + x3 ** 3 - x4 - 10 * x5 + sym.sin(x6) +
+            sym.cos(x7) + 1 / (1 + x8))
+    model = AdditiveModel.from_expr(expr, symbols)
     model.pprint()
 
     # Make data
     print('Data')
-    # n_samples = 30_000 if not debug else 10
-    n_samples = 300 if not debug else 10
+    n_samples = 500 if not debug else 20  # TODO 30_000
     # TODO: better data ranges based on continuity of function
     # TODO: use valid_variable_domains when properly+cleanly integrated
     # data = np.random.uniform(-1, +1, size=(n_samples, model.n_features))
     data = np.random.uniform(0, +1, size=(n_samples, model.n_features))
-    data = data.astype('float32')  # Needed for Theano GPU accel...
 
     # Split
     train_split_pct = 2 / 3
@@ -73,13 +90,45 @@ def evaluate_shap(debug=False):
     gshap = GlobalKernelShap(data_train, shap_values, expected_value)
 
     gshap_preds, gshap_vals = gshap.predict(data_train, return_shap_values=True)
-    # print('gshap_preds', gshap_preds)
     print('MSE global error train', ((gshap_preds - outputs_train) ** 2).mean())
-    # print('gshap_vals', gshap_vals)
 
     gshap_preds, gshap_vals = gshap.predict(data_test, return_shap_values=True)
     outputs_test = model(data_test)
     print('MSE global error test', ((gshap_preds - outputs_test) ** 2).mean())
+
+    main_effects = model.main_effects
+    plot_cols = []
+    plot_headers = ('Feature Name', 'Feature Value',
+                    'Output Type', 'Output Value')
+    for i in range(model.n_features):
+        # TODO: I'm too stupid to figure out what do with +gshap.expected_value
+        # pred_feat_contribution = gshap_vals[:, i] + gshap.expected_value
+        pred_feat_contribution = gshap_vals[:, i]
+        # TODO: only main effects considered atm
+        main_effect_i = main_effects[i]
+        data_test_i = data_test[:, i]
+        eval_func = symbolic_evaluate_func(main_effect_i,
+                                           (model.symbols[i],),
+                                           x=data_test_i)
+        real_feat_contribution = eval_func(data_test_i)
+
+        # feat_name = [model.symbols[i].name] * len(data_test_i)
+        feat_name = [str(main_effect_i)] * len(data_test_i)
+        plot_cols.append((feat_name,
+                          data_test_i,
+                          ['True'] * len(data_test_i),
+                          real_feat_contribution))
+        plot_cols.append((feat_name,
+                          data_test_i,
+                          ['Predicted'] * len(data_test_i),
+                          pred_feat_contribution))
+    plot_data = np.hstack(plot_cols).T
+    df = pd.DataFrame(plot_data, columns=plot_headers)
+
+    sns.relplot(data=df, x='Feature Value', y='Output Value',
+                col='Feature Name', hue='Output Type',
+                kind='line', col_wrap=round(sqrt(model.n_features)))
+    plt.show()
 
 
 if __name__ == '__main__':

@@ -66,7 +66,8 @@ class GlobalKernelShap(object):
             shap_values_feat = interp_func(x[:, i])
             shap_values.append(shap_values_feat)
 
-        predictions = np.sum(shap_values, axis=0) + self.expected_value
+        shap_values = np.asarray(shap_values).T
+        predictions = np.sum(shap_values, axis=1) + self.expected_value
         if return_shap_values:
             return predictions, shap_values
         return predictions
