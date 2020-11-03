@@ -105,6 +105,7 @@ def evaluate_shap(debug=False):
     # TODO: this is temporary as I still haven't figured out the whole
     #  attributing interaction effects as main effects thing...
     import sympy as sym
+    from sympy import stats
     symbols = sym.symbols('x1:11')
     x1, x2, x3, x4, x5, x6, x7, x8, x9, x10 = symbols
     expr = (sym.log(abs(x1)) * x1 - x2 + x3 ** 3 - x4 - 2 * x5 + sym.sin(x6) +
@@ -119,6 +120,10 @@ def evaluate_shap(debug=False):
     # TODO: use valid_variable_domains when properly+cleanly integrated
     # data = np.random.uniform(-1, +1, size=(n_samples, model.n_features))
     data = np.random.uniform(0, +1, size=(n_samples, model.n_features))
+    data_sym_stats = {
+        s: stats.Uniform(s.name, 0, +1)
+        for s in model.symbols
+    }
 
     # Split
     train_split_pct = 2 / 3
@@ -145,7 +150,7 @@ def evaluate_shap(debug=False):
     # for the aggregated scores over all outputs
     print('Explain')
     explanation = explainer.explain(data_train)
-    expected_value = explanation.expected_value
+    expected_value = explanation.expected_value.squeeze()
     shap_values = explanation.shap_values[0]
     outputs_train = explanation.raw['raw_prediction']
     shap_values_g = explanation.raw['importances']['0']
@@ -169,10 +174,12 @@ def evaluate_shap(debug=False):
     outputs_test = model(data_test)
     print('RMSE global error test', metrics.rmse(outputs_test, gshap_preds))
 
-    print('DFICK', model.feature_contributions(data_test))
-
-    main_effects = model.main_effects
+    # main_effects = model.main_effects
     plot_cols = []
+
+    contribs_gshap = dict(zip(model.symbols, gshap_vals.T))
+    contribs_true, effects_true = model.feature_contributions(
+        data_test, return_effects=True)
 
     iv = 'Feature Value'
     iv_name = 'Feature Effect'
@@ -182,55 +189,65 @@ def evaluate_shap(debug=False):
 
     print()
     errs = []
-    errs_centered = []
-    for i in range(model.n_features):
+    # errs_centered = []
+    # for i in range(model.n_features):
+    for i, symbol in enumerate(model.symbols):
         # TODO: I'm too stupid to figure out what do with +gshap.expected_value
         # pred_feat_contribution = gshap_vals[:, i] + gshap.expected_value
-        pred_feat_contribution = gshap_vals[:, i]
-        # TODO: only main effects considered atm
-        main_effect_i = main_effects[i]
+        # pred_feat_contribution = gshap_vals[:, i]
+        # # TODO: only main effects considered atm
+        # main_effect_i = main_effects[i]
         data_test_i = data_test[:, i]
-        eval_func = symbolic_evaluate_func(main_effect_i,
-                                           (model.symbols[i],),
-                                           x=data_test_i)
-        real_feat_contribution = eval_func(data_test_i)
+        contrib_sym_true = contribs_true[symbol]
+        contrib_eff_true = effects_true[symbol]
+        # SHAP values are relative to expected output value:
+        expected_sym_val = float(stats.E(
+            contrib_eff_true.subs({symbol: data_sym_stats[symbol]})
+        ))
+        print('expected_sym_val', expected_sym_val)
+        contrib_sym_true -= expected_sym_val
+        contrib_sym_gshap = contribs_gshap[symbol]
+        # eval_func = symbolic_evaluate_func(main_effect_i,
+        #                                    (model.symbols[i],),
+        #                                    x=data_test_i)
+        # real_feat_contribution = eval_func(data_test_i)
 
         # feat_name = [model.symbols[i].name] * len(data_test_i)
-        feat_name = (['[' + model.symbols[i].name + ']: ' +
-                      str(main_effect_i)] * len(data_test_i))
+        feat_name = (['[' + symbol.name + ']: ' +
+                      str(contrib_eff_true)] * len(data_test_i))
         plot_cols.append((feat_name,
                           data_test_i,
                           ['True'] * len(data_test_i),
-                          real_feat_contribution))
+                          contrib_sym_true))
         plot_cols.append((feat_name,
                           data_test_i,
                           ['gSHAP'] * len(data_test_i),
-                          pred_feat_contribution))
-        real_feat_contribution_centered = (
-                real_feat_contribution - np.mean(real_feat_contribution))
-        pred_feat_contribution_centered = (
-                pred_feat_contribution - np.mean(pred_feat_contribution))
-        plot_cols.append((feat_name,
-                          data_test_i,
-                          ['True (Centered)'] * len(data_test_i),
-                          real_feat_contribution_centered))
-        plot_cols.append((feat_name,
-                          data_test_i,
-                          ['gSHAP (Centered)'] * len(data_test_i),
-                          pred_feat_contribution_centered))
+                          contrib_sym_gshap))
+        # real_feat_contribution_centered = (
+        #         real_feat_contribution - np.mean(real_feat_contribution))
+        # pred_feat_contribution_centered = (
+        #         pred_feat_contribution - np.mean(pred_feat_contribution))
+        # plot_cols.append((feat_name,
+        #                   data_test_i,
+        #                   ['True (Centered)'] * len(data_test_i),
+        #                   real_feat_contribution_centered))
+        # plot_cols.append((feat_name,
+        #                   data_test_i,
+        #                   ['gSHAP (Centered)'] * len(data_test_i),
+        #                   pred_feat_contribution_centered))
 
-        err = metrics.rmse(real_feat_contribution, pred_feat_contribution)
-        err_centered = metrics.rmse(real_feat_contribution_centered,
-                                    pred_feat_contribution_centered)
+        err = metrics.rmse(contrib_sym_true, contrib_sym_gshap)
+        # err_centered = metrics.rmse(real_feat_contribution_centered,
+        #                             pred_feat_contribution_centered)
         errs.append(err)
-        errs_centered.append(err_centered)
-        print(model.symbols[i].name + ' feature shape error:', err)
-        print(model.symbols[i].name + ' feature shape error centered:',
-              err_centered)
-        print('Abs error difference from centering:', abs(err - err_centered))
+        # errs_centered.append(err_centered)
+        print(symbol.name + ' feature shape error:', err)
+        # print(model.symbols[i].name + ' feature shape error centered:',
+        #       err_centered)
+        # print('Abs error difference from centering:', abs(err - err_centered))
         print()
     print('Mean feature shape error:', np.mean(errs))
-    print('Mean feature shape error centered:', np.mean(errs_centered))
+    # print('Mean feature shape error centered:', np.mean(errs_centered))
     plot_data = np.hstack(plot_cols).T
     df = pd.DataFrame(plot_data, columns=plot_headers)
     # hstack with string values converts dtype to object, fix

@@ -170,7 +170,8 @@ class AdditiveModel(object):
                  n_features: int,
                  coefficients=partial(random.uniform, -1, +1),
                  interactions=None,
-                 domain: Union[str, Sequence[str]] = 'real'):
+                 domain: Union[str, Sequence[str]] = 'real',
+                 backend=None):
         """
 
         :param n_features:
@@ -197,6 +198,8 @@ class AdditiveModel(object):
         self.expr = self._generate_model(coefficients)  # TODO interactions
         self._symbol_map = None
 
+        self.backend = backend
+
         self._check()
 
     def _check(self):
@@ -208,7 +211,8 @@ class AdditiveModel(object):
     @classmethod
     def from_expr(cls,
                   expr: sym.Expr,
-                  symbols: Union[Sequence[sym.Symbol], sym.Symbol]):
+                  symbols: Union[Sequence[sym.Symbol], sym.Symbol],
+                  backend=None):
         """Symbols needs to be ordered properly"""
         # Ensure expr symbols are a subset of symbols
         symbols = (symbols,) if isinstance(symbols, sym.Symbol) else symbols
@@ -223,6 +227,7 @@ class AdditiveModel(object):
         model.symbol_names = tuple(s.name for s in symbols)
         model.n_features = len(symbols)
         model._symbol_map = None
+        model.backend = backend
 
         model._check()
         return model
@@ -327,6 +332,8 @@ class AdditiveModel(object):
 
     def __call__(self, x: np.ndarray, backend=None):
         assert_shape(x, (None, self.n_features))
+        if backend is None:
+            backend = self.backend
         eval_func = symbolic_evaluate_func(self.expr, self.symbols,
                                            x=x, backend=backend)
         return eval_func(*(x[:, i] for i in range(self.n_features)))
@@ -334,7 +341,12 @@ class AdditiveModel(object):
     def feature_contributions(self,
                               x: np.ndarray,
                               main_effects=True,
-                              interaction_effects=True):
+                              interaction_effects=True,
+                              return_effects=False,
+                              backend=None):
+        if backend is None:
+            backend = self.backend
+
         if not (main_effects or interaction_effects):
             raise ValueError('Must specify either main_effects or '
                              'interaction_effects')
@@ -345,6 +357,7 @@ class AdditiveModel(object):
             effects.extend(list(self.interaction_effects))
 
         contributions = defaultdict(lambda: np.zeros(len(x)))
+        all_effects = defaultdict(lambda: sym.Number(0))
         for effect in effects:
             effect_symbols = sorted(effect.free_symbols, key=lambda s: s.name)
             related_features = [x[:, self.symbols.index(s)]
@@ -353,12 +366,17 @@ class AdditiveModel(object):
                 continue  # skip zero-effects
             eval_func = symbolic_evaluate_func(effect,
                                                effect_symbols,
-                                               x=x)
+                                               x=x,
+                                               backend=backend)
             contribution = eval_func(*related_features)
             if len(effect_symbols) == 1:
                 effect_symbols = effect_symbols[0]
             contributions[effect_symbols] = contribution
+            if return_effects:
+                all_effects[effect_symbols] = effect
 
+        if return_effects:
+            return contributions, all_effects
         return contributions
 
     def pprint(self):

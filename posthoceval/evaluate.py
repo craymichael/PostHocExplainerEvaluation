@@ -162,13 +162,19 @@ def f2py_func(expr, symbols):
 
 def symbolic_evaluate_func(expr, symbols, x=None, backend=None):
     if backend is None:
-        backend = 'f2py'  # requires numpy
-        if x is not None and len(x) > 1_100:  # empirical benchmark
-            try:
-                import numexpr
-                backend = 'numexpr'
-            except ImportError:
-                pass
+        try:
+            import numexpr
+            backend = 'numexpr'
+        except ImportError:
+            backend = 'f2py'
+        # TODO: set default backend smarter...
+        # backend = 'f2py'  # requires numpy
+        # if x is not None and len(x) > 1_100:  # empirical benchmark
+        #     try:
+        #         import numexpr
+        #         backend = 'numexpr'
+        #     except ImportError:
+        #         pass
     if backend == 'numpy':
         eval_func = numpy_func
     elif backend == 'theano':
