@@ -35,13 +35,13 @@ def print_stats(setup_times, stats):
 def benchmark(gpu=False, debug=False):
     print('GPU' if gpu else 'CPU')
     cpu_backends = (
-        # 'numpy',
-        # 'theano',
-        # 'tensorflow',
-        # 'numexpr',
-        # 'f2py',
-        # 'cython',
-        # 'ufuncify_numpy',
+        'numpy',
+        'theano',
+        'tensorflow',
+        'numexpr',
+        'f2py',
+        'cython',
+        'ufuncify_numpy',
         'llvm',
     )
     gpu_backends = (
@@ -67,6 +67,7 @@ def benchmark(gpu=False, debug=False):
         print('=' * len(msg))
 
         # Single dummy run to measure potential setup times
+        backend_blacklist = set()
         setup_times = {}
         dummy_data = make_data(1, model.n_features)
         for backend in backends:
@@ -88,6 +89,7 @@ def benchmark(gpu=False, debug=False):
                 traceback.print_exc(file=sys.stderr)
                 print('!' * 80)
                 print('!' * 80)
+                backend_blacklist.add(backend)
                 continue
 
         # Benchmark
@@ -97,7 +99,7 @@ def benchmark(gpu=False, debug=False):
             data = make_data(n_samples, model.n_features)
 
             stats_backend = {}
-            for backend in backends:
+            for backend in set(backends) - backend_blacklist:
                 # Average over this many times
                 n_runs = max(10_000_000 // n_samples, 5)
 

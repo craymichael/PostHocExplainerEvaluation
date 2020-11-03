@@ -6,17 +6,12 @@ from functools import wraps
 import numpy as np
 import sympy as sym
 
-# from joblib import Parallel
-# from joblib import delayed
-from pathos.multiprocessing import ProcessingPool
-from pathos.multiprocessing import cpu_count
-
 
 def _maybe_cast_args_func(func, dtype, backend):
     """floating point numpy dtypes only"""
 
     @wraps(func)
-    def wrapped(*args, **kwargs):
+    def wrapper(*args, **kwargs):
         maybe_cast_args = []
         for arr in args:
             if (hasattr(arr, 'dtype') and
@@ -30,14 +25,14 @@ def _maybe_cast_args_func(func, dtype, backend):
             maybe_cast_args.append(arr)
         return func(*maybe_cast_args, **kwargs)
 
-    return wrapped
+    return wrapper
 
 
 def _parallelize_matrix_func(func):
     """Most backends should do this already, but some are stupid."""
 
     @wraps(func)
-    def wrapped(*columns):
+    def wrapper(*columns):
         # TODO: note llvm can't be pickled due to ctype pointers
         return np.asarray(func(*row) for row in zip(columns))
         # return np.asarray(ProcessingPool(nodes=cpu_count()).map(
@@ -46,7 +41,7 @@ def _parallelize_matrix_func(func):
         # return np.asarray(Parallel(n_jobs=-1)(
         #     delayed(func)(*row) for row in zip(columns)))
 
-    return wrapped
+    return wrapper
 
 
 @lru_cache()
@@ -78,6 +73,14 @@ def llvm_func(expr, symbols):
     func = llvm_callable(symbols, expr.expand())
     # llvm only works for scalar inputs so far
     func = _parallelize_matrix_func(func)
+    # def func_wrapper(*args):
+    #     func = llvm_callable(symbols, expr.expand())
+    #     return func(*args)
+    #
+    # def parallelize(*columns):
+    #     return np.asarray(Parallel(n_jobs=-1)(
+    #         delayed(func_wrapper)(*row) for row in zip(*columns)))
+
     # will auto-cast to double so maybe warn user
     return _maybe_cast_args_func(func, np.float64, 'llvm')
 
@@ -107,10 +110,10 @@ def tensorflow_func(expr, symbols):
     tf_func = sym.lambdify(symbols, expr, modules='tensorflow')
 
     @wraps(tf_func)
-    def wrapped(*args, **kwargs):
+    def wrapper(*args, **kwargs):
         return tf_func(*args, **kwargs).numpy()
 
-    return wrapped
+    return wrapper
 
 
 @lru_cache()
@@ -184,4 +187,4 @@ def symbolic_evaluate_func(expr, symbols, x=None, backend=None):
         eval_func = llvm_func
     else:
         raise ValueError(backend)
-    return eval_func(expr, symbols)
+    return eval_func(expr, tuple(symbols))

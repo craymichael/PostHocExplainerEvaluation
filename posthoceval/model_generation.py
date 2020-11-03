@@ -14,6 +14,7 @@ from itertools import combinations
 from itertools import product
 from collections import OrderedDict
 from collections import namedtuple
+from collections import defaultdict
 
 import sympy as sym
 import numpy as np
@@ -139,7 +140,8 @@ def split_effects(expr: sym.Expr,
         main, _ = expr_expanded.as_independent(*all_minus_xi, as_Add=True)
         # Single main effect per symbol
         main_effects.append(main)
-    interaction_effects = set(expr_expanded.args) - set(main_effects)
+    interaction_effects = (set(independent_terms(expr_expanded)) -
+                           set(main_effects))
     return tuple(main_effects), tuple(interaction_effects)
 
 
@@ -155,6 +157,12 @@ def symbol_names(n_features):
             ret_i = alphabet[m] + ret_i
         ret.append(ret_i)
     return ret
+
+
+def independent_terms(expr) -> Tuple[sym.Expr]:
+    if isinstance(expr, sym.Add):
+        return expr.args
+    return expr,  # ',' for tuple return
 
 
 class AdditiveModel(object):
@@ -236,9 +244,7 @@ class AdditiveModel(object):
 
     @property
     def independent_terms(self) -> Tuple[sym.Expr]:
-        if isinstance(self.expr, sym.Add):
-            return self.expr.args
-        return self.expr,  # ',' for tuple return
+        return independent_terms(self.expr)
 
     def _generate_model(self, coefficients) -> sym.Expr:
         n_coefs_expect = self.n_features + 1
@@ -325,62 +331,35 @@ class AdditiveModel(object):
                                            x=x, backend=backend)
         return eval_func(*(x[:, i] for i in range(self.n_features)))
 
-    # def __call__(self, *x, symbolic=None, n_jobs=cpu_count()):
-    #     """
-    #
-    #     :param x:
-    #     :param symbolic: bool, or None to infer based on x dtype (if ndarray).
-    #     :param n_jobs:
-    #     :return:
-    #     """
-    #     if len(x) == 1:
-    #         x = x[0]
-    #
-    #     as_np = isinstance(x, np.ndarray)
-    #     if isinstance(x, Iterable):
-    #         x = as_sized(x)
-    #         if isinstance(x[0], Iterable):
-    #             assert_func = partial(assert_same_size,
-    #                                   expected=self.n_features,
-    #                                   units='features')
-    #             # ret = Parallel(n_jobs=n_jobs)(
-    #             #     delayed(self.expr.subs)(
-    #             #         zip(self.symbols,
-    #             #             assert_func(received=len(xi), ret=xi))
-    #             #     ) for xi in x
-    #             # )
-    #             # TODO: use sympy matrix/vectors to speed shit up
-    #             #  SUBS IS HEAVILY INEFFICIENT
-    #             if as_np:
-    #                 assert_shape(x, (None, self.n_features))  # noqa
-    #                 ret = [
-    #                     self.expr.subs(
-    #                         zip(self.symbols, xi)
-    #                     ) for xi in x
-    #                 ]
-    #             else:
-    #                 ret = [
-    #                     self.expr.subs(
-    #                         zip(self.symbols,
-    #                             assert_func(received=len(xi), ret=xi))
-    #                     ) for xi in x
-    #                 ]
-    #         else:
-    #             assert_same_size(self.n_features, len(x), 'features')
-    #             ret = self.expr.subs(zip(self.symbols, x))
-    #     else:
-    #         assert_same_size(self.n_features, 1, 'features')
-    #         ret = self.expr.subs((self.symbols[0], x))
-    #     if as_np:
-    #         # Note: this only works for expressions that return a single output
-    #         #  (assumed always to be the case)
-    #         ret = np.asarray(ret, dtype=x.dtype)[:, np.newaxis]
-    #     return ret
+    def feature_contributions(self,
+                              x: np.ndarray,
+                              main_effects=True,
+                              interaction_effects=True):
+        if not (main_effects or interaction_effects):
+            raise ValueError('Must specify either main_effects or '
+                             'interaction_effects')
+        effects = []
+        if main_effects:
+            effects.extend(list(self.main_effects))
+        if interaction_effects:
+            effects.extend(list(self.interaction_effects))
 
-    def feature_attribution(self):
-        # for arg in sym.preorder_traversal(self.expr):
-        #     pass
-        self.expr.as_independent(self.symbols, as_Add=True)
+        contributions = defaultdict(lambda: np.zeros(len(x)))
+        for effect in effects:
+            effect_symbols = sorted(effect.free_symbols, key=lambda s: s.name)
+            related_features = [x[:, self.symbols.index(s)]
+                                for s in effect_symbols]
+            if effect == 0:
+                continue  # skip zero-effects
+            eval_func = symbolic_evaluate_func(effect,
+                                               effect_symbols,
+                                               x=x)
+            contribution = eval_func(*related_features)
+            if len(effect_symbols) == 1:
+                effect_symbols = effect_symbols[0]
+            contributions[effect_symbols] = contribution
+
+        return contributions
 
     def pprint(self):
         sym.pprint(self.expr)
