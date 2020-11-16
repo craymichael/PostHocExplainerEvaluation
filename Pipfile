@@ -17,6 +17,8 @@ theano = "*"
 numexpr = "*"
 seaborn = "*"
 pathos = "*"
+interpret = "*"
+skope-rules = "*"
 
 [requires]
 python_version = "3.8"

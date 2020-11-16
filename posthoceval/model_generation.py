@@ -113,6 +113,10 @@ INTERACTION_OPS = (
         func=sym
     ),
 )
+# Custom typing
+Symbol1orMore = Union[sym.Symbol, Sequence[sym.Symbol]]
+ContribMapping = Dict[Symbol1orMore, np.ndarray]
+ExprMapping = Dict[Symbol1orMore, sym.Expr]
 
 
 # TODO:
@@ -126,20 +130,30 @@ INTERACTION_OPS = (
 #  - allow for integer interactions (scaling, exponent, etc.)
 #  - do by classes of interaction, START WITH POLYNOMIALS
 
+def independent_terms(expr) -> Tuple[sym.Expr]:
+    if isinstance(expr, sym.Add):
+        return expr.args
+    return expr,  # ',' for tuple return
+
 
 @lru_cache()
-def split_effects(expr: sym.Expr,
-                  symbols: Sequence[sym.Symbol]) -> Tuple[Tuple[sym.Expr],
-                                                          Tuple[sym.Expr]]:
+def split_effects(
+        expr: sym.Expr,
+        symbols: Sequence[sym.Symbol],
+) -> Tuple[Tuple[sym.Expr], Tuple[sym.Expr]]:
     """Additive effects"""
     expr_expanded = expr.expand(add=True)
     all_symbol_set = set(symbols)
     main_effects = []
     for xi in symbols:
         all_minus_xi = all_symbol_set - {xi}
+
         main, _ = expr_expanded.as_independent(*all_minus_xi, as_Add=True)
+        main: sym.Expr  # type hint
+
         # Single main effect per symbol
         main_effects.append(main)
+
     interaction_effects = (set(independent_terms(expr_expanded)) -
                            set(main_effects))
     return tuple(main_effects), tuple(interaction_effects)
@@ -157,12 +171,6 @@ def symbol_names(n_features):
             ret_i = alphabet[m] + ret_i
         ret.append(ret_i)
     return ret
-
-
-def independent_terms(expr) -> Tuple[sym.Expr]:
-    if isinstance(expr, sym.Add):
-        return expr.args
-    return expr,  # ',' for tuple return
 
 
 class AdditiveModel(object):
@@ -209,10 +217,12 @@ class AdditiveModel(object):
                           'optype {}'.format(type(self.expr)))
 
     @classmethod
-    def from_expr(cls,
-                  expr: sym.Expr,
-                  symbols: Union[Sequence[sym.Symbol], sym.Symbol],
-                  backend=None):
+    def from_expr(
+            cls,
+            expr: sym.Expr,
+            symbols: Symbol1orMore,
+            backend=None,
+    ):
         """Symbols needs to be ordered properly"""
         # Ensure expr symbols are a subset of symbols
         symbols = (symbols,) if isinstance(symbols, sym.Symbol) else symbols
@@ -330,7 +340,11 @@ class AdditiveModel(object):
                     print('Failure!!!', great_success, term, errored_symbols)
         return domains
 
-    def __call__(self, x: np.ndarray, backend=None):
+    def __call__(
+            self,
+            x: np.ndarray,
+            backend=None,
+    ):
         assert_shape(x, (None, self.n_features))
         if backend is None:
             backend = self.backend
@@ -338,12 +352,15 @@ class AdditiveModel(object):
                                            x=x, backend=backend)
         return eval_func(*(x[:, i] for i in range(self.n_features)))
 
-    def feature_contributions(self,
-                              x: np.ndarray,
-                              main_effects=True,
-                              interaction_effects=True,
-                              return_effects=False,
-                              backend=None):
+    def feature_contributions(
+            self,
+            x: np.ndarray,
+            main_effects=True,
+            interaction_effects=True,
+            return_effects=False,
+            backend=None,
+    ) -> Union[ContribMapping, Tuple[ContribMapping, ExprMapping]]:
+        """"""
         if backend is None:
             backend = self.backend
 
@@ -360,6 +377,7 @@ class AdditiveModel(object):
         all_effects = defaultdict(lambda: sym.Number(0))
         for effect in effects:
             effect_symbols = sorted(effect.free_symbols, key=lambda s: s.name)
+            # Index x matrix (order of features)
             related_features = [x[:, self.symbols.index(s)]
                                 for s in effect_symbols]
             if effect == 0:
@@ -391,9 +409,10 @@ class LinearModel(AdditiveModel):
         super(LinearModel, self).__init__(*args, interactions=None, **kwargs)
 
 
-def tsang_iclr18_models(name=None) -> Union[Dict[str, AdditiveModel],
-                                            Tuple[AdditiveModel],
-                                            AdditiveModel]:
+def tsang_iclr18_models(
+        name=None
+) -> Union[Dict[str, AdditiveModel], Tuple[AdditiveModel], AdditiveModel]:
+    """"""
     # TODO: https://github.com/sympy/sympy/issues/11027
     #  Min/Max functions don't vectorize as expected. Here is a "beautiful" fix
     #  https://stackoverflow.com/a/60725243/6557588
