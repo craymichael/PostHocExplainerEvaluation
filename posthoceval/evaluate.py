@@ -28,22 +28,6 @@ def _maybe_cast_args_func(func, dtype, backend):
     return wrapper
 
 
-def _parallelize_matrix_func(func):
-    """Most backends should do this already, but some are stupid."""
-
-    @wraps(func)
-    def wrapper(*columns):
-        # TODO: note llvm can't be pickled due to ctype pointers
-        return np.asarray(func(*row) for row in zip(columns))
-        # return np.asarray(ProcessingPool(nodes=cpu_count()).map(
-        #     func, zip(columns)
-        # ))
-        # return np.asarray(Parallel(n_jobs=-1)(
-        #     delayed(func)(*row) for row in zip(columns)))
-
-    return wrapper
-
-
 @lru_cache()
 def theano_func(expr, symbols):
     """Theano-compiled function, 2D array as input (1D columns) and float32
@@ -58,6 +42,23 @@ def theano_func(expr, symbols):
                            on_unused_input='ignore')
     # args need to be float32s if floating
     return _maybe_cast_args_func(func, np.float32, 'theano')
+
+
+def _parallelize_matrix_func(func):
+    """Most backends should do this already, but some are stupid."""
+
+    @wraps(func)
+    def wrapper(*columns):
+        # TODO: note llvm can't be pickled due to ctype pointers
+        # TODO: llvm backend keeps segmentation faulting, ugh
+        return np.asarray([func(*row) for row in zip(*columns)])
+        # return np.asarray(ProcessingPool(nodes=cpu_count()).map(
+        #     func, zip(columns)
+        # ))
+        # return np.asarray(Parallel(n_jobs=-1)(
+        #     delayed(func)(*row) for row in zip(columns)))
+
+    return wrapper
 
 
 @lru_cache()
@@ -111,7 +112,10 @@ def tensorflow_func(expr, symbols):
 
     @wraps(tf_func)
     def wrapper(*args, **kwargs):
-        return tf_func(*args, **kwargs).numpy()
+        ret = tf_func(*args, **kwargs)
+        if hasattr(ret, 'numpy'):  # naive but faster tf.EagerTensor to ndarray
+            ret = ret.numpy()
+        return ret
 
     return wrapper
 
@@ -190,6 +194,8 @@ def symbolic_evaluate_func(expr, symbols, x=None, backend=None):
     elif backend == 'ufuncify_numpy':
         eval_func = ufuncify_numpy_func
     elif backend == 'llvm':
+        warnings.warn('Yeah, llvm is probably still broken. Don\'t be '
+                      'surprised if you get a segfault...')
         eval_func = llvm_func
     else:
         raise ValueError(backend)

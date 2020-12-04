@@ -118,6 +118,23 @@ Symbol1orMore = Union[sym.Symbol, Sequence[sym.Symbol]]
 ContribMapping = Dict[Symbol1orMore, np.ndarray]
 ExprMapping = Dict[Symbol1orMore, sym.Expr]
 
+# Single argument ops
+OPS_SINGLE_ARG = [
+    sym.cos,
+    sym.cosh,
+    sym.sin,
+    sym.sinh,
+    sym.tan,
+    sym.tanh,
+    sym.Abs,
+]
+# Multiple argument ops (non-additive)
+OPS_MULTI_ARG = [
+    sym.Mul,
+    sym.Pow,
+]
+# TODO: exponent of integer, mul of integer
+
 
 # TODO:
 #  - random interaction triangular matrices, one per interaction
@@ -159,18 +176,21 @@ def split_effects(
     return tuple(main_effects), tuple(interaction_effects)
 
 
-def symbol_names(n_features):
+def symbol_names(n_features, excel_like=False):
     """Generate Excel-like names for symbols"""
     assert n_features >= 1, 'Invalid number of features < 1: %d' % n_features
-    alphabet = string.ascii_uppercase
-    ret = []
-    for d in range(1, n_features + 1):
-        ret_i = ''
-        while d > 0:
-            d, m = divmod(d - 1, 26)
-            ret_i = alphabet[m] + ret_i
-        ret.append(ret_i)
-    return ret
+    if excel_like:
+        alphabet = string.ascii_uppercase
+        ret = []
+        for d in range(1, n_features + 1):
+            ret_i = ''
+            while d > 0:
+                d, m = divmod(d - 1, 26)
+                ret_i = alphabet[m] + ret_i
+            ret.append(ret_i)
+        return ret
+    else:
+        return [f'x{i}' for i in range(1, n_features + 1)]
 
 
 class AdditiveModel(object):
@@ -377,6 +397,7 @@ class AdditiveModel(object):
         all_effects = defaultdict(lambda: sym.Number(0))
         for effect in effects:
             effect_symbols = sorted(effect.free_symbols, key=lambda s: s.name)
+            effect_symbols = tuple(effect_symbols)
             # Index x matrix (order of features)
             related_features = [x[:, self.symbols.index(s)]
                                 for s in effect_symbols]

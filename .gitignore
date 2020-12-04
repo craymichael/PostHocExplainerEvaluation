@@ -1,5 +1,8 @@
 libgpuarray/
 
+# profiling files
+*.pstat
+
 .idea/
 .~lock.*
 

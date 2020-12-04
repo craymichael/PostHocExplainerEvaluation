@@ -7,7 +7,7 @@ verify_ssl = true
 
 [packages]
 numpy = "*"
-alibi = "*"
+alibi = {extras = ["ray"], version = "*"}
 matplotlib = "*"
 pyqt5 = "*"
 sympy = "*"
@@ -19,6 +19,7 @@ seaborn = "*"
 pathos = "*"
 interpret = "*"
 skope-rules = "*"
+scikit-learn = "*"
 
 [requires]
 python_version = "3.8"
