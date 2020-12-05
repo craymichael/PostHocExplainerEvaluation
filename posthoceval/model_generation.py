@@ -1,6 +1,6 @@
 import string
 import random
-import logging
+# import logging
 import warnings
 from collections.abc import Callable
 from typing import Sequence
@@ -13,10 +13,11 @@ from itertools import repeat
 from itertools import combinations
 from itertools import product
 from collections import OrderedDict
-from collections import namedtuple
 from collections import defaultdict
 
 import sympy as sym
+from sympy.calculus.util import continuous_domain
+
 import numpy as np
 
 from .utils import assert_shape
@@ -25,94 +26,6 @@ from .evaluate import symbolic_evaluate_func
 
 # logger = logging.getLogger(__name__)
 
-InteractionOp = namedtuple(
-    'Interaction',
-    ('name', 'n_args', 'func')
-)
-# For determination of continuity of functions:
-#  sympy.calculus.util.continuous_domain(...)
-INTERACTION_OPS = (
-    InteractionOp(
-        name='cos',
-        n_args=1,
-        func=sym.cos
-    ),
-    InteractionOp(
-        name='cosh',
-        n_args=1,
-        func=sym.cosh
-    ),
-    InteractionOp(
-        name='sin',
-        n_args=1,
-        func=sym.sin
-    ),
-    InteractionOp(
-        name='sinh',
-        n_args=1,
-        func=sym.sinh
-    ),
-    InteractionOp(
-        name='tan',
-        n_args=1,
-        func=sym.tan
-    ),
-    InteractionOp(
-        name='tanh',
-        n_args=1,
-        func=sym.tanh
-    ),
-    InteractionOp(
-        name='Abs',
-        n_args=1,
-        func=sym.Abs
-    ),
-    InteractionOp(
-        name='Mul',
-        n_args=2,
-        func=sym.Mul
-    ),
-    InteractionOp(
-        name='',
-        n_args=2,
-        func=sym
-    ),
-    InteractionOp(
-        name='',
-        n_args=2,
-        func=sym
-    ),
-    InteractionOp(
-        name='',
-        n_args=2,
-        func=sym
-    ),
-    InteractionOp(
-        name='',
-        n_args=2,
-        func=sym
-    ),
-    InteractionOp(
-        name='',
-        n_args=2,
-        func=sym
-    ),
-    InteractionOp(
-        name='',
-        n_args=2,
-        func=sym
-    ),
-    InteractionOp(
-        name='',
-        n_args=2,
-        func=sym
-    ),
-    InteractionOp(
-        name='',
-        n_args=2,
-        func=sym
-    ),
-)
 # Custom typing
 Symbol1orMore = Union[sym.Symbol, Sequence[sym.Symbol]]
 ContribMapping = Dict[Symbol1orMore, np.ndarray]
@@ -133,7 +46,18 @@ OPS_MULTI_ARG = [
     sym.Mul,
     sym.Pow,
 ]
+
 # TODO: exponent of integer, mul of integer
+
+# Order from least to most constraining on domain
+ASSUMPTION_TO_DOMAIN = OrderedDict((
+    ('nonzero', sym.Union(sym.Interval.Ropen(-sym.oo, 0),
+                          sym.Interval.Lopen(0, +sym.oo))),
+    ('nonpositive', sym.Interval(-sym.oo, 0)),
+    ('nonnegative', sym.Interval(0, +sym.oo)),
+    ('positive', sym.Interval.Lopen(0, +sym.oo)),
+    ('negative', sym.Interval.Ropen(-sym.oo, 0)),
+))
 
 
 # TODO:
@@ -174,6 +98,140 @@ def split_effects(
     interaction_effects = (set(independent_terms(expr_expanded)) -
                            set(main_effects))
     return tuple(main_effects), tuple(interaction_effects)
+
+
+def _bad_domain(domain, no_empty_set, simplified):
+    """True if good, False if bad"""
+    return ((no_empty_set and domain is sym.EmptySet) or
+            (simplified and domain.free_symbols))
+
+
+def _brute_force_errored_domain(term, errored_symbols, assumptions,
+                                no_empty_set, simplified):
+    """Used in the case that domain-finding for a particular sympy op is not
+    implemented
+
+    See `ASSUMPTION_TO_DOMAIN` for supported assumptions
+    """
+    domains = {}
+    undesirables = {}
+    # Time to figure out if assumptions help automatically figure out
+    #  valid continuous ranges...
+    for i in range(1, len(errored_symbols) + 1):
+        # Try all combinations of assumptions on each errored symbol
+        #  combination (find a valid domain for each and do so with minimal
+        #  number of assumptions needed)
+        for symbol_subset in combinations(errored_symbols, i):
+            # The product of each symbol and assumption with every other symbol
+            #  and assumption
+            for symbol_comb in product(
+                    *(tuple(zip(repeat(symbol), assumptions))
+                      for symbol in symbol_subset)
+            ):
+                try:
+                    # TODO: better consider existing assumptions from symbols...
+                    replacements = OrderedDict(
+                        (symbol,
+                         (sym.Symbol(symbol.name, **{assumption: True,
+                                                     **symbol.assumptions0})
+                          ))  # Mapping entry: symbol --> symbol w/ assumption
+                        for symbol, assumption in symbol_comb
+                    )
+                    intervals = (
+                        ASSUMPTION_TO_DOMAIN.get(assumption, sym.Reals)
+                        for _, assumption in symbol_comb
+                    )
+                    # Insert symbols with assumptions into term
+                    term_subs = term.subs(replacements)
+                    undesired_domain = False
+                    for symbol, interval in zip(replacements.values(),
+                                                intervals):
+                        domain = continuous_domain(term_subs, symbol, interval)
+
+                        if _bad_domain(domain, no_empty_set, simplified):
+                            undesired_domain = True
+                            if symbol not in undesirables:
+                                undesirables[symbol] = domain
+                            break
+
+                        domains[symbol] = domain
+
+                    if undesired_domain:
+                        continue
+
+                    return domains
+                except NotImplementedError as e:
+                    pass
+
+    if errored_symbols:
+        failed_symbols = set(errored_symbols) - set(domains.keys())
+        for symbol in failed_symbols:
+            if symbol not in undesirables:
+                raise RuntimeError(
+                    f'Failed to discover a valid domain for {symbol} of term '
+                    f'{term}! This means that the expression contains ops that '
+                    f'are not implemented in sympy and naive assumptions could '
+                    f'not coerce out an interval of legal values.'
+                )
+            domain = undesirables[symbol]
+            warnings.warn(
+                f'Falling back on undesirable domain (simplified={simplified}, '
+                f'no_empty_set={no_empty_set}) for symbol {symbol} of term '
+                f'{term}: {domain}'
+            )
+            domains[symbol] = domain
+
+    return domains  # empty dict if made here
+
+
+@lru_cache()
+def _valid_variable_domains_term(term, assumptions, no_empty_set, simplified):
+    """Real domains only!"""
+    domains = {}
+    errored_symbols = []
+    for xi in term.free_symbols:
+        try:
+            domain = continuous_domain(term, xi, sym.Reals)
+            if _bad_domain(domain, no_empty_set, simplified):
+                errored_symbols.append(xi)
+                continue
+            domains[xi] = domain
+        except NotImplementedError:
+            errored_symbols.append(xi)
+    # Get domains for errored out symbols (not implemented) and add to domains
+    domains.update(
+        _brute_force_errored_domain(term, errored_symbols, assumptions,
+                                    no_empty_set, simplified)
+    )
+    return domains
+
+
+def valid_variable_domains(terms, assumptions=None, no_empty_set=True,
+                           simplified=True):
+    """Find the valid continuous domains of the free variables of a symbolic
+    expression. Expects additive terms to be provided, but will split up a
+    sympy expression too.
+
+    Real domains only! TODO: allow other domains?
+    """
+    if isinstance(terms, sym.Expr):
+        # More efficient to look at each term of expression in case of
+        #  NotImplementedError in valid domain finding
+        terms = independent_terms(terms)
+
+    if assumptions is None:
+        assumptions = tuple(ASSUMPTION_TO_DOMAIN.keys())
+
+    domains = {}
+    for term in terms:
+        # Get valid domains
+        domains_term = _valid_variable_domains_term(
+            term, assumptions, no_empty_set, simplified)
+        # Update valid intervals of each variable
+        for symbol, domain in domains_term.items():
+            domains[symbol] = domains.get(symbol, sym.Reals).intersect(domain)
+
+    return domains
 
 
 def symbol_names(n_features, excel_like=False):
@@ -293,72 +351,8 @@ class AdditiveModel(object):
 
     @property
     def valid_variable_domains(self):
-        """Real domains only! TODO: allow other domains?"""
-        # TODO: cache this function like the other one
-        domains = {}
-        terms = self.independent_terms
-        for term in terms:
-            errored_symbols = []
-            for xi in term.free_symbols:
-                try:
-                    domain = sym.calculus.util.continuous_domain(term, xi,
-                                                                 sym.Reals)
-                    domains[xi] = domains.get(xi, sym.Reals).intersect(domain)
-                except NotImplementedError:
-                    errored_symbols.append(xi)
-            assumptions = (None, 'positive', 'negative')
-            great_success = False
-            # TODO: move this shit out into another function
-            # Time to figure out if assumptions help automatically figure out
-            # valid continuous ranges...
-            for i in range(1, len(errored_symbols) + 1):
-                for sym_subset in combinations(errored_symbols, i):
-                    # print('sym_subset', sym_subset)
-                    for sym_comb in product(
-                            *(tuple(zip(repeat(xi_ss), assumptions)) for xi_ss
-                              in sym_subset)):
-                        try:
-                            # print('sym_comb', sym_comb)
-                            replacements = OrderedDict(
-                                (xi_ss, (xi_ss if ass is None else sym.Symbol(
-                                    xi_ss.name, **{ass: True})))
-                                for xi_ss, ass in sym_comb
-                            )
-                            # TODO: consider existing domain of symbols...
-                            intervals = (
-                                sym.Interval(0, sym.oo)
-                                if ass == 'positive' else
-                                sym.Interval(-sym.oo, 0)
-                                if ass == 'negative' else sym.Reals
-                                for _, ass in sym_comb)
-                            term_subs = term.subs(replacements)
-                            maybe_domains = {}
-                            for xi_ss, interval in zip(replacements.values(),
-                                                       intervals):
-                                domain = sym.calculus.util.continuous_domain(
-                                    term_subs, xi_ss, interval)
-                                maybe_domains[xi_ss] = domain
-                            # print('maybe_domains!!!!', maybe_domains)
-                            great_success = True
-                            for xi_ss in errored_symbols:
-                                xi_ss_new = replacements.get(xi_ss, xi_ss)
-                                # TODO: replace xi_ss in expression and model!!!!! This only replaces domain........
-                                # TODO: or just give the right domain for the original xi...
-                                domains[xi_ss] = domains.get(xi_ss,
-                                                             sym.Reals).intersect(
-                                    maybe_domains.get(xi_ss_new, sym.Reals))
-                            break
-                        except NotImplementedError as e:
-                            pass  # shit
-                    if great_success:
-                        break
-                if great_success:
-                    break
-            else:
-                if errored_symbols:
-                    # TODO raise this shit
-                    print('Failure!!!', great_success, term, errored_symbols)
-        return domains
+        """See documentation of `valid_variable_domains` function"""
+        return valid_variable_domains(self.independent_terms)
 
     def __call__(
             self,
@@ -437,7 +431,8 @@ def tsang_iclr18_models(
     # TODO: https://github.com/sympy/sympy/issues/11027
     #  Min/Max functions don't vectorize as expected. Here is a "beautiful" fix
     #  https://stackoverflow.com/a/60725243/6557588
-    all_symbols = sym.symbols('x1:11')  # 10 variables
+    # 10 variables
+    all_symbols = sym.symbols('x1:11', real=True)
     # TODO:
     #  - 30k data points, 1/3 each train/valid/test
     #  - tan et al. use 50k points and a modified equation
