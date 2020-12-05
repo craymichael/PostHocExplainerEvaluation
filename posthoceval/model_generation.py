@@ -106,28 +106,43 @@ def _bad_domain(domain, no_empty_set, simplified):
             (simplified and domain.free_symbols))
 
 
-def _brute_force_errored_domain(term, errored_symbols, assumptions,
-                                no_empty_set, simplified):
+def _brute_force_errored_domain(term, undesirables, errored_symbols,
+                                assumptions, no_empty_set, simplified,
+                                true_brute_force=False):
     """Used in the case that domain-finding for a particular sympy op is not
     implemented
 
     See `ASSUMPTION_TO_DOMAIN` for supported assumptions
     """
     domains = {}
-    undesirables = {}
     # Time to figure out if assumptions help automatically figure out
     #  valid continuous ranges...
-    for i in range(1, len(errored_symbols) + 1):
+    if true_brute_force:
+        # Go with fewest to most variables to be least constraining
+        combination_sizes = range(1, len(errored_symbols) + 1)
+    else:
+        combination_sizes = range(len(errored_symbols), 0, -1)
+    for i in combination_sizes:
         # Try all combinations of assumptions on each errored symbol
         #  combination (find a valid domain for each and do so with minimal
         #  number of assumptions needed)
         for symbol_subset in combinations(errored_symbols, i):
-            # The product of each symbol and assumption with every other symbol
-            #  and assumption
-            for symbol_comb in product(
+            if true_brute_force:
+                # The product of each symbol and assumption with every other
+                #  symbol and assumption
+                symbols_combinations = product(
                     *(tuple(zip(repeat(symbol), assumptions))
                       for symbol in symbol_subset)
-            ):
+                )
+            else:
+                # Simple, naive assumption across all variables (can speed this
+                #  up with a smart initial guess - side-effect may be more
+                #  constricting than necessary...maybe)
+                symbols_combinations = (
+                    tuple((symbol, assumption) for symbol in symbol_subset)
+                    for assumption in assumptions
+                )
+            for symbol_comb in symbols_combinations:
                 try:
                     # TODO: better consider existing assumptions from symbols...
                     replacements = OrderedDict(
@@ -164,6 +179,13 @@ def _brute_force_errored_domain(term, errored_symbols, assumptions,
                     pass
 
     if errored_symbols:
+        if not true_brute_force:
+            # Return function with a true brute force run...
+            return _brute_force_errored_domain(
+                term, undesirables, errored_symbols, assumptions, no_empty_set,
+                simplified, true_brute_force=True
+            )
+
         failed_symbols = set(errored_symbols) - set(domains.keys())
         for symbol in failed_symbols:
             if symbol not in undesirables:
@@ -188,20 +210,22 @@ def _brute_force_errored_domain(term, errored_symbols, assumptions,
 def _valid_variable_domains_term(term, assumptions, no_empty_set, simplified):
     """Real domains only!"""
     domains = {}
+    undesirables = {}
     errored_symbols = []
-    for xi in term.free_symbols:
+    for symbol in term.free_symbols:
         try:
-            domain = continuous_domain(term, xi, sym.Reals)
+            domain = continuous_domain(term, symbol, sym.Reals)
             if _bad_domain(domain, no_empty_set, simplified):
-                errored_symbols.append(xi)
+                errored_symbols.append(symbol)
+                undesirables[symbol] = domain
                 continue
-            domains[xi] = domain
+            domains[symbol] = domain
         except NotImplementedError:
-            errored_symbols.append(xi)
+            errored_symbols.append(symbol)
     # Get domains for errored out symbols (not implemented) and add to domains
     domains.update(
-        _brute_force_errored_domain(term, errored_symbols, assumptions,
-                                    no_empty_set, simplified)
+        _brute_force_errored_domain(term, undesirables, errored_symbols,
+                                    assumptions, no_empty_set, simplified)
     )
     return domains
 
