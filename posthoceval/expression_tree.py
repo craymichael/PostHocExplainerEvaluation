@@ -170,8 +170,10 @@ def _str_tree_helper(nodes, padding):
     for child_str, (node_w, _) in zip(child_strs, children):
 
         if all_none:
+            pretty_spacing = node_w
             whitespace = ''
         else:
+            pretty_spacing = len(child_str)
             whitespace = ' ' * (len(child_str) - node_w)
 
         if is_left:
@@ -181,11 +183,11 @@ def _str_tree_helper(nodes, padding):
 
             out_str += whitespace + fmt_str.format(node_str)
             pretty_str += ((' ' if pretty_flag else '_') *
-                           (len(whitespace) + node_w) + '|')
+                           pretty_spacing + '|')
         else:
             out_str += whitespace
             pretty_str += (('_' if pretty_flag else ' ') *
-                           (len(whitespace) + node_w - 1))
+                           (pretty_spacing - 1))
             out_strs.append(out_str)
             pretty_strs.append(pretty_str)
             out_str = ''
