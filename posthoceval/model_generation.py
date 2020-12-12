@@ -12,6 +12,7 @@ from functools import lru_cache
 from itertools import repeat
 from itertools import combinations
 from itertools import product
+from itertools import cycle
 from collections import OrderedDict
 from collections import defaultdict
 
@@ -26,7 +27,9 @@ from .random import as_random_state
 from .random import choice_objects
 from .utils import assert_shape
 from .utils import as_iterator_of_size
+from .utils import assert_same_size
 from .evaluate import symbolic_evaluate_func
+from .expression_tree import RandExprTree
 
 # logger = logging.getLogger(__name__)
 
@@ -36,58 +39,96 @@ ContribMapping = Dict[Symbol1orMore, np.ndarray]
 ExprMapping = Dict[Symbol1orMore, S.Expr]
 
 # Single argument ops
-OPS_SINGLE_ARG = [
+OPS_TRIG = [
+    # cos
     S.cos,
     S.cosh,
     S.acos,
     S.acosh,
+    # sin
     S.sin,
     S.sinh,
     S.asin,
     S.asinh,
+    # tan
     S.tan,
     S.tanh,
     S.atan,
     S.atanh,
+    # cot
     S.cot,
     S.coth,
     S.acot,
     S.acoth,
+    # csc
     S.csc,
     S.csch,
     S.acsc,
     S.acsch,
+    # sec
     S.sec,
     S.sech,
     S.asec,
     S.asech,
+    # special
     S.sinc,
+]
+OPS_SINGLE_ARG = OPS_TRIG + [
     S.Abs,
     S.sqrt,
     S.exp,
     S.log,
 ]
+# Weights in model generation
+# `_trig_pct` trig
+_trig_pct = .4
+_len_non_trig = len(OPS_SINGLE_ARG) - len(OPS_TRIG)
+OPS_SINGLE_ARG_WEIGHTS = (
+        [_trig_pct / len(OPS_TRIG)] * len(OPS_TRIG) +
+        [(1. - _trig_pct) / _len_non_trig] * _len_non_trig
+)
 # Multiple argument ops (non-additive)
-OPS_MULTI_ARG = [
+OPS_MULTI_ARG_LINEAR = [
     S.Mul,
+    lambda a, b: a / b,
+]
+OPS_MULTI_ARG_LINEAR_WEIGHTS = [
+    0.5,
+    0.5,
+]
+OPS_MULTI_ARG_NONLINEAR = [
     S.Pow,
-    S.div,
     # Max (which can be vectorized)
     lambda a, b: S.Piecewise((a, a > b), (b, True)),
     # Min (which can be vectorized)
     lambda a, b: S.Piecewise((a, a < b), (b, True)),
 ]
+OPS_MULTI_ARG_NONLINEAR_WEIGHTS = [
+    0.5,
+    0.25,
+    0.25,
+]
+
+
+# noinspection PyPep8Naming
+def ADD_OP(a, b): a + b
+
+
+# OPS_MULTI_ARG = OPS_MULTI_ARG_LINEAR + OPS_MULTI_ARG_NONLINEAR
+# # Weights in model generation
+# OPS_MULTI_ARG_WEIGHTS = (OPS_MULTI_ARG_LINEAR_WEIGHTS +
+#                          OPS_MULTI_ARG_NONLINEAR_WEIGHTS)
 
 # TODO: exponent of integer, mul of integer
 
-# Order from least to most constraining on domain
-ASSUMPTION_TO_DOMAIN = OrderedDict((
-    ('nonzero', S.Union(S.Interval.Ropen(-S.oo, 0),
-                        S.Interval.Lopen(0, +S.oo))),
+# Ordered from least to most constraining on domain
+ASSUMPTION_DOMAIN = OrderedDict((
+    ('nonzero', S.Union(S.Interval.open(-S.oo, 0),
+                        S.Interval.open(0, +S.oo))),
     ('nonpositive', S.Interval(-S.oo, 0)),
     ('nonnegative', S.Interval(0, +S.oo)),
-    ('positive', S.Interval.Lopen(0, +S.oo)),
-    ('negative', S.Interval.Ropen(-S.oo, 0)),
+    ('positive', S.Interval.open(0, +S.oo)),
+    ('negative', S.Interval.open(-S.oo, 0)),
 ))
 
 
@@ -102,57 +143,96 @@ ASSUMPTION_TO_DOMAIN = OrderedDict((
 #  - allow for integer interactions (scaling, exponent, etc.)
 #  - do by classes of interaction, START WITH POLYNOMIALS
 
+def place_into_bins(n_bins, n_items, shift=0, skew=0):
+    """"""
+    assert -1. <= shift <= 1.
+
+    sigmoid_offset = 0.5 * (1 + shift)
+    item_proportion = 1. / (1. + np.exp(
+        -skew * (np.linspace(0, 1, n_bins) - sigmoid_offset)))
+    item_proportion /= item_proportion.sum()  # normalize to probabilities
+    residual = 0
+    n_items_per_bin = []
+    for proportion in item_proportion:
+        # carry over residual items to next bin
+        n_items_bin_f = n_items * proportion + residual
+        n_items_bin = max(int(round(n_items_bin_f)), 1)
+        n_items_per_bin.append(n_items_bin)
+        residual = n_items_bin_f - n_items_bin
+    return n_items_per_bin
+
 
 def generate_additive_expression(
         symbols,
-        n_main=None,
-        frac_main=None,
+        n_main=None,  # TODO ex. n_main&pct_main --> int/float single arg?
+        pct_main=None,
         n_uniq_main=None,
         n_interaction=None,
-        frac_interaction=None,
+        pct_interaction=None,
         n_uniq_interaction=None,
-        min_interaction_ord=2,
-        max_interaction_ord=2,
+        interaction_ord=None,
         n_dummy=None,
-        frac_dummy=None,
-        single_arg_ops=None,
-        multi_arg_ops=None,
+        pct_dummy=None,
+        pct_nonlinear=0.5,
+        nonlinear_multiplier=1,
+        nonlinear_shift=0,
+        nonlinear_skew=0,
+        nonlinear_interaction_additivity=.5,
+        nonlinear_single_multi_ratio: Union[str, float] = 'balanced',
+        nonlinear_single_arg_ops=None,
+        nonlinear_single_arg_ops_weights=None,
+        nonlinear_multi_arg_ops=None,
+        nonlinear_multi_arg_ops_weights=None,
+        linear_multi_arg_ops=None,
+        linear_multi_arg_ops_weights=None,
         typ=None,
         seed=None,
 ) -> S.Expr:
     """
 
-    :param symbols: 
+    :param symbols:
     :param n_main: if None use a heuristic. Main effect terms
-    :param frac_main:
+    :param pct_main:
     :param n_uniq_main: number of unique main effects
     :param n_interaction: Interaction effect terms
-    :param frac_interaction:
+    :param pct_interaction:
     :param n_uniq_interaction: number of unique interactions
-    :param min_interaction_ord:
-    :param max_interaction_ord:
     :param n_dummy:
-    :param frac_dummy:
+    :param pct_dummy:
+    :param pct_nonlinear: Note that this includes both linear terms as well as
+        interaction terms without nonlinearities. For example, 
+        $x_1 \\times x_2$ would be considered to be linear with respect to a 
+        single variable (holding the other constant), whereas $sin(x_1 + x_2)$ 
+        would be nonlinear.
     :param typ: 'linear', 'polynomial', ... TODO - to separate functions?
     :param seed: For reproducibility. int or NumPy RandomState
     :return:
     """
     n_features = len(symbols)
 
-    if frac_dummy is None:
+    assert nonlinear_multiplier >= 1
+    assert 0 <= nonlinear_interaction_additivity <= 1
+
+    if isinstance(nonlinear_single_multi_ratio, str):
+        nonlinear_single_multi_ratio = nonlinear_single_multi_ratio.lower()
+        assert nonlinear_single_multi_ratio == 'balanced'
+    else:
+        assert 0 <= nonlinear_single_multi_ratio <= 1
+
+    if pct_dummy is None:
         n_dummy = n_dummy or 0
     else:
-        assert n_dummy is None, 'Cannot specify both n_dummy and frac_dummy'
-        n_dummy = round(frac_dummy * n_features)
+        assert n_dummy is None, 'Cannot specify both n_dummy and pct_dummy'
+        n_dummy = round(pct_dummy * n_features)
     assert n_dummy < n_features, 'Must satisfy n_dummy < n_features'
 
     # main effects
     max_possible_main_uniq = n_features - n_dummy
-    if frac_main is None:
+    if pct_main is None:
         n_main = n_main or max_possible_main_uniq
     else:
-        assert n_main is None, 'Cannot specify both n_dummy and frac_main'
-        n_main = round(frac_main * n_features)
+        assert n_main is None, 'Cannot specify both n_dummy and pct_main'
+        n_main = round(pct_main * n_features)
 
     if n_uniq_main is None:
         n_uniq_main = max_possible_main_uniq
@@ -160,24 +240,24 @@ def generate_additive_expression(
         assert n_uniq_main <= max_possible_main_uniq, (
             'Must satisfy n_uniq_main <= n_features - n_dummy')
 
-    assert 2 <= min_interaction_ord <= max_interaction_ord, (
-        'Interaction orders must satisfy '
-        '2 <= min_interaction_ord <= max_interaction_ord')
+    if interaction_ord is None:
+        interaction_ord = (2,)
+    elif isinstance(interaction_ord, int):
+        interaction_ord = (interaction_ord,)
 
     # Compute the possible number of unique interactions that are possible
     possible_int_ords = {
         order: comb(n_uniq_main, order, exact=True)
-        for order in range(min_interaction_ord, max_interaction_ord + 1)
+        for order in interaction_ord
     }
     max_possible_int_uniq = sum(possible_int_ords.values())
 
-    if frac_interaction is None:
+    if pct_interaction is None:
         n_interaction = n_interaction or 0
     else:
         assert n_interaction is None, (
-            'Cannot specify both n_interaction and frac_interaction')
-
-        n_interaction = round(frac_interaction * n_features)
+            'Cannot specify both n_interaction and pct_interaction')
+        n_interaction = round(pct_interaction * n_features)
 
     if n_uniq_interaction is None:  # heuristic default
         n_uniq_interaction = min(n_interaction, n_features,
@@ -192,24 +272,46 @@ def generate_additive_expression(
     # Select the features
     features = choice_objects(symbols, n_uniq_main, replace=False, seed=rs)
 
-    # Select the interactions (balanced between order bounds)
+    # Select the interactions (balanced between different orders)
+    # TODO: this but also with skew+offset args?
     uniq_interactions = []
-    for order in range(min_interaction_ord, max_interaction_ord + 1):
+    for i, order in enumerate(interaction_ord):
         n_int_ord = min(
             possible_int_ords[order],
             round((n_uniq_interaction - len(uniq_interactions)) /
-                  (max_interaction_ord - order + 1))
+                  (len(interaction_ord) - i))
         )
         # unique interactions between `order` features
         uniq_interactions.extend(select_n_combinations(
             features, k=order, n=n_int_ord, seed=rs))
 
     # ops
-    if single_arg_ops is None:
-        single_arg_ops = OPS_SINGLE_ARG
+    if nonlinear_single_arg_ops is None:
+        nonlinear_single_arg_ops = OPS_SINGLE_ARG
+        if nonlinear_single_arg_ops_weights is None:
+            nonlinear_single_arg_ops_weights = OPS_SINGLE_ARG_WEIGHTS
+    if nonlinear_single_arg_ops_weights is not None:
+        assert_same_size(nonlinear_single_arg_ops,
+                         nonlinear_single_arg_ops_weights, 'weights')
+        assert np.isclose(sum(nonlinear_single_arg_ops_weights), 1.)
 
-    if multi_arg_ops is None:
-        multi_arg_ops = OPS_MULTI_ARG
+    if nonlinear_multi_arg_ops is None:
+        nonlinear_multi_arg_ops = OPS_MULTI_ARG_NONLINEAR
+        if nonlinear_multi_arg_ops_weights is None:
+            nonlinear_multi_arg_ops_weights = OPS_MULTI_ARG_NONLINEAR_WEIGHTS
+    if nonlinear_multi_arg_ops_weights is not None:
+        assert_same_size(nonlinear_multi_arg_ops,
+                         nonlinear_multi_arg_ops_weights, 'weights')
+        assert np.isclose(sum(nonlinear_multi_arg_ops_weights), 1.)
+
+    if linear_multi_arg_ops is None:
+        linear_multi_arg_ops = OPS_MULTI_ARG_LINEAR
+        if linear_multi_arg_ops_weights is None:
+            linear_multi_arg_ops_weights = OPS_MULTI_ARG_LINEAR_WEIGHTS
+    if linear_multi_arg_ops_weights is not None:
+        assert_same_size(linear_multi_arg_ops,
+                         linear_multi_arg_ops_weights, 'weights')
+        assert np.isclose(sum(linear_multi_arg_ops_weights), 1.)
 
     # Build the expression
     expr = S.Integer(0)
@@ -218,11 +320,152 @@ def generate_additive_expression(
     # TODO: scalar additions as arguments to functions
 
     # Main effects
-    # TODO: it is possible with large enough `n_main` some
-    main_ops = choice_objects(single_arg_ops, n_main, replace=True, seed=rs)
-    main_features = repeat(features)
-    for i in range(n_main):
-        pass
+    # TODO: it is possible with large enough `n_main` some terms could repeat
+    #  and simplify into a single term with a coefficient. By pigeonhole this
+    #  will happen due to finite number of ops
+    n_main_nonlinear = round(pct_nonlinear * n_main)
+    # Nonlinear main effects
+    # TODO: magnitude of main_ops...applying multiple to each term...
+    n_main_nonlinear_ops = round(nonlinear_multiplier * n_main_nonlinear)
+    main_nonlinear_op_counts = place_into_bins(
+        n_main_nonlinear, n_main_nonlinear_ops,
+        shift=nonlinear_shift, skew=nonlinear_skew
+    )
+
+    main_nonlinear_ops = choice_objects(
+        nonlinear_single_arg_ops, n_main_nonlinear_ops, replace=True,
+        p=nonlinear_single_arg_ops_weights, seed=rs
+    )
+    main_nonlinear_ops_iter = iter(main_nonlinear_ops)
+    # TODO cycle --> choice all features mod len(features) times
+    main_features = cycle(features)
+
+    for i in range(n_main_nonlinear):
+        term = next(main_features)
+        for _ in range(main_nonlinear_op_counts[i]):
+            op = next(main_nonlinear_ops_iter)
+            term = op(term)
+        expr += term
+
+    # Linear main effects
+    for _ in range(n_main - n_main_nonlinear):
+        expr += next(main_features)
+
+    # Nonlinear interaction effects
+    n_interaction_nonlinear = round(pct_nonlinear * n_interaction)
+    n_interaction_nonlinear_ops = round(
+        nonlinear_multiplier * n_interaction_nonlinear)
+
+    if nonlinear_single_multi_ratio == 'balanced':
+        nonlinear_single_multi_ratio = (
+                len(nonlinear_single_arg_ops) / (len(nonlinear_single_arg_ops) +
+                                                 len(nonlinear_multi_arg_ops)))
+    n_interaction_nonlinear_ops_single = round(
+        nonlinear_single_multi_ratio * n_interaction_nonlinear_ops)
+    n_interaction_nonlinear_ops_multi = (
+            n_interaction_nonlinear_ops - n_interaction_nonlinear_ops_single)
+
+    # TODO place_into_bins+choice_objects --> single wrapper function?
+    interaction_nonlinear_op_counts_single = place_into_bins(
+        n_interaction_nonlinear, n_interaction_nonlinear_ops_single,
+        shift=nonlinear_shift, skew=nonlinear_skew
+    )
+    interaction_nonlinear_ops_single = choice_objects(
+        nonlinear_single_arg_ops, n_interaction_nonlinear_ops_single,
+        replace=True, p=nonlinear_single_arg_ops_weights, seed=rs
+    )
+
+    interaction_nonlinear_op_counts_multi = place_into_bins(
+        n_interaction_nonlinear, n_interaction_nonlinear_ops_multi,
+        shift=nonlinear_shift, skew=nonlinear_skew
+    )
+    interaction_nonlinear_ops_multi = choice_objects(
+        nonlinear_multi_arg_ops, n_interaction_nonlinear_ops_multi,
+        replace=True, p=nonlinear_multi_arg_ops_weights, seed=rs
+    )
+
+    interaction_nonlinear_ops = []
+    idx_single = idx_multi = 0
+    # both op count lists are length of num. nonlinear interactions
+    for count_single, count_multi in zip(interaction_nonlinear_op_counts_single,
+                                         interaction_nonlinear_op_counts_multi):
+        # tuple of (single ops, multi ops)
+        ops_i = (
+            interaction_nonlinear_ops_single[idx_single:
+                                             idx_single + count_single],
+            interaction_nonlinear_ops_multi[idx_multi:
+                                            idx_multi + count_multi],
+        )
+        # postpone shuffling
+        interaction_nonlinear_ops.append(ops_i)
+
+        idx_single += count_single
+        idx_multi += count_multi
+
+    # TODO cycle --> choice all uniq_interactions mod len(uniq_interactions)
+    #  times
+    interaction_features = cycle(uniq_interactions)
+
+    for term_ops_single, term_ops_multi in interaction_nonlinear_ops:
+        term_features = next(interaction_features)
+        n_term_features = len(term_features)
+
+        # TODO(inelegant)
+        n_multi_ops_term = len(term_ops_multi)
+
+        # there are this many linear ops needed to have all terms interact.
+        # if n_interact_bridges is < 0 then term_features will by cycled
+        #  through when constructing the tree as n 2-arg ops require n - 1 >
+        #  n_term_features leaf nodes
+        n_interact_bridges = n_term_features - 1 - n_multi_ops_term
+
+        term_features_leaf = [*term_features]
+        if n_interact_bridges < 0:
+            d, r = divmod(n_term_features, abs(n_interact_bridges))
+            term_features_leaf += (
+                    term_features_leaf * d + term_features_leaf[:r])
+            n_interact_bridges = 0
+
+        n_additions = round(
+            nonlinear_interaction_additivity * n_interact_bridges)
+
+        linear_bridge_ops_multi = choice_objects(
+            linear_multi_arg_ops, n_interact_bridges - n_additions,
+            replace=True, p=linear_multi_arg_ops_weights, seed=rs
+        )
+        linear_bridge_ops_multi += [ADD_OP] * n_additions
+        term_ops_multi += linear_bridge_ops_multi
+        # shuffle 'em
+        rs.shuffle(term_ops_multi)  # actually is fast on objects
+
+        # now we have...
+        #  - features in term_features_leaf
+        #  - multi ops in term_ops_multi
+        #  - single ops in term_ops_single
+        term = RandExprTree(
+            leaves=term_features_leaf,
+            parents_with_children=term_ops_multi,
+            parents_with_child=term_ops_single,
+            root_blacklist=(ADD_OP,)
+        ).to_expression()
+        expr += term
+
+    for op, features in zip(interaction_ops, interaction_features):
+        # TODO: what about ops of ops? multiplication that goes into
+        #  nonlinearity?
+        # TODO: Abs() (and potentially others) here can be simplified out due to
+        #  symbols restricted to positive domain
+        term = features[0]
+        for feature in features[1:]:
+            term = op(term, feature)  # TODO no reuse op()
+
+        expr += term
+
+    # Linear interaction effects
+    for _ in range(n_interaction - n_interaction_nonlinear):
+        expr += next(interaction_features)  # TODO...
+
+    return expr
 
 
 def independent_terms(expr) -> Tuple[S.Expr]:
@@ -257,17 +500,19 @@ def split_effects(
 def _bad_domain(domain, no_empty_set, simplified):
     """True if bad, False if good"""
     return ((no_empty_set and domain is S.EmptySet) or
-            (simplified and domain.free_symbols))
+            (simplified and (domain.free_symbols or domain.atoms(S.Dummy))))
 
 
 def _brute_force_errored_domain(term, undesirables, errored_symbols,
                                 assumptions, no_empty_set, simplified,
-                                true_brute_force=False):
+                                fail_action, true_brute_force=False):
     """Used in the case that domain-finding for a particular sympy op is not
     implemented
 
     See `ASSUMPTION_TO_DOMAIN` for supported assumptions
     """
+    assert fail_action in {'error', 'warn'}
+
     domains = {}
     # Time to figure out if assumptions help automatically figure out
     #  valid continuous ranges...
@@ -298,7 +543,7 @@ def _brute_force_errored_domain(term, undesirables, errored_symbols,
                 )
             for symbol_comb in symbol_combinations:
                 try:
-                    # TODO: better consider existing assumptions from symbols...
+                    # TODO: better-consider existing assumptions from symbols...
                     replacements = OrderedDict(
                         (symbol,
                          (S.Symbol(symbol.name, **{assumption: True,
@@ -307,7 +552,7 @@ def _brute_force_errored_domain(term, undesirables, errored_symbols,
                         for symbol, assumption in symbol_comb
                     )
                     intervals = (
-                        ASSUMPTION_TO_DOMAIN.get(assumption, S.Reals)
+                        ASSUMPTION_DOMAIN.get(assumption, S.Reals)
                         for _, assumption in symbol_comb
                     )
                     # Insert symbols with assumptions into term
@@ -331,7 +576,7 @@ def _brute_force_errored_domain(term, undesirables, errored_symbols,
                         continue
 
                     return domains
-                except NotImplementedError:
+                except (TypeError, NotImplementedError):  # TODO: doc why
                     pass
 
     if errored_symbols:
@@ -339,7 +584,7 @@ def _brute_force_errored_domain(term, undesirables, errored_symbols,
             # Return function with a true brute force run...
             return _brute_force_errored_domain(
                 term, undesirables, errored_symbols, assumptions, no_empty_set,
-                simplified, true_brute_force=True
+                simplified, fail_action, true_brute_force=True
             )
 
         failed_symbols = set(errored_symbols) - set(domains.keys())
@@ -352,18 +597,21 @@ def _brute_force_errored_domain(term, undesirables, errored_symbols,
                     f'not coerce out an interval of legal values.'
                 )
             domain = undesirables[symbol]
-            warnings.warn(
-                f'Falling back on undesirable domain (simplified={simplified}, '
-                f'no_empty_set={no_empty_set}) for symbol {symbol} of term '
-                f'{term}: {domain}'
-            )
+            fail_msg = (f'desirable domain (simplified={simplified}, '
+                        f'no_empty_set={no_empty_set}) for symbol {symbol} of '
+                        f'term {term}: {domain}')
+            if fail_action == 'warn':
+                warnings.warn(f'Falling back on un' + fail_msg)
+            elif fail_action == 'error':
+                raise RuntimeError('Failed to find ' + fail_msg)
             domains[symbol] = domain
 
     return domains  # empty dict if made here
 
 
-@lru_cache()
-def _valid_variable_domains_term(term, assumptions, no_empty_set, simplified):
+@lru_cache(maxsize=int(2 ** 15))
+def _valid_variable_domains_term(term, assumptions, no_empty_set, simplified,
+                                 fail_action):
     """Real domains only!"""
     domains = {}
     undesirables = {}
@@ -376,21 +624,24 @@ def _valid_variable_domains_term(term, assumptions, no_empty_set, simplified):
                 undesirables[symbol] = domain
                 continue
             domains[symbol] = domain
-        except NotImplementedError:
+        except (TypeError, NotImplementedError):  # TODO: doc why
             errored_symbols.append(symbol)
     # Get domains for errored out symbols (not implemented) and add to domains
     domains.update(
         _brute_force_errored_domain(term, undesirables, errored_symbols,
-                                    assumptions, no_empty_set, simplified)
+                                    assumptions, no_empty_set, simplified,
+                                    fail_action)
     )
     return domains
 
 
 def valid_variable_domains(terms, assumptions=None, no_empty_set=True,
-                           simplified=True):
+                           simplified=True, fail_action='warn'):
     """Find the valid continuous domains of the free variables of a symbolic
     expression. Expects additive terms to be provided, but will split up a
     sympy expression too.
+
+    fail_action error: RuntimeError
 
     Real domains only! TODO: allow other domains?
     """
@@ -400,13 +651,13 @@ def valid_variable_domains(terms, assumptions=None, no_empty_set=True,
         terms = independent_terms(terms)
 
     if assumptions is None:
-        assumptions = tuple(ASSUMPTION_TO_DOMAIN.keys())
+        assumptions = tuple(ASSUMPTION_DOMAIN.keys())
 
     domains = {}
     for term in terms:
         # Get valid domains
         domains_term = _valid_variable_domains_term(
-            term, assumptions, no_empty_set, simplified)
+            term, assumptions, no_empty_set, simplified, fail_action)
         # Update valid intervals of each variable
         for symbol, domain in domains_term.items():
             domains[symbol] = domains.get(symbol, S.Reals).intersect(domain)

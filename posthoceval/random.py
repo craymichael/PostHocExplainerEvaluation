@@ -35,7 +35,7 @@ def select_n_combinations(values, k, n, seed=None):
     then sampled. All combinations drawn without repetition.
     """
     n_combs = comb(len(values), k, exact=True)
-    assert n_combs <= n
+    assert n <= n_combs
 
     rs = as_random_state(seed)
 
@@ -52,7 +52,7 @@ def select_n_combinations(values, k, n, seed=None):
         choices = tuple(tuple(values[i] for i in idx)
                         for idx in choice_idxs)
     else:
-        # many collisions possible - get all combinations then select n
+        # many collisions possible - get all combinations then place_into_bins n
         # randomly
         all_choices = tuple(combinations(values, k))
         choice_idxs = rs.choice(np.arange(len(all_choices)), n, replace=False)
@@ -72,3 +72,13 @@ def choice_objects(objects, size=None, replace=True, p=None, seed=None):
     selected = rs.choice(idxs, size=size, replace=replace, p=p)
 
     return [objects[i] for i in selected]
+
+
+def randint(low, high=None, size=None, dtype=int, endpoint=False, seed=None):
+    rs = as_random_state(seed)
+    if isinstance(rs, np.random.RandomState):
+        assert not endpoint, 'RandomState endpoint must be kept False'
+        return rs.randint(low, high=high, size=size, dtype=dtype)
+    else:
+        return rs.integers(low, high=high, size=size, dtype=dtype,
+                           endpoint=endpoint)

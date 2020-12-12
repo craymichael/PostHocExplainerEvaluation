@@ -10,7 +10,7 @@ numpy = "*"
 alibi = {extras = ["ray"], version = "*"}
 matplotlib = "*"
 pyqt5 = "*"
-sympy = "*"
+sympy = "==1.6"
 joblib = "*"
 scipy = "*"
 theano = "*"
