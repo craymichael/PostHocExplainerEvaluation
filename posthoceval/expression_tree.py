@@ -113,7 +113,18 @@ class RandExprTree(object):
         return tree_to_str(self)
 
     def to_expression(self):
-        pass
+        return self._to_expression_helper(self.root)
+
+    def _to_expression_helper(self, node):
+        if node.right is None:
+            if node.left is None:
+                return node.v
+            return node.v(self._to_expression_helper(node.left))
+        elif node.left is None:
+            return node.v(self._to_expression_helper(node.right))
+        else:
+            return node.v(self._to_expression_helper(node.left),
+                          self._to_expression_helper(node.right))
 
 
 def tree_to_str(tree: RandExprTree, padding=2):
