@@ -110,10 +110,6 @@ OPS_MULTI_ARG_NONLINEAR_WEIGHTS = [
 ]
 
 
-# noinspection PyPep8Naming
-def ADD_OP(a, b): a + b
-
-
 # OPS_MULTI_ARG = OPS_MULTI_ARG_LINEAR + OPS_MULTI_ARG_NONLINEAR
 # # Weights in model generation
 # OPS_MULTI_ARG_WEIGHTS = (OPS_MULTI_ARG_LINEAR_WEIGHTS +
@@ -433,7 +429,7 @@ def generate_additive_expression(
             linear_multi_arg_ops, n_interact_bridges - n_additions,
             replace=True, p=linear_multi_arg_ops_weights, seed=rs
         )
-        linear_bridge_ops_multi += [ADD_OP] * n_additions
+        linear_bridge_ops_multi += [S.Add] * n_additions
         term_ops_multi += linear_bridge_ops_multi
         # shuffle 'em
         rs.shuffle(term_ops_multi)  # actually is fast on objects
@@ -442,23 +438,14 @@ def generate_additive_expression(
         #  - features in term_features_leaf
         #  - multi ops in term_ops_multi
         #  - single ops in term_ops_single
+        # TODO: Abs() (and potentially others) here can be simplified out due to
+        #  symbols restricted to positive domain
         term = RandExprTree(
             leaves=term_features_leaf,
             parents_with_children=term_ops_multi,
             parents_with_child=term_ops_single,
-            root_blacklist=(ADD_OP,)
+            root_blacklist=(S.Add,)
         ).to_expression()
-        expr += term
-
-    for op, features in zip(interaction_ops, interaction_features):
-        # TODO: what about ops of ops? multiplication that goes into
-        #  nonlinearity?
-        # TODO: Abs() (and potentially others) here can be simplified out due to
-        #  symbols restricted to positive domain
-        term = features[0]
-        for feature in features[1:]:
-            term = op(term, feature)  # TODO no reuse op()
-
         expr += term
 
     # Linear interaction effects

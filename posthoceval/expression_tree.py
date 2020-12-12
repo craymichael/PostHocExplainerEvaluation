@@ -143,21 +143,19 @@ def _str_tree_helper(nodes, padding):
     for parent_w, node in nodes:
         if node is None:
             as_str = ''
-            node_l_w = node_r_w = padding
             left = right = None
-            node_ws.append(node_l_w + node_r_w)
         else:
             as_str = str(node)
-
-            total_width = max(len(as_str) + 2 * padding, parent_w)
-            node_l_w = round(total_width / 2)
-            node_r_w = total_width - node_l_w
 
             left = node.left
             right = node.right
 
             all_none = all_none and left is None and right is None
-            node_ws.append(total_width)
+
+        total_width = max(len(as_str) + 2 * padding, parent_w)
+        node_l_w = round(total_width / 2)
+        node_r_w = total_width - node_l_w
+        node_ws.append(total_width)
 
         node_strs.append(as_str)
         children.extend(((node_l_w, left), (node_r_w, right)))
