@@ -20,6 +20,7 @@ pathos = "*"
 interpret = "*"
 skope-rules = "*"
 scikit-learn = "*"
+fastcache = "*"
 
 [requires]
 python_version = "3.8"

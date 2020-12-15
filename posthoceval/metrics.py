@@ -85,7 +85,8 @@ balanced_accuracy = metrics.balanced_accuracy_score
 mean_squared_error = metrics.mean_squared_error
 mse = mean_squared_error
 
-root_mean_squared_error = partial(metrics.mean_squared_error, square=False)
+# TODO: version support square?
+root_mean_squared_error = partial(metrics.mean_squared_error, squared=False)
 rmse = root_mean_squared_error
 
 if hasattr(metrics, 'mean_absolute_percentage_error'):

@@ -11,10 +11,10 @@ from scipy.interpolate import interp1d
 
 from alibi.explainers import KernelShap
 
-from . import utils
+from posthoceval import utils
 
 
-class GlobalKernelShap(object):
+class GlobalKernelSHAP(object):
 
     def __init__(self,
                  data: np.ndarray,

@@ -1,7 +1,7 @@
 from itertools import repeat
 
-from .random import as_random_state
-from .random import randint
+from .rand import as_random_state
+from .rand import randint
 
 
 class Node(object):

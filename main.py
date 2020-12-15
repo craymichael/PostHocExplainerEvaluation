@@ -1,8 +1,6 @@
 from math import sqrt
 from math import ceil
 
-import cProfile
-from functools import wraps
 from collections import defaultdict
 
 from itertools import chain
@@ -14,50 +12,22 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa
 import seaborn as sns
 
-from alibi.explainers import KernelShap
-from alibi.explainers.shap_wrappers import KERNEL_SHAP_BACKGROUND_THRESHOLD
-
-from interpret.glassbox import ExplainableBoostingRegressor
-from interpret.glassbox import LinearRegression
 # from interpret.blackbox import PartialDependence  TODO
 
 # TODO: commented out in source???? why
 # from interpret.blackbox import PermutationImportance
 
-from sklearn.model_selection import KFold
-
-from joblib import cpu_count
-
-from posthoceval.global_shap import GlobalKernelShap
+from posthoceval.explainers.global_.ebm import ebm_explain
+from posthoceval.explainers.global_.linear import linear_explain
+from posthoceval.explainers.local.shap import gshap_explain
 from posthoceval.model_generation import AdditiveModel
 from posthoceval.model_generation import tsang_iclr18_models
-from posthoceval.evaluate import symbolic_evaluate_func
+from posthoceval.profile import set_profile
 from posthoceval import metrics
 
 sns.set(
     context='talk'
 )
-
-PROFILE = False
-
-
-def profile(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        if PROFILE:
-            profiler = cProfile.Profile()
-            try:
-                profiler.enable()
-                ret = func(*args, **kwargs)
-                profiler.disable()
-                return ret
-            finally:
-                filename = func.__name__ + '.pstat'
-                profiler.dump_stats(filename)
-        else:
-            return func(*args, **kwargs)
-
-    return wrapper
 
 
 def _standardize_effects(effects):
@@ -261,7 +231,6 @@ def eval_and_plot(data, contribs_true, effects_true, contribs_explainers,
                       explainer_name,
                       metrics.rmse(contrib_sym_true_all,
                                    contrib_sym_explainer))
-
         else:
             # Main effects
 
@@ -291,11 +260,29 @@ def eval_and_plot(data, contribs_true, effects_true, contribs_explainers,
                 print(explainer_prefix + ' ' + feature_prefix +
                       f' feature shape RMSE: {err:.6f}')
 
+    nonzero_effects_true = nonzero_effects(contribs_true)
+
     print()
     for explainer_name in contribs_explainers:
+
         explainer_prefix = explainer_str.format(explainer_name)
         print(explainer_prefix + f' Mean feature shape RMSE: '
                                  f'{np.mean(errs[explainer_name]):.6f}')
+
+        contribs_explainer = contribs_explainers[explainer_name]
+        nonzero_effects_explainer = nonzero_effects(contribs_explainer)
+        ed_f1 = metrics.effect_detection_f1(nonzero_effects_true,
+                                            nonzero_effects_explainer)
+        print(explainer_prefix + f' Effect Detection F1: {ed_f1:.6f}')
+        ed_precision = metrics.effect_detection_recall(
+            nonzero_effects_true, nonzero_effects_explainer)
+        print(explainer_prefix + f' Effect Detection Precision: '
+                                 f'{ed_precision:.6f}')
+        ed_recall = metrics.effect_detection_precision(
+            nonzero_effects_true, nonzero_effects_explainer)
+        print(explainer_prefix + f' Effect Detection Recall: {ed_recall:.6f}')
+
+        # metrics.mean_absolute_percentage_error()
 
     plot_data = np.hstack(plot_cols).T
     df = pd.DataFrame(plot_data, columns=plot_headers)
@@ -314,178 +301,9 @@ def eval_and_plot(data, contribs_true, effects_true, contribs_explainers,
     plt.show()
 
 
-@profile
-def gshap_explain(model, data_train, data_test,
-                  n_background_samples=300):
-    # TODO: gSHAP-linear, gSHAP-spline, etc.
-
-    explainer = KernelShap(
-        model,
-        feature_names=model.symbol_names,
-        task='regression',
-        distributed_opts={
-            # https://www.seldon.io/how-seldons-alibi-and-ray-make-model-explainability-easy-and-scalable/
-            'n_cpus': cpu_count(),
-            # If batch_size set to `None`, an input array is split in (roughly)
-            # equal parts and distributed across the available CPUs
-            'batch_size': None,
-        }
-    )
-    fit_kwargs = {}
-    if n_background_samples < len(data_train):
-        print('Intending to summarize background data as n_samples > '
-              '{}'.format(n_background_samples))
-        fit_kwargs['summarise_background'] = True
-        fit_kwargs['n_background_samples'] = n_background_samples
-
-    print('Explainer fit')
-    explainer.fit(data_train, **fit_kwargs)
-
-    # Note: explanation.raw['importances'] has aggregated scores per output with
-    # corresponding keys, e.g., '0' & '1' for two outputs. Also has 'aggregated'
-    # for the aggregated scores over all outputs
-    print('Explain')
-    explanation = explainer.explain(data_train, silent=True)
-    expected_value = explanation.expected_value.squeeze()
-    shap_values = explanation.shap_values[0]
-    outputs_train = explanation.raw['raw_prediction']
-    shap_values_g = explanation.raw['importances']['0']
-
-    print('Global SHAP')
-    gshap = GlobalKernelShap(data_train, shap_values, expected_value)
-
-    gshap_preds, gshap_vals = gshap.predict(data_train, return_shap_values=True)
-    print('RMSE global error train', metrics.rmse(outputs_train, gshap_preds))
-
-    gshap_preds, gshap_vals = gshap.predict(data_test, return_shap_values=True)
-    outputs_test = model(data_test)
-    print('RMSE global error test', metrics.rmse(outputs_test, gshap_preds))
-
-    contribs_gshap = dict(zip(model.symbols, gshap_vals.T))
-
-    return contribs_gshap
-
-
-def ebm_explain(model, data_train, data_test):
-    y_train = model(data_train)
-    y_test = model(data_test)
-
-    ebm = ExplainableBoostingRegressor(
-        feature_names=model.symbol_names,
-        feature_types=['continuous'] * model.n_features,  # TODO
-        interactions=0,  # TODO
-    )
-    ebm.fit(data_train, y_train)
-
-    ebm_preds_train = ebm.predict(data_train)
-    ebm_preds_test = ebm.predict(data_test)
-
-    # TODO: evaluate global explanations using scores (rankings of feature
-    #  contributions, whether feature/interaction present, etc.) - coarser
-    #  metrics
-    # ebm_expl = ebm.explain_global('EBM')
-    ebm_expl = ebm.explain_local(data_test)
-
-    # Expected value
-    # intercept = ebm.intercept_
-
-    ebm_contribs = defaultdict(lambda: [])
-    for i in range(len(data_test)):
-        # Additive contributions for sample i
-        expl_i = ebm_expl.data(i)
-
-        # TODO make sure this looks good for interactions
-        feat_names = expl_i['names']
-        feat_scores = expl_i['scores']
-        feat_contribs = dict(zip(feat_names, feat_scores))
-        # TODO this only does main effects right now...
-        for symbol in model.symbols:
-            ebm_contribs[symbol].append(feat_contribs[symbol.name])
-
-    # TODO: mean absolute percentage error, consolidate metric eval code...
-    print('RMSE global error train', metrics.rmse(y_train, ebm_preds_train))
-    print('RMSE global error test', metrics.rmse(y_test, ebm_preds_test))
-
-    return dict(ebm_contribs)  # don't return defaultdict
-
-
-def linear_explain(model, data_train, data_test):  # TODO: dupe code...
-    expected_value = np.mean(data_train)
-
-    y_train = model(data_train)
-    y_test = model(data_test)
-
-    # Common linear regressor parameters
-    lr_params = dict(
-        max_iter=10_000,
-        feature_names=model.symbol_names,
-        feature_types=['continuous'] * model.n_features,  # TODO
-        fit_intercept=False,  # TODO(easier to deal with...)
-    )
-
-    # Center expected values in training/prediction
-    y_train -= expected_value
-    y_test -= expected_value
-
-    alphas = (1e-6, 1e-5, 1e-4, 1e-3, 1e-1, 1., 1e1)
-    n_splits = 5
-    kf = KFold(n_splits=n_splits)
-    cv_errs = [0.] * len(alphas)
-    for cv_train_idx, cv_val_idx in kf.split(data_train):
-        X_cv_train = data_train[cv_train_idx]
-        y_cv_train = y_train[cv_train_idx]
-        X_cv_val = data_train[cv_val_idx]
-        y_cv_val = y_train[cv_val_idx]
-
-        for i, alpha in enumerate(alphas):
-            lr = LinearRegression(
-                alpha=alpha,
-                **lr_params,
-            )
-            lr.fit(X_cv_train, y_cv_train)
-            cv_errs[i] += metrics.rmse(y_cv_val, lr.predict(X_cv_val))
-    cv_errs = [cv_err / n_splits for cv_err in cv_errs]
-    # noinspection PyTypeChecker
-    alpha_best = alphas[np.argmin(cv_errs)]
-
-    print(f'Best Alpha ({n_splits}-fold CV)', alpha_best)
-
-    # Use best alpha according to RMSE-scored CV
-    lr = LinearRegression(
-        alpha=alpha_best,
-        **lr_params,
-    )
-    lr.fit(data_train, y_train)
-
-    lr_preds_train = lr.predict(data_train)
-    lr_preds_test = lr.predict(data_test)
-
-    # TODO: evaluate global explanations using scores (rankings of feature
-    #  contributions, whether feature/interaction present, etc.) - coarser
-    #  metrics
-    # lr_expl = lr.explain_global('Linear')
-    lr_expl = lr.explain_local(data_test)
-
-    # TODO intercept in explanations, not class attr - this is
-    #  bias term, not expected value
-    # intercept = lr.intercept_
-
-    lr_contribs = defaultdict(lambda: [])
-    for i in range(len(data_test)):
-        # Additive contributions for sample i
-        expl_i = lr_expl.data(i)
-
-        feat_names = expl_i['names']
-        feat_scores = expl_i['scores']
-        feat_contribs = dict(zip(feat_names, feat_scores))
-
-        for symbol in model.symbols:
-            lr_contribs[symbol].append(feat_contribs[symbol.name])
-
-    print('RMSE global error train', metrics.rmse(y_train, lr_preds_train))
-    print('RMSE global error test', metrics.rmse(y_test, lr_preds_test))
-
-    return dict(lr_contribs)  # don't return defaultdict
+def nonzero_effects(contribs_dict):
+    return [k for k, v in contribs_dict.items()
+            if not np.allclose(v, 0.)]
 
 
 def evaluate_explainers(debug=False):
@@ -595,8 +413,6 @@ def evaluate_explainers(debug=False):
 
 if __name__ == '__main__':
     def main():
-        global PROFILE
-
         import argparse
 
         parser = argparse.ArgumentParser(
@@ -608,7 +424,7 @@ if __name__ == '__main__':
                             help='Run code profiling.')
         args = parser.parse_args()
 
-        PROFILE = args.profile
+        set_profile(args.profile)
 
         evaluate_explainers(debug=args.debug)
 

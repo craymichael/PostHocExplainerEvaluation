@@ -22,9 +22,9 @@ from sympy.calculus.util import continuous_domain
 import numpy as np
 from scipy.special import comb
 
-from .random import select_n_combinations
-from .random import as_random_state
-from .random import choice_objects
+from .rand import select_n_combinations
+from .rand import as_random_state
+from .rand import choice_objects
 from .utils import assert_shape
 from .utils import as_iterator_of_size
 from .utils import assert_same_size
@@ -76,6 +76,9 @@ OPS_TRIG = [
 OPS_SINGLE_ARG = OPS_TRIG + [
     S.Abs,
     S.sqrt,
+    S.cbrt,
+    lambda a: S.Pow(a, 2),
+    lambda a: S.Pow(a, 3),
     S.exp,
     S.log,
 ]
@@ -444,13 +447,24 @@ def generate_additive_expression(
             leaves=term_features_leaf,
             parents_with_children=term_ops_multi,
             parents_with_child=term_ops_single,
-            root_blacklist=(S.Add,)
+            root_blacklist=(S.Add,),
+            seed=seed
         ).to_expression()
         expr += term
 
     # Linear interaction effects
-    for _ in range(n_interaction - n_interaction_nonlinear):
-        expr += next(interaction_features)  # TODO...
+    n_interaction_linear = n_interaction - n_interaction_nonlinear
+    for _ in range(n_interaction_linear):
+        term_features = next(interaction_features)
+        linear_interaction_ops = choice_objects(
+            linear_multi_arg_ops, len(term_features) - 1,
+            replace=True, p=linear_multi_arg_ops_weights, seed=rs
+        )
+        term = term_features[0]
+        for feature, op in zip(term_features[1:], linear_interaction_ops):
+            term = op(feature, term)
+
+        expr += term
 
     return expr
 
@@ -492,7 +506,8 @@ def _bad_domain(domain, no_empty_set, simplified):
 
 def _brute_force_errored_domain(term, undesirables, errored_symbols,
                                 assumptions, no_empty_set, simplified,
-                                fail_action, true_brute_force=False):
+                                fail_action, true_brute_force=False,
+                                verbose=False):
     """Used in the case that domain-finding for a particular sympy op is not
     implemented
 
@@ -529,6 +544,8 @@ def _brute_force_errored_domain(term, undesirables, errored_symbols,
                     for assumption in assumptions
                 )
             for symbol_comb in symbol_combinations:
+                if verbose:
+                    print(f'start brute force of {symbol_comb} for {term}')
                 try:
                     # TODO: better-consider existing assumptions from symbols...
                     replacements = OrderedDict(
@@ -563,8 +580,11 @@ def _brute_force_errored_domain(term, undesirables, errored_symbols,
                         continue
 
                     return domains
-                except (TypeError, NotImplementedError):  # TODO: doc why
-                    pass
+                except (ValueError, TypeError, NotImplementedError, KeyError,
+                        AssertionError) as e:
+                    # TODO(doc exceptions)
+                    if verbose:
+                        print('exception[brute]', symbol_comb, term, e)
 
     if errored_symbols:
         if not true_brute_force:
@@ -577,6 +597,8 @@ def _brute_force_errored_domain(term, undesirables, errored_symbols,
         failed_symbols = set(errored_symbols) - set(domains.keys())
         for symbol in failed_symbols:
             if symbol not in undesirables:
+                if verbose:
+                    print('undesirables', undesirables)
                 raise RuntimeError(
                     f'Failed to discover a valid domain for {symbol} of term '
                     f'{term}! This means that the expression contains ops that '
@@ -598,32 +620,57 @@ def _brute_force_errored_domain(term, undesirables, errored_symbols,
 
 @lru_cache(maxsize=int(2 ** 15))
 def _valid_variable_domains_term(term, assumptions, no_empty_set, simplified,
-                                 fail_action):
+                                 fail_action, verbose=False):
     """Real domains only!"""
     domains = {}
     undesirables = {}
     errored_symbols = []
     for symbol in term.free_symbols:
+        if verbose:
+            print(f'start term {term} symbol {symbol}')
         try:
             domain = continuous_domain(term, symbol, S.Reals)
             if _bad_domain(domain, no_empty_set, simplified):
+                if verbose:
+                    print(f'undesirable domain for {symbol}: {domain}')
                 errored_symbols.append(symbol)
                 undesirables[symbol] = domain
                 continue
             domains[symbol] = domain
-        except (TypeError, NotImplementedError):  # TODO: doc why
+        except (ValueError, TypeError, NotImplementedError, KeyError,
+                AssertionError) as e:
+            # TODO(doc exceptions)
+            # ex1:
+            # ValueError:
+            # sech(sqrt(x7)) > 0 contains imaginary parts which cannot be made
+            # 0 for any value of x4 satisfying the inequality, leading to
+            # relations like I < 0.
+            # ex2:
+            # File ".../sympy/solvers/diophantine/diophantine.py", line 491,
+            # in <listcomp>
+            #     return {tuple([t[dict_sym_index[i]] for i in var])
+            # KeyError: x5
+            # ex3:
+            #   File ".../sympy/solvers/solveset.py", line 628, in _solve_trig2
+            #     assert len(numerators) == 1
+            # AssertionError
             errored_symbols.append(symbol)
+            if verbose:
+                print('exception[initial]', symbol, term, e)
     # Get domains for errored out symbols (not implemented) and add to domains
+    if verbose:
+        print(term, 'domains before brute force:\n', domains)
+        print('errored_symbols before brute force:\n', errored_symbols)
     domains.update(
         _brute_force_errored_domain(term, undesirables, errored_symbols,
                                     assumptions, no_empty_set, simplified,
-                                    fail_action)
+                                    fail_action, verbose=verbose)
     )
     return domains
 
 
 def valid_variable_domains(terms, assumptions=None, no_empty_set=True,
-                           simplified=True, fail_action='warn'):
+                           simplified=True, fail_action='warn', verbose=False):
     """Find the valid continuous domains of the free variables of a symbolic
     expression. Expects additive terms to be provided, but will split up a
     sympy expression too.
@@ -644,10 +691,22 @@ def valid_variable_domains(terms, assumptions=None, no_empty_set=True,
     for term in terms:
         # Get valid domains
         domains_term = _valid_variable_domains_term(
-            term, assumptions, no_empty_set, simplified, fail_action)
+            term, assumptions, no_empty_set, simplified, fail_action,
+            verbose=verbose)
         # Update valid intervals of each variable
         for symbol, domain in domains_term.items():
             domains[symbol] = domains.get(symbol, S.Reals).intersect(domain)
+
+    # bad domains can arise (namely empty set) from intersections of intervals
+    for symbol, domain in domains.items():
+        if _bad_domain(domain, no_empty_set, simplified):
+            fail_msg = (f'desirable domain (simplified={simplified}, '
+                        f'no_empty_set={no_empty_set}) for symbol {symbol}: '
+                        f'{domain}')
+            if fail_action == 'warn':
+                warnings.warn(f'Falling back on un' + fail_msg)
+            elif fail_action == 'error':
+                raise RuntimeError('Failed to find ' + fail_msg)
 
     return domains
 
@@ -672,6 +731,8 @@ def symbol_names(n_features, excel_like=False):
 class AdditiveModel(object):
     def __init__(self,
                  n_features: int,
+                 # TODO: reproducibility...use rs instead...or just remove
+                 #  this crap
                  coefficients=partial(random.uniform, -1, +1),
                  interactions=None,
                  domain: Union[str, Sequence[str]] = 'real',

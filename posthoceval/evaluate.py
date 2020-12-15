@@ -51,7 +51,8 @@ def _parallelize_matrix_func(func):
     def wrapper(*columns):
         # TODO: note llvm can't be pickled due to ctype pointers
         # TODO: llvm backend keeps segmentation faulting, ugh
-        return np.asarray([func(*row) for row in zip(*columns)])
+        return np.fromiter((func(*row) for row in zip(*columns)),
+                           dtype=np.float32)
         # return np.asarray(ProcessingPool(nodes=cpu_count()).map(
         #     func, zip(columns)
         # ))
