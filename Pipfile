@@ -10,7 +10,7 @@ numpy = "*"
 alibi = {extras = ["ray"], version = "*"}
 matplotlib = "*"
 pyqt5 = "*"
-sympy = "==1.6"
+sympy = {editable = true, ref = "60bbce89cc1e638e6ee813ad4da2877d76d0a628", git = "git@github.com:craymichael/sympy.git"}
 joblib = "*"
 scipy = "*"
 theano = "*"

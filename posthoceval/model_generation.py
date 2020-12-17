@@ -112,7 +112,6 @@ OPS_MULTI_ARG_NONLINEAR_WEIGHTS = [
     0.25,
 ]
 
-
 # OPS_MULTI_ARG = OPS_MULTI_ARG_LINEAR + OPS_MULTI_ARG_NONLINEAR
 # # Weights in model generation
 # OPS_MULTI_ARG_WEIGHTS = (OPS_MULTI_ARG_LINEAR_WEIGHTS +
@@ -163,17 +162,14 @@ def place_into_bins(n_bins, n_items, shift=0, skew=0):
 
 def generate_additive_expression(
         symbols,
-        n_main=None,  # TODO ex. n_main&pct_main --> int/float single arg?
-        pct_main=None,
+        n_main=None,
         n_uniq_main=None,
-        n_interaction=None,
-        pct_interaction=None,
+        n_interaction=0,
         n_uniq_interaction=None,
         interaction_ord=None,
-        n_dummy=None,
-        pct_dummy=None,
-        pct_nonlinear=0.5,
-        nonlinear_multiplier=1,
+        n_dummy=0,
+        pct_nonlinear=None,
+        nonlinear_multiplier=None,
         nonlinear_shift=0,
         nonlinear_skew=0,
         nonlinear_interaction_additivity=.5,
@@ -184,32 +180,47 @@ def generate_additive_expression(
         nonlinear_multi_arg_ops_weights=None,
         linear_multi_arg_ops=None,
         linear_multi_arg_ops_weights=None,
-        typ=None,
         seed=None,
 ) -> S.Expr:
     """
 
     :param symbols:
     :param n_main: if None use a heuristic. Main effect terms
-    :param pct_main:
     :param n_uniq_main: number of unique main effects
     :param n_interaction: Interaction effect terms
-    :param pct_interaction:
     :param n_uniq_interaction: number of unique interactions
     :param n_dummy:
-    :param pct_dummy:
     :param pct_nonlinear: Note that this includes both linear terms as well as
         interaction terms without nonlinearities. For example, 
         $x_1 \\times x_2$ would be considered to be linear with respect to a 
         single variable (holding the other constant), whereas $sin(x_1 + x_2)$ 
         would be nonlinear.
-    :param typ: 'linear', 'polynomial', ... TODO - to separate functions?
-    :param seed: For reproducibility. int or NumPy RandomState
+    :param seed: For reproducibility
     :return:
     """
     n_features = len(symbols)
 
-    assert nonlinear_multiplier >= 1
+    if pct_nonlinear is None:
+        # default pct_nonlinear is based on nonlinear_multiplier. also the
+        # logic for when multiplier < 1
+        if nonlinear_multiplier is None:
+            nonlinear_multiplier = 0.5  # default, case 1
+        if nonlinear_multiplier >= 1:
+            pct_nonlinear = 1
+        else:  # nonlinear_multiplier < 1
+            assert nonlinear_multiplier >= 0
+
+            pct_nonlinear = nonlinear_multiplier
+            nonlinear_multiplier = 1
+    else:
+        assert 0 <= pct_nonlinear <= 1
+        if nonlinear_multiplier is None:  # default, case 2
+            nonlinear_multiplier = 1
+        else:
+            assert nonlinear_multiplier >= 1, (
+                'cannot have nonlinear_multiplier < 1 and pct_nonlinear '
+                'specified')
+
     assert 0 <= nonlinear_interaction_additivity <= 1
 
     if isinstance(nonlinear_single_multi_ratio, str):
@@ -218,24 +229,25 @@ def generate_additive_expression(
     else:
         assert 0 <= nonlinear_single_multi_ratio <= 1
 
-    if pct_dummy is None:
-        n_dummy = n_dummy or 0
-    else:
-        assert n_dummy is None, 'Cannot specify both n_dummy and pct_dummy'
-        n_dummy = round(pct_dummy * n_features)
+    if isinstance(n_dummy, float):
+        n_dummy = int(round(n_dummy * n_features))
     assert n_dummy < n_features, 'Must satisfy n_dummy < n_features'
 
     # main effects
     max_possible_main_uniq = n_features - n_dummy
-    if pct_main is None:
-        n_main = n_main or max_possible_main_uniq
-    else:
-        assert n_main is None, 'Cannot specify both n_dummy and pct_main'
-        n_main = round(pct_main * n_features)
+    if n_main is None:
+        n_main = max_possible_main_uniq
+    elif isinstance(n_main, float):
+        n_main = int(round(n_main * n_features))
 
+    # TODO(doc) reason for both n_uniq_main and n_dummy is some can be linear
+    #  and some can just be nonlinear...things like that...
     if n_uniq_main is None:
         n_uniq_main = max_possible_main_uniq
     else:
+        if isinstance(n_uniq_main, float):
+            assert 0 <= n_uniq_main <= 1
+            n_uniq_main = int(round(n_uniq_main * n_features))
         assert n_uniq_main <= max_possible_main_uniq, (
             'Must satisfy n_uniq_main <= n_features - n_dummy')
 
@@ -251,17 +263,16 @@ def generate_additive_expression(
     }
     max_possible_int_uniq = sum(possible_int_ords.values())
 
-    if pct_interaction is None:
-        n_interaction = n_interaction or 0
-    else:
-        assert n_interaction is None, (
-            'Cannot specify both n_interaction and pct_interaction')
-        n_interaction = round(pct_interaction * n_features)
+    if isinstance(n_interaction, float):
+        n_interaction = int(round(n_interaction * n_features))
 
     if n_uniq_interaction is None:  # heuristic default
-        n_uniq_interaction = min(n_interaction, n_features,
+        n_uniq_interaction = min(n_interaction, n_uniq_main,
                                  max_possible_int_uniq)
     else:  # validate
+        if isinstance(n_uniq_interaction, float):
+            n_uniq_interaction = int(round(
+                n_uniq_interaction * max_possible_int_uniq))
         assert (min(1, n_interaction) <= n_uniq_interaction <=
                 max_possible_int_uniq)
 
@@ -277,8 +288,8 @@ def generate_additive_expression(
     for i, order in enumerate(interaction_ord):
         n_int_ord = min(
             possible_int_ords[order],
-            round((n_uniq_interaction - len(uniq_interactions)) /
-                  (len(interaction_ord) - i))
+            int(round((n_uniq_interaction - len(uniq_interactions)) /
+                      (len(interaction_ord) - i)))
         )
         # unique interactions between `order` features
         uniq_interactions.extend(select_n_combinations(
@@ -322,10 +333,10 @@ def generate_additive_expression(
     # TODO: it is possible with large enough `n_main` some terms could repeat
     #  and simplify into a single term with a coefficient. By pigeonhole this
     #  will happen due to finite number of ops
-    n_main_nonlinear = round(pct_nonlinear * n_main)
+    n_main_nonlinear = int(round(pct_nonlinear * n_main))
     # Nonlinear main effects
     # TODO: magnitude of main_ops...applying multiple to each term...
-    n_main_nonlinear_ops = round(nonlinear_multiplier * n_main_nonlinear)
+    n_main_nonlinear_ops = int(round(nonlinear_multiplier * n_main_nonlinear))
     main_nonlinear_op_counts = place_into_bins(
         n_main_nonlinear, n_main_nonlinear_ops,
         shift=nonlinear_shift, skew=nonlinear_skew
@@ -351,16 +362,16 @@ def generate_additive_expression(
         expr += next(main_features)
 
     # Nonlinear interaction effects
-    n_interaction_nonlinear = round(pct_nonlinear * n_interaction)
-    n_interaction_nonlinear_ops = round(
-        nonlinear_multiplier * n_interaction_nonlinear)
+    n_interaction_nonlinear = int(round(pct_nonlinear * n_interaction))
+    n_interaction_nonlinear_ops = int(round(
+        nonlinear_multiplier * n_interaction_nonlinear))
 
     if nonlinear_single_multi_ratio == 'balanced':
         nonlinear_single_multi_ratio = (
                 len(nonlinear_single_arg_ops) / (len(nonlinear_single_arg_ops) +
                                                  len(nonlinear_multi_arg_ops)))
-    n_interaction_nonlinear_ops_single = round(
-        nonlinear_single_multi_ratio * n_interaction_nonlinear_ops)
+    n_interaction_nonlinear_ops_single = int(round(
+        nonlinear_single_multi_ratio * n_interaction_nonlinear_ops))
     n_interaction_nonlinear_ops_multi = (
             n_interaction_nonlinear_ops - n_interaction_nonlinear_ops_single)
 
@@ -425,8 +436,8 @@ def generate_additive_expression(
                     term_features_leaf * d + term_features_leaf[:r])
             n_interact_bridges = 0
 
-        n_additions = round(
-            nonlinear_interaction_additivity * n_interact_bridges)
+        n_additions = int(round(
+            nonlinear_interaction_additivity * n_interact_bridges))
 
         linear_bridge_ops_multi = choice_objects(
             linear_multi_arg_ops, n_interact_bridges - n_additions,
