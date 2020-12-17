@@ -21,6 +21,7 @@ interpret = "*"
 skope-rules = "*"
 scikit-learn = "*"
 fastcache = "*"
+tqdm = "*"
 
 [requires]
 python_version = "3.8"

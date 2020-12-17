@@ -8,12 +8,17 @@ from functools import wraps
 from collections import namedtuple
 from datetime import datetime
 
+from tqdm.auto import tqdm
+from joblib import Parallel
+from joblib import delayed
+
 import sympy as S
 import numpy as np
 
 from posthoceval.model_generation import generate_additive_expression
 from posthoceval.model_generation import valid_variable_domains
 from posthoceval.model_generation import as_random_state
+from posthoceval.utils import tqdm_parallel
 
 _RUNNING_PERIODICITY_IDS = {}
 _MAX_RECURSIONS = 1_000
@@ -57,12 +62,12 @@ def periodicity_wrapper(func):
             return ret
         else:
             kwargs['_child_'] = True
-            print(f'Enter new periodicity thread {ident}')
+            # print(f'Enter new periodicity thread {ident}')
             thread = threading.Thread(target=wrapper, args=args, kwargs=kwargs)
             thread.start()
             thread_ident = thread.ident
             thread.join()
-            print(f'Exit periodicity thread {ident}')
+            # print(f'Exit periodicity thread {ident}')
             if thread_ident in _RUNNING_PERIODICITY_IDS:
                 del _RUNNING_PERIODICITY_IDS[thread_ident]
             if raise_error[0]:
@@ -101,8 +106,16 @@ S.periodicity = S.calculus.util.periodicity = S.calculus.periodicity = \
     periodicity_wrapper(S.periodicity)
 
 
-def generate_expression(symbols, rs, **kwargs):
+def generate_expression(symbols, seed, verbose=0, printer=None, **kwargs):
     """kwargs: see `generate_additive_expression`"""
+    # sympy uses python random module in spots, set seed for reproducibility
+    random.seed(seed, version=2)
+    # I can't prove it but I think sympy also uses default numpy generator in
+    # spots...
+    np.random.seed(seed)
+    # reproducibility, reseeded per job
+    rs = as_random_state(seed)
+
     tries = 0
     while True:
         tries += 1
@@ -111,30 +124,29 @@ def generate_expression(symbols, rs, **kwargs):
         try:
             print('Attempting to find valid domains...')
             domains = valid_variable_domains(expr, fail_action='error',
-                                             verbose=True)
+                                             verbose=verbose)
         except (RuntimeError, RecursionError) as e:
             # import traceback
             print('Failed to find domains for:')
-            S.pprint(expr)
+            print(S.pretty(expr))
             print('Yet another exception...', e, file=sys.stderr)
             # traceback.print_exc()
         else:
             break
     print(f'Generated valid expression in {tries} tries.')
-    S.pprint(expr)
-    return expr, domains, rs.__getstate__()
+    print(S.pretty(expr))
+
+    return ExprResult(
+        symbols=symbols,
+        expr=expr,
+        domains=domains,
+        state=rs.__getstate__(),
+        kwargs=kwargs
+    )
 
 
-def run(kwarg, kwarg_range, n_feats_range, out_dir, seed):
+def run(kwarg, kwarg_range, n_feats_range, n_runs, out_dir, seed):
     os.makedirs(out_dir, exist_ok=True)
-
-    # reproducibility
-    rs = as_random_state(seed)
-    # sympy uses python random module in spots, set seed for reproducibility
-    random.seed(seed, version=2)
-    # I can't prove it but I think sympy also uses default numpy generator in
-    # spots...
-    np.random.seed(seed)
 
     # default kwargs
     default_kwargs = dict(
@@ -158,24 +170,26 @@ def run(kwarg, kwarg_range, n_feats_range, out_dir, seed):
         linear_multi_arg_ops_weights=None,
     )
 
-    results = []
-    for n_feat in n_feats_range:
-        symbols = S.symbols(f'x1:{n_feat + 1}', real=True)
+    total_expressions = len(n_feats_range) * len(kwarg_range) * n_runs
 
-        for kw_val in kwarg_range:
-            kwargs = default_kwargs.copy()
-            kwargs[kwarg] = kw_val
+    with tqdm_parallel(tqdm(desc='Expression Generation',
+                            total=total_expressions)) as pbar:
+        jobs = []
+        for n_feat in n_feats_range:
+            symbols = S.symbols(f'x1:{n_feat + 1}', real=True)
 
-            expr, domains, state = generate_expression(symbols, rs, **kwargs)
+            for kw_val in kwarg_range:
+                kwargs = default_kwargs.copy()
+                kwargs[kwarg] = kw_val
 
-            # save result: symbols, expr, domains, state, kwargs
-            results.append(ExprResult(
-                symbols=symbols,
-                expr=expr,
-                domains=domains,
-                state=state,
-                kwargs=kwargs
-            ))
+                for _ in range(n_runs):
+                    jobs.append(
+                        delayed(generate_expression)(symbols, seed, **kwargs)
+                    )
+                    # increment seed (don't have same RNG state per job)
+                    seed += 1
+
+        results = Parallel(n_jobs=-1)(jobs)
 
     now_str = datetime.now().isoformat(timespec='seconds').replace(':', '_')
     out_file = os.path.join(out_dir, f'generated_expressions_{now_str}.pkl')
@@ -309,7 +323,8 @@ if __name__ == '__main__':
         )
         parser.add_argument(
             '--seed', default=42, type=int,
-            help='Seed for reproducibility'
+            help='Seed for reproducibility. Technically the starting seed '
+                 'from which each seed is derived per job'
         )
 
         args = parser.parse_args()
@@ -324,6 +339,7 @@ if __name__ == '__main__':
             kwarg=args.kwarg,
             kwarg_range=kwarg_range,
             n_feats_range=n_feats_range,
+            n_runs=args.n_runs,
             out_dir=args.out_dir,
             seed=args.seed,
         )

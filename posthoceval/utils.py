@@ -6,8 +6,12 @@ from typing import Tuple
 from typing import Optional
 from typing import Any
 
+from contextlib import contextmanager
+
 from itertools import repeat
 from collections import defaultdict
+
+import joblib
 
 import numpy as np
 
@@ -111,3 +115,31 @@ def as_iterator_of_size(values, size, units='values'):
             assert_same_size(size, len(values), units, ret=values))
     else:
         return repeat(values, size)
+
+
+@contextmanager
+def tqdm_parallel(tqdm_object):
+    """
+    Context manager to patch joblib to report into tqdm progress bar given
+    as argument. Kudos to https://stackoverflow.com/a/58936697/6557588
+
+    Usage:
+    >>> with tqdm_parallel(tqdm(desc='My calculation', total=10)) as pbar:
+    >>>     Parallel(n_jobs=-1)(delayed(sqrt)(i**2) for i in range(10))
+    """
+
+    class TqdmBatchCompletionCallback(joblib.parallel.BatchCompletionCallBack):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+
+        def __call__(self, *args, **kwargs):
+            tqdm_object.update(n=self.batch_size)
+            return super().__call__(*args, **kwargs)
+
+    old_batch_callback = joblib.parallel.BatchCompletionCallBack
+    joblib.parallel.BatchCompletionCallBack = TqdmBatchCompletionCallback
+    try:
+        yield tqdm_object
+    finally:
+        joblib.parallel.BatchCompletionCallBack = old_batch_callback
+        tqdm_object.close()
