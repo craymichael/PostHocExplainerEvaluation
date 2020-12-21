@@ -2,11 +2,14 @@
 All functions of format:
 `func(y_true, y_pred, *args, **kwargs)`
 """
+import logging
 from functools import partial
 
 from sklearn import metrics
 from sklearn.metrics import pairwise
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     'effect_detection_f1',
@@ -19,9 +22,10 @@ __all__ = [
 ]
 
 
-def _standardize_effects(effects):
-    return [e if not isinstance(e, tuple) else e[0] if len(e) == 1 else e
-            for e in effects]
+def _standardize_effect(e):  # TODO: move to appropriate file
+    e = tuple(sorted(e)) if isinstance(e, tuple) else (e,)
+    assert e, 'received empty effect'
+    return e
 
 
 def _effects_confusion_matrix(y_true, y_pred, effects='all'):
@@ -30,30 +34,32 @@ def _effects_confusion_matrix(y_true, y_pred, effects='all'):
     effects = effects.lower()
     assert effects in {'main', 'interaction', 'all'}
 
-    y_true = _standardize_effects(y_true)
-    y_pred = _standardize_effects(y_pred)
-
-    tp = fn = fp = 0
-
-    if effects != 'interaction':
+    if effects == 'main':
         # Main effects
-        y_true_main = {x for x in y_true if not isinstance(x, tuple)}
-        y_pred_main = {x for x in y_pred if not isinstance(x, tuple)}
-
-        tp += len(y_true_main & y_pred_main)
-        fn += len(y_true_main - y_pred_main)
-        fp += len(y_pred_main - y_true_main)
-
-    if effects != 'main':
+        y_true = {_standardize_effect(x) for x in y_true if len(x) == 1}
+        y_pred = {_standardize_effect(x) for x in y_pred if len(x) == 1}
+    elif effects == 'interaction':
         # Interaction effects
-        y_true_int = {x for x in y_true if isinstance(x, tuple)}
-        y_pred_int = {x for x in y_pred if isinstance(x, tuple)}
+        y_true = {_standardize_effect(x) for x in y_true if len(x) >= 2}
+        y_pred = {_standardize_effect(x) for x in y_pred if len(x) >= 2}
+    else:
+        y_true = {*map(_standardize_effect, y_true)}
+        y_pred = {*map(_standardize_effect, y_pred)}
 
-        tp += len(y_true_int & y_pred_int)
-        fn += len(y_true_int - y_pred_int)
-        fp += len(y_pred_int - y_true_int)
+    tp = len(y_true & y_pred)
+    fn = len(y_true - y_pred)
+    fp = len(y_pred - y_true)
 
     return tp, fn, fp
+
+
+def _handle_zero_divisor(numerator, denominator, metric, value):
+    if denominator == 0:
+        logger.warning(f'Divisor is 0 in metric {metric}. Defining {metric} '
+                       f'as {value}')
+        return value
+    # Otherwise:
+    return numerator / denominator
 
 
 def effect_detection_f1(y_true, y_pred, effects='all'):
@@ -63,17 +69,30 @@ def effect_detection_f1(y_true, y_pred, effects='all'):
     """
     tp, fn, fp = _effects_confusion_matrix(y_true, y_pred, effects=effects)
     tp2 = 2 * tp
-    return tp2 / (tp2 + fn + fp)
+    return _handle_zero_divisor(tp2, tp2 + fn + fp,
+                                'f1 (effect detection)', 1.)
+
+
+def effect_detection_jaccard_index(y_true, y_pred, effects='all'):
+    """
+    Jaccard index
+    https://en.wikipedia.org/wiki/Jaccard_index
+    """
+    tp, fn, fp = _effects_confusion_matrix(y_true, y_pred, effects=effects)
+    return _handle_zero_divisor(tp, tp + fn + fp,
+                                'jaccard index (effect detection)', 1.)
 
 
 def effect_detection_precision(y_true, y_pred, effects='all'):
     tp, fn, fp = _effects_confusion_matrix(y_true, y_pred, effects=effects)
-    return tp / (tp + fp)
+    return _handle_zero_divisor(tp, tp + fp,
+                                'precision (effect detection)', 1.)
 
 
 def effect_detection_recall(y_true, y_pred, effects='all'):
     tp, fn, fp = _effects_confusion_matrix(y_true, y_pred, effects=effects)
-    return tp / (tp + fn)
+    return _handle_zero_divisor(tp, tp + fn,
+                                'recall (effect detection)', 1.)
 
 
 cosine_distances = partial(pairwise.paired_distances, metric='cosine')
@@ -85,7 +104,6 @@ balanced_accuracy = metrics.balanced_accuracy_score
 mean_squared_error = metrics.mean_squared_error
 mse = mean_squared_error
 
-# TODO: version support square?
 root_mean_squared_error = partial(metrics.mean_squared_error, squared=False)
 rmse = root_mean_squared_error
 

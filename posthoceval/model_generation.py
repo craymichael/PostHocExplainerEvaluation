@@ -612,9 +612,10 @@ def _brute_force_errored_domain(term, undesirables, errored_symbols,
                     print('undesirables', undesirables)
                 raise RuntimeError(
                     f'Failed to discover a valid domain for {symbol} of term '
-                    f'{term}! This means that the expression contains ops that '
-                    f'are not implemented in sympy and naive assumptions could '
-                    f'not coerce out an interval of legal values.'
+                    f'{term}! This means that the expression contains ops '
+                    f'that are not implemented in sympy (or are but are '
+                    f'broken) and naive assumptions could not coerce out an '
+                    f'interval of legal values.'
                 )
             domain = undesirables[symbol]
             fail_msg = (f'desirable domain (simplified={simplified}, '

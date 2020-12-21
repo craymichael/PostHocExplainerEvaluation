@@ -106,7 +106,7 @@ S.periodicity = S.calculus.util.periodicity = S.calculus.periodicity = \
     periodicity_wrapper(S.periodicity)
 
 
-def generate_expression(symbols, seed, verbose=0, printer=None, **kwargs):
+def generate_expression(symbols, seed, verbose=0, **kwargs):
     """kwargs: see `generate_additive_expression`"""
     # sympy uses python random module in spots, set seed for reproducibility
     random.seed(seed, version=2)
@@ -217,7 +217,7 @@ if __name__ == '__main__':
         r'(?:,\s*(log|linear))?'
         r'\s*$'
     )
-    range_pattern = 'a,b[,log|linear], e.g., "1,10" or "0,.9,log"'
+    range_pattern = 'a,b[,log|linear] e.g. "1,10" or "0,.9,log"'
 
 
     def range_type(value):

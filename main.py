@@ -23,6 +23,7 @@ from posthoceval.explainers.local.shap import gshap_explain
 from posthoceval.model_generation import AdditiveModel
 from posthoceval.model_generation import tsang_iclr18_models
 from posthoceval.profile import set_profile
+from posthoceval.metrics import _standardize_effect
 from posthoceval import metrics
 
 sns.set(
@@ -31,17 +32,14 @@ sns.set(
 
 
 def _standardize_effects(effects):
-    # Squeeze effects tuples
     if isinstance(effects, dict):
         d = effects.copy()
         for e, v in d.items():
-            if isinstance(e, tuple) and len(e) == 1:
-                e_squeeze = e[0]
-                d[e_squeeze] = d.pop(e)
+            e_std = _standardize_effect(e)
+            d[e_std] = d.pop(e)
         return d
     else:  # assume iterable
-        return tuple(e if (not isinstance(e, tuple) or len(e) > 1) else e[0]
-                     for e in effects)
+        return [*map(_standardize_effect, effects)]
 
 
 def eval_and_plot(data, contribs_true, effects_true, contribs_explainers,
@@ -80,7 +78,7 @@ def eval_and_plot(data, contribs_true, effects_true, contribs_explainers,
     feature_str = '[{{:>{}}}]'.format(max_feat_name)
 
     # Compute number of interaction terms
-    n_interactions = sum(isinstance(symbol, tuple) for symbol in symbols)
+    n_interactions = sum(len(symbol) >= 2 for symbol in symbols)
     cols_3d = rows_3d = 0
     idx_3d = 1
     if n_interactions:
@@ -97,7 +95,7 @@ def eval_and_plot(data, contribs_true, effects_true, contribs_explainers,
         contrib_sym_true = contribs_true[symbol]
         contrib_eff_true = effects_true[symbol]
 
-        if isinstance(symbol, tuple):
+        if len(symbol) >= 2:
             # Interactions effects
 
             do_plot = True
@@ -160,9 +158,10 @@ def eval_and_plot(data, contribs_true, effects_true, contribs_explainers,
 
             symbol_set = {*symbol}
 
+            # TODO: this needs to be reworked...
             relevant_symbols = []
             for s in symbols:
-                s_set = set(s) if isinstance(s, tuple) else {s}
+                s_set = {*s}
                 if not (s_set - symbol_set):  # empty set
                     # This means all symbols are contained in `symbol`
                     relevant_symbols.append(s)
