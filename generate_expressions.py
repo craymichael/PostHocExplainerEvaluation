@@ -174,22 +174,24 @@ def run(kwarg, kwarg_range, n_feats_range, n_runs, out_dir, seed):
 
     with tqdm_parallel(tqdm(desc='Expression Generation',
                             total=total_expressions)) as pbar:
-        jobs = []
-        for n_feat in n_feats_range:
-            symbols = S.symbols(f'x1:{n_feat + 1}', real=True)
 
-            for kw_val in kwarg_range:
-                kwargs = default_kwargs.copy()
-                kwargs[kwarg] = kw_val
+        def jobs():
+            nonlocal seed
 
-                for _ in range(n_runs):
-                    jobs.append(
-                        delayed(generate_expression)(symbols, seed, **kwargs)
-                    )
-                    # increment seed (don't have same RNG state per job)
-                    seed += 1
+            for n_feat in n_feats_range:
+                symbols = S.symbols(f'x1:{n_feat + 1}', real=True)
 
-        results = Parallel(n_jobs=-1)(jobs)
+                for kw_val in kwarg_range:
+                    kwargs = default_kwargs.copy()
+                    kwargs[kwarg] = kw_val
+
+                    for _ in range(n_runs):
+                        yield delayed(generate_expression)(
+                            symbols, seed, **kwargs)
+                        # increment seed (don't have same RNG state per job)
+                        seed += 1
+
+        results = Parallel(n_jobs=-1)(jobs())
 
     now_str = datetime.now().isoformat(timespec='seconds').replace(':', '_')
     out_file = os.path.join(out_dir, f'generated_expressions_{now_str}.pkl')

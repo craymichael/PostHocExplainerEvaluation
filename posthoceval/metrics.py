@@ -22,8 +22,8 @@ __all__ = [
 ]
 
 
-def _standardize_effect(e):  # TODO: move to appropriate file
-    e = tuple(sorted(e)) if isinstance(e, tuple) else (e,)
+def _standardize_effect(e):
+    e = tuple(sorted({*e})) if isinstance(e, tuple) else (e,)
     assert e, 'received empty effect'
     return e
 
