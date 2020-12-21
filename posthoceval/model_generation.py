@@ -230,7 +230,8 @@ def generate_additive_expression(
         assert 0 <= nonlinear_single_multi_ratio <= 1
 
     if isinstance(n_dummy, float):
-        n_dummy = int(round(n_dummy * n_features))
+        assert 0. <= n_dummy < 1.
+        n_dummy = min(int(round(n_dummy * n_features)), n_features - 1)
     assert n_dummy < n_features, 'Must satisfy n_dummy < n_features'
 
     # main effects
