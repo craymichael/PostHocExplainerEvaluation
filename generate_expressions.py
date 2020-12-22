@@ -291,7 +291,7 @@ if __name__ == '__main__':
         if b is None:
             if is_int or inferred_int:
                 a = int(a)
-            if n != 1:
+            if n is not None and n != 1:
                 sys.exit(f'Specified single value as the range ({a}) but the '
                          f'size is not 1 ({n}).')
             return [a]
