@@ -22,14 +22,16 @@ from sympy.calculus.util import continuous_domain
 import numpy as np
 from scipy.special import comb
 
-from .rand import select_n_combinations
-from .rand import as_random_state
-from .rand import choice_objects
-from .utils import assert_shape
-from .utils import as_iterator_of_size
-from .utils import assert_same_size
-from .evaluate import symbolic_evaluate_func
-from .expression_tree import RandExprTree
+from posthoceval.rand import select_n_combinations
+from posthoceval.rand import as_random_state
+from posthoceval.rand import choice_objects
+from posthoceval.utils import assert_shape
+from posthoceval.utils import as_iterator_of_size
+from posthoceval.utils import assert_same_size
+from posthoceval.utils import is_int
+from posthoceval.utils import is_float
+from posthoceval.evaluate import symbolic_evaluate_func
+from posthoceval.expression_tree import RandExprTree
 
 # logger = logging.getLogger(__name__)
 
@@ -230,7 +232,7 @@ def generate_additive_expression(
     else:
         assert 0 <= nonlinear_single_multi_ratio <= 1
 
-    if isinstance(n_dummy, float):
+    if is_float(n_dummy):
         assert 0. <= n_dummy < 1.
         n_dummy = min(int(round(n_dummy * n_features)), n_features - 1)
     assert n_dummy < n_features, 'Must satisfy n_dummy < n_features'
@@ -239,7 +241,7 @@ def generate_additive_expression(
     max_possible_main_uniq = n_features - n_dummy
     if n_main is None:
         n_main = max_possible_main_uniq
-    elif isinstance(n_main, float):
+    elif is_float(n_main):
         n_main = int(round(n_main * n_features))
 
     # TODO(doc) reason for both n_uniq_main and n_dummy is some can be linear
@@ -247,7 +249,7 @@ def generate_additive_expression(
     if n_uniq_main is None:
         n_uniq_main = max_possible_main_uniq
     else:
-        if isinstance(n_uniq_main, float):
+        if is_float(n_uniq_main):
             assert 0 <= n_uniq_main <= 1
             n_uniq_main = int(round(n_uniq_main * n_features))
         assert n_uniq_main <= max_possible_main_uniq, (
@@ -255,7 +257,7 @@ def generate_additive_expression(
 
     if interaction_ord is None:
         interaction_ord = (2,)
-    elif isinstance(interaction_ord, int):
+    elif is_int(interaction_ord):
         interaction_ord = (interaction_ord,)
     # Filter out
     io_orig = interaction_ord
@@ -272,14 +274,14 @@ def generate_additive_expression(
     }
     max_possible_int_uniq = sum(possible_int_ords.values())
 
-    if isinstance(n_interaction, float):
+    if is_float(n_interaction):
         n_interaction = int(round(n_interaction * n_features))
 
     if n_uniq_interaction is None:  # heuristic default
         n_uniq_interaction = min(n_interaction, n_uniq_main,
                                  max_possible_int_uniq)
     else:  # validate
-        if isinstance(n_uniq_interaction, float):
+        if is_float(n_uniq_interaction):
             n_uniq_interaction = int(round(
                 n_uniq_interaction * max_possible_int_uniq))
         assert (min(1, n_interaction) <= n_uniq_interaction <=

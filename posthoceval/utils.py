@@ -126,6 +126,14 @@ def dict_product(d: Dict[Any, Iterable]) -> Dict:
         yield dict(zip(keys, comb))
 
 
+def is_int(v):
+    return np.issubdtype(type(v), np.integer)
+
+
+def is_float(v):
+    return np.issubdtype(type(v), np.floating)
+
+
 @contextmanager
 def tqdm_parallel(tqdm_object):
     """
