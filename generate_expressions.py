@@ -189,6 +189,7 @@ def run(n_feats_range, n_runs, out_dir, seed, kwargs):
                     job_kwargs = default_kwargs.copy()
                     job_kwargs.update(kw_val)
 
+                    print('generate with', job_kwargs)
                     for _ in range(n_runs):
                         yield delayed(generate_expression)(
                             symbols, seed, **job_kwargs)
