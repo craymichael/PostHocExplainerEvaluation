@@ -233,7 +233,7 @@ if __name__ == '__main__':
         r'\s*)?'
         # scale: str (optional, default: linear)
         r'(?:,\s*(log|linear))?'
-        r'\s*)'
+        r'\s*)?'
         r'$'
     )
     range_pattern = ('"a[,b[,n][,log|linear]]" e.g. "1,10" or "-.5,.9,10,log" '

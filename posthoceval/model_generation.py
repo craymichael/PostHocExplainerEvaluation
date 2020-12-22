@@ -273,7 +273,6 @@ def generate_additive_expression(
         for order in interaction_ord
     }
     max_possible_int_uniq = sum(possible_int_ords.values())
-    print(max_possible_int_uniq, 'max_possible_int_uniq')
 
     if is_float(n_interaction):
         n_interaction = int(round(n_interaction * n_features))
