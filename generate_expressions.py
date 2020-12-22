@@ -4,6 +4,7 @@ import sys
 import threading
 import random
 import pickle
+import math
 from functools import wraps
 from collections import namedtuple
 from datetime import datetime
@@ -19,6 +20,7 @@ from posthoceval.model_generation import generate_additive_expression
 from posthoceval.model_generation import valid_variable_domains
 from posthoceval.model_generation import as_random_state
 from posthoceval.utils import tqdm_parallel
+from posthoceval.utils import dict_product
 
 _RUNNING_PERIODICITY_IDS = {}
 _MAX_RECURSIONS = 1_000
@@ -145,7 +147,7 @@ def generate_expression(symbols, seed, verbose=0, **kwargs):
     )
 
 
-def run(kwarg, kwarg_range, n_feats_range, n_runs, out_dir, seed):
+def run(n_feats_range, n_runs, out_dir, seed, kwargs):
     os.makedirs(out_dir, exist_ok=True)
 
     # default kwargs
@@ -170,7 +172,9 @@ def run(kwarg, kwarg_range, n_feats_range, n_runs, out_dir, seed):
         linear_multi_arg_ops_weights=None,
     )
 
-    total_expressions = len(n_feats_range) * len(kwarg_range) * n_runs
+    total_expressions = math.prod((
+        n_runs, len(n_feats_range), *(len(v) for v in kwargs.values())
+    ))
 
     with tqdm_parallel(tqdm(desc='Expression Generation',
                             total=total_expressions)) as pbar:
@@ -181,20 +185,23 @@ def run(kwarg, kwarg_range, n_feats_range, n_runs, out_dir, seed):
             for n_feat in n_feats_range:
                 symbols = S.symbols(f'x1:{n_feat + 1}', real=True)
 
-                for kw_val in kwarg_range:
-                    kwargs = default_kwargs.copy()
-                    kwargs[kwarg] = kw_val
+                for kw_val in dict_product(kwargs):
+                    job_kwargs = default_kwargs.copy()
+                    job_kwargs.update(kw_val)
 
                     for _ in range(n_runs):
                         yield delayed(generate_expression)(
-                            symbols, seed, **kwargs)
+                            symbols, seed, **job_kwargs)
                         # increment seed (don't have same RNG state per job)
                         seed += 1
 
         results = Parallel(n_jobs=-1)(jobs())
 
+    param_str = '-vs-'.join(k for k in kwargs.keys())
+
     now_str = datetime.now().isoformat(timespec='seconds').replace(':', '_')
-    out_file = os.path.join(out_dir, f'generated_expressions_{now_str}.pkl')
+    out_file = os.path.join(out_dir,
+                            f'generated_expressions_{param_str}_{now_str}.pkl')
 
     print('Saving results to', out_file)
     with open(out_file, 'wb') as f:
@@ -211,59 +218,100 @@ if __name__ == '__main__':
     from math import sqrt
 
     rx_range_t = re.compile(
+        # a: int/float
         r'^\s*'
         r'([-+]?\d+\.?(?:\d+)?|(?:\d+)?\.?\d+)'
-        r'\s*,\s*'
+        r'\s*'
+        # b: int/float (optional, default: None, range comprises `a` only)
+        r'(?:,\s*'
         r'([-+]?\d+\.?(?:\d+)?|(?:\d+)?\.?\d+)'
         r'\s*'
+        # n: int (optional, default: infer)
+        r'(?:,\s*'
+        r'(\d+)'
+        r'\s*)?'
+        # scale: str (optional, default: linear)
         r'(?:,\s*(log|linear))?'
-        r'\s*$'
+        r'\s*)'
+        r'$'
     )
-    range_pattern = 'a,b[,log|linear] e.g. "1,10" or "0,.9,log"'
+    range_pattern = ('"a[,b[,n][,log|linear]]" e.g. "1,10" or "-.5,.9,10,log" '
+                     'or "0.5" or "1,10,5"')
 
 
     def range_type(value):
         m = rx_range_t.match(value)
         if m is None:
             raise argparse.ArgumentTypeError(
-                f'{value} does not match pattern "{range_pattern}"'
+                f'{value} does not match pattern {range_pattern}'
             )
-        a, b, scale = m.groups()
-        if '.' in a or '.' in b:
+        a, b, n, scale = m.groups()
+        if '.' in a or (b and '.' in b):
             dtype = float
         else:
             dtype = int
+
+        if n is not None:
+            n = int(n)
+            if n < 1:
+                raise argparse.ArgumentTypeError(
+                    f'{value} contains an invalid range size ({n} cannot be '
+                    f'less than 1)'
+                )
+
         if scale is None:
             scale = 'linear'
 
-        a, b = float(a), float(b)
-        if a >= b:
-            raise argparse.ArgumentTypeError(
-                f'{value} is an invalid range ({a} is not less than {b})'
-            )
-        return a, b, scale, dtype
+        a = float(a)
+        if b:
+            b = float(b)
+            if a >= b:
+                raise argparse.ArgumentTypeError(
+                    f'{value} is an invalid range ({a} is not less than {b})'
+                )
+        return a, b, n, scale, dtype
 
 
-    def arg_val_to_range(n, a, b, scale, inferred_dtype, dtype):
+    def arg_val_to_range(a, b, n, scale, inferred_dtype, dtype):
         is_int = (dtype == 'int')
+        inferred_int = (dtype == 'infer' and inferred_dtype is int)
 
-        if dtype == 'infer' and inferred_dtype is int:
+        range_msg = f'[{a},{b}]'
+
+        if is_int:
+            int_msg = ('Range was explicitly specified as integer, however, '
+                       'the {} value {} is not an integer in range ' +
+                       range_msg)
+            if not a.is_integer():
+                sys.exit(int_msg.format('a', a))
+            if not (b is None or b.is_integer()):
+                sys.exit(int_msg.format('b', b))
+
+        if b is None:
+            if is_int or inferred_int:
+                a = int(a)
+            if n != 1:
+                sys.exit(f'Specified single value as the range ({a}) but the '
+                         f'size is not 1 ({n}).')
+            return [a]
+
+        if inferred_int:
             is_int = ((n is None) or ((b - a) >= (n / 2)))
-            print(f'Inferred range [{a},{b}] as '
+            print(f'Inferred range {range_msg} as '
                   f'a{"n int" if is_int else " float"} interval.')
 
         if scale == 'linear':
             if n is None:
                 if not is_int:
                     sys.exit(f'Cannot infer the number of samples from a '
-                             f'space with float dtype for range [{a},{b}]')
+                             f'space with float dtype for range {range_msg}')
                 # otherwise
                 n = int(b - a + 1)
             space = np.linspace(a, b, n)
         elif scale == 'log':
             if n is None:
                 sys.exit(f'Cannot use a log space without a defined number of '
-                         f'samples for range [{a},{b}]')
+                         f'samples for range {range_msg}')
             space = np.geomspace(a, b, n)
         else:
             raise ValueError(scale)
@@ -289,13 +337,9 @@ if __name__ == '__main__':
             help=f'Range of number of features in expressions. '
                  f'Expected format: {range_pattern}'
         )
-        parser.add_argument(
-            '--n-feats-range-size', type=int,
-            help=f'number of features sampled in the range'
-        )
         # TODO: interaction_ord, all ops args
         parser.add_argument(
-            '--kwarg', required=True,
+            '--kwarg', required=True, nargs='+',
             choices=['n_main', 'n_uniq_main', 'n_interaction',
                      'n_uniq_interaction', 'interaction_ord', 'n_dummy',
                      'pct_nonlinear', 'nonlinear_multiplier', 'nonlinear_shift',
@@ -305,15 +349,11 @@ if __name__ == '__main__':
                  'refers to'
         )
         parser.add_argument(
-            '--kwarg-range', required=True, type=range_type,
+            '--kwarg-range', required=True, type=range_type, nargs='+',
             help=f'Range for kwarg. Expected format: {range_pattern}'
         )
         parser.add_argument(
-            '--kwarg-range-size', required=True, type=int,
-            help=f'number of values taken from the kwarg range'
-        )
-        parser.add_argument(
-            '--kwarg-dtype', default='infer',
+            '--kwarg-dtype', default='infer', nargs='+',
             choices=('infer', 'int', 'float'),
             help=f'dtype for kwarg'
         )
@@ -331,19 +371,36 @@ if __name__ == '__main__':
 
         args = parser.parse_args()
 
-        kwarg_range = arg_val_to_range(args.kwarg_range_size, *args.kwarg_range,
-                                       dtype=args.kwarg_dtype)
+        if len(args.kwarg_range) != len(args.kwarg):
+            sys.exit('The arguments --kwarg and --kwarg-range '
+                     'must all have the same number of arguments. Received: '
+                     f'{len(args.kwarg)}, {len(args.kwarg_range)}')
 
-        n_feats_range = arg_val_to_range(args.n_feats_range_size,
-                                         *args.n_feats_range, dtype='int')
+        if isinstance(args.kwarg_dtype, str):
+            kwarg_dtype = [args.kwarg_dtype] * len(args.kwarg)
+        elif len(args.kwarg_dtype) == len(args.kwarg):
+            kwarg_dtype = args.kwarg_dtype
+        elif len(args.kwarg_dtype) == 1:
+            print('Using provided --kwarg-dtype for all kwarg arguments')
+            kwarg_dtype = args.kwarg_dtype * len(args.kwarg)
+        else:
+            sys.exit('Provided --kwarg-dtype must be the same size as --kwarg '
+                     'arguments, or a single value to be applied to all '
+                     '--kwarg arguments.')
+
+        n_feats_range = arg_val_to_range(*args.n_feats_range, dtype='int')
+
+        kwargs = {}
+        for kwarg, range_t, dtype in zip(
+                args.kwarg, args.kwarg_range, kwarg_dtype):
+            kwargs[kwarg] = arg_val_to_range(*range_t, dtype=dtype)
 
         run(
-            kwarg=args.kwarg,
-            kwarg_range=kwarg_range,
             n_feats_range=n_feats_range,
             n_runs=args.n_runs,
             out_dir=args.out_dir,
             seed=args.seed,
+            kwargs=kwargs
         )
 
 

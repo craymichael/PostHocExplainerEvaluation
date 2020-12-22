@@ -5,10 +5,12 @@ from typing import Union
 from typing import Tuple
 from typing import Optional
 from typing import Any
+from typing import Dict
 
 from contextlib import contextmanager
 
 from itertools import repeat
+from itertools import product
 from collections import defaultdict
 
 import joblib
@@ -115,6 +117,13 @@ def as_iterator_of_size(values, size, units='values'):
             assert_same_size(size, len(values), units, ret=values))
     else:
         return repeat(values, size)
+
+
+def dict_product(d: Dict[Any, Iterable]) -> Dict:
+    keys = d.keys()
+    iterables = d.values()
+    for comb in product(*iterables):
+        yield dict(zip(keys, comb))
 
 
 @contextmanager

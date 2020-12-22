@@ -166,7 +166,7 @@ def generate_additive_expression(
         n_uniq_main=None,
         n_interaction=0,
         n_uniq_interaction=None,
-        interaction_ord=None,
+        interaction_ord=None,  # TODO: better default? (see code)
         n_dummy=0,
         pct_nonlinear=None,
         nonlinear_multiplier=None,
