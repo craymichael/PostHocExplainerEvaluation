@@ -205,6 +205,7 @@ def generate_additive_expression(
         # logic for when multiplier < 1
         if nonlinear_multiplier is None:
             nonlinear_multiplier = 0.5  # default, case 1
+
         if nonlinear_multiplier >= 1:
             pct_nonlinear = 1
         else:  # nonlinear_multiplier < 1
@@ -256,6 +257,13 @@ def generate_additive_expression(
         interaction_ord = (2,)
     elif isinstance(interaction_ord, int):
         interaction_ord = (interaction_ord,)
+    # Filter out
+    io_orig = interaction_ord
+    interaction_ord = tuple(io for io in interaction_ord if io <= n_uniq_main)
+    if io_orig != interaction_ord:
+        print(f'Warning: provided interaction_ord {io_orig} contains '
+              f'interaction orders too large for n_uniq_main ({n_uniq_main}). '
+              f'Using these orders instead: {interaction_ord}')
 
     # Compute the possible number of unique interactions that are possible
     possible_int_ords = {
