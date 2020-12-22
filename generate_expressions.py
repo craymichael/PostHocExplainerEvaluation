@@ -339,7 +339,7 @@ if __name__ == '__main__':
         )
         # TODO: interaction_ord, all ops args
         parser.add_argument(
-            '--kwarg', required=True, nargs='+',
+            '--kwarg', required=True, action='append',
             choices=['n_main', 'n_uniq_main', 'n_interaction',
                      'n_uniq_interaction', 'interaction_ord', 'n_dummy',
                      'pct_nonlinear', 'nonlinear_multiplier', 'nonlinear_shift',
@@ -349,11 +349,11 @@ if __name__ == '__main__':
                  'refers to'
         )
         parser.add_argument(
-            '--kwarg-range', required=True, type=range_type, nargs='+',
+            '--kwarg-range', required=True, type=range_type, action='append',
             help=f'Range for kwarg. Expected format: {range_pattern}'
         )
         parser.add_argument(
-            '--kwarg-dtype', default='infer', nargs='+',
+            '--kwarg-dtype', default='infer', action='append',
             choices=('infer', 'int', 'float'),
             help=f'dtype for kwarg'
         )
