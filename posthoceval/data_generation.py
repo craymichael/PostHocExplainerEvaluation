@@ -3,7 +3,7 @@ from itertools import repeat
 
 import numpy as np
 
-import sympy as S
+import sympy as sp
 from sympy import stats
 from sympy.stats.rv import sample_iter_subs
 
@@ -39,7 +39,7 @@ def sample(variables, distribution, n_samples, constraints=None, cov=None):
         #  regression for some expressions in 1.7
         #  https://github.com/sympy/sympy/issues/20563
         try:
-            samples = S.stats.sample_iter(d, *args)
+            samples = sp.stats.sample_iter(d, *args)
         except NameError:
             samples = sample_iter_subs(d, *args)
 

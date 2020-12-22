@@ -314,13 +314,13 @@ def evaluate_explainers(debug=False):
     # model = tsang_iclr18_models('f9')
     # TODO: I still haven't figured out the whole attributing interaction
     #  effects as main effects thing...
-    import sympy as S
+    import sympy as sp
     from sympy import stats
-    symbols = S.symbols('x1:11')
+    symbols = sp.symbols('x1:11')
     x1, x2, x3, x4, x5, x6, x7, x8, x9, x10 = symbols
 
-    expr = (S.log(abs(x1)) * x1 - x2 + x3 ** 3 - x4 - 2 * x5 + S.sin(x6) +
-            S.cos(x7) + 1 / (1 + x8))
+    expr = (sp.log(abs(x1)) * x1 - x2 + x3 ** 3 - x4 - 2 * x5 + sp.sin(x6) +
+            sp.cos(x7) + 1 / (1 + x8))
     if dummy_model_with_interactions:
         expr += x1 * x2
 

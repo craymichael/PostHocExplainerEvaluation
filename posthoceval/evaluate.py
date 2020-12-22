@@ -4,7 +4,7 @@ from functools import lru_cache
 from functools import wraps
 
 import numpy as np
-import sympy as sym
+import sympy as sp
 
 
 def _maybe_cast_args_func(func, dtype, backend):
@@ -69,7 +69,7 @@ def llvm_func(expr, symbols):
 
     expr = expr.expand()
     # llvm cannot handle things such as PI
-    for num_sym in expr.atoms(sym.core.numbers.NumberSymbol):
+    for num_sym in expr.atoms(sp.core.numbers.NumberSymbol):
         expr = expr.subs({num_sym: num_sym.evalf()})
 
     func = llvm_callable(symbols, expr.expand())
@@ -89,8 +89,8 @@ def llvm_func(expr, symbols):
 
 @lru_cache()
 def numpy_func(expr, symbols):
-    return sym.lambdify(symbols, expr.expand(),
-                        modules=['scipy', 'numpy'])
+    return sp.lambdify(symbols, expr.expand(),
+                       modules=['scipy', 'numpy'])
 
 
 @lru_cache()
@@ -100,16 +100,16 @@ def numexpr_func(expr, symbols):
     #  see https://github.com/pydata/numexpr/issues/86
     #  furthermore you can replace with this glorious fix thanks to this man
     #  https://stackoverflow.com/a/60725243/6557588
-    return sym.lambdify(symbols, expr.expand(), modules='numexpr')
+    return sp.lambdify(symbols, expr.expand(), modules='numexpr')
 
 
 @lru_cache()
 def tensorflow_func(expr, symbols):
     expr = expr.expand()
-    int_atoms = expr.atoms(sym.Integer)
+    int_atoms = expr.atoms(sp.Integer)
     # To avoid TF typing problems, it's best to cast integers to floats
     expr = expr.subs({int_a: float(int_a) for int_a in int_atoms})
-    tf_func = sym.lambdify(symbols, expr, modules='tensorflow')
+    tf_func = sp.lambdify(symbols, expr, modules='tensorflow')
 
     @wraps(tf_func)
     def wrapper(*args, **kwargs):

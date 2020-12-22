@@ -16,7 +16,7 @@ from itertools import cycle
 from collections import OrderedDict
 from collections import defaultdict
 
-import sympy as S
+import sympy as sp
 from sympy.calculus.util import continuous_domain
 
 import numpy as np
@@ -36,53 +36,53 @@ from posthoceval.expression_tree import RandExprTree
 # logger = logging.getLogger(__name__)
 
 # Custom typing
-Symbol1orMore = Union[S.Symbol, Sequence[S.Symbol]]
+Symbol1orMore = Union[sp.Symbol, Sequence[sp.Symbol]]
 ContribMapping = Dict[Symbol1orMore, np.ndarray]
-ExprMapping = Dict[Symbol1orMore, S.Expr]
+ExprMapping = Dict[Symbol1orMore, sp.Expr]
 
 # Single argument ops
 OPS_TRIG = [
     # cos
-    S.cos,
-    S.cosh,
-    S.acos,
-    S.acosh,
+    sp.cos,
+    sp.cosh,
+    sp.acos,
+    sp.acosh,
     # sin
-    S.sin,
-    S.sinh,
-    S.asin,
-    S.asinh,
+    sp.sin,
+    sp.sinh,
+    sp.asin,
+    sp.asinh,
     # tan
-    S.tan,
-    S.tanh,
-    S.atan,
-    S.atanh,
+    sp.tan,
+    sp.tanh,
+    sp.atan,
+    sp.atanh,
     # cot
-    S.cot,
-    S.coth,
-    S.acot,
-    S.acoth,
+    sp.cot,
+    sp.coth,
+    sp.acot,
+    sp.acoth,
     # csc
-    S.csc,
-    S.csch,
-    S.acsc,
-    S.acsch,
+    sp.csc,
+    sp.csch,
+    sp.acsc,
+    sp.acsch,
     # sec
-    S.sec,
-    S.sech,
-    S.asec,
-    S.asech,
+    sp.sec,
+    sp.sech,
+    sp.asec,
+    sp.asech,
     # special
-    S.sinc,
+    sp.sinc,
 ]
 OPS_SINGLE_ARG = OPS_TRIG + [
-    S.Abs,
-    S.sqrt,
-    S.cbrt,
-    lambda a: S.Pow(a, 2),
-    lambda a: S.Pow(a, 3),
-    S.exp,
-    S.log,
+    sp.Abs,
+    sp.sqrt,
+    sp.cbrt,
+    lambda a: sp.Pow(a, 2),
+    lambda a: sp.Pow(a, 3),
+    sp.exp,
+    sp.log,
 ]
 # Weights in model generation
 # `_trig_pct` trig
@@ -94,7 +94,7 @@ OPS_SINGLE_ARG_WEIGHTS = (
 )
 # Multiple argument ops (non-additive)
 OPS_MULTI_ARG_LINEAR = [
-    S.Mul,
+    sp.Mul,
     lambda a, b: a / b,
 ]
 OPS_MULTI_ARG_LINEAR_WEIGHTS = [
@@ -102,11 +102,11 @@ OPS_MULTI_ARG_LINEAR_WEIGHTS = [
     0.5,
 ]
 OPS_MULTI_ARG_NONLINEAR = [
-    S.Pow,
+    sp.Pow,
     # Max (which can be vectorized)
-    lambda a, b: S.Piecewise((a, a > b), (b, True)),
+    lambda a, b: sp.Piecewise((a, a > b), (b, True)),
     # Min (which can be vectorized)
-    lambda a, b: S.Piecewise((a, a < b), (b, True)),
+    lambda a, b: sp.Piecewise((a, a < b), (b, True)),
 ]
 OPS_MULTI_ARG_NONLINEAR_WEIGHTS = [
     0.5,
@@ -123,12 +123,12 @@ OPS_MULTI_ARG_NONLINEAR_WEIGHTS = [
 
 # Ordered from least to most constraining on domain
 ASSUMPTION_DOMAIN = OrderedDict((
-    ('nonzero', S.Union(S.Interval.open(-S.oo, 0),
-                        S.Interval.open(0, +S.oo))),
-    ('nonpositive', S.Interval(-S.oo, 0)),
-    ('nonnegative', S.Interval(0, +S.oo)),
-    ('positive', S.Interval.open(0, +S.oo)),
-    ('negative', S.Interval.open(-S.oo, 0)),
+    ('nonzero', sp.Union(sp.Interval.open(-sp.oo, 0),
+                         sp.Interval.open(0, +sp.oo))),
+    ('nonpositive', sp.Interval(-sp.oo, 0)),
+    ('nonnegative', sp.Interval(0, +sp.oo)),
+    ('positive', sp.Interval.open(0, +sp.oo)),
+    ('negative', sp.Interval.open(-sp.oo, 0)),
 ))
 
 
@@ -153,10 +153,12 @@ def place_into_bins(n_bins, n_items, shift=0, skew=0):
     item_proportion /= item_proportion.sum()  # normalize to probabilities
     residual = 0
     n_items_per_bin = []
+    items_remain = n_items
     for proportion in item_proportion:
         # carry over residual items to next bin
         n_items_bin_f = n_items * proportion + residual
-        n_items_bin = max(int(round(n_items_bin_f)), 1)
+        n_items_bin = max(int(round(n_items_bin_f)), min(1, items_remain))
+        items_remain -= n_items_bin
         n_items_per_bin.append(n_items_bin)
         residual = n_items_bin_f - n_items_bin
     return n_items_per_bin
@@ -183,7 +185,7 @@ def generate_additive_expression(
         linear_multi_arg_ops=None,
         linear_multi_arg_ops_weights=None,
         seed=None,
-) -> S.Expr:
+) -> sp.Expr:
     """
 
     :param symbols:
@@ -287,6 +289,11 @@ def generate_additive_expression(
         assert (min(1, n_interaction) <= n_uniq_interaction <=
                 max_possible_int_uniq)
 
+    if n_uniq_interaction == 0:
+        print(f'Warning: n_interaction={n_interaction} but zero interactions '
+              f'are possible. Not including interactions for this expression.')
+        n_interaction = 0
+
     # Seed uses beyond this point
     rs = as_random_state(seed)
 
@@ -335,7 +342,7 @@ def generate_additive_expression(
         assert np.isclose(sum(linear_multi_arg_ops_weights), 1.)
 
     # Build the expression
-    expr = S.Integer(0)
+    expr = sp.Integer(0)
 
     # TODO: coefficients
     # TODO: scalar additions as arguments to functions
@@ -404,7 +411,6 @@ def generate_additive_expression(
         nonlinear_multi_arg_ops, n_interaction_nonlinear_ops_multi,
         replace=True, p=nonlinear_multi_arg_ops_weights, seed=rs
     )
-
     interaction_nonlinear_ops = []
     idx_single = idx_multi = 0
     # both op count lists are length of num. nonlinear interactions
@@ -454,7 +460,7 @@ def generate_additive_expression(
             linear_multi_arg_ops, n_interact_bridges - n_additions,
             replace=True, p=linear_multi_arg_ops_weights, seed=rs
         )
-        linear_bridge_ops_multi += [S.Add] * n_additions
+        linear_bridge_ops_multi += [sp.Add] * n_additions
         term_ops_multi += linear_bridge_ops_multi
         # shuffle 'em
         rs.shuffle(term_ops_multi)  # actually is fast on objects
@@ -469,7 +475,7 @@ def generate_additive_expression(
             leaves=term_features_leaf,
             parents_with_children=term_ops_multi,
             parents_with_child=term_ops_single,
-            root_blacklist=(S.Add,),
+            root_blacklist=(sp.Add,),
             seed=seed
         ).to_expression()
         expr += term
@@ -491,17 +497,17 @@ def generate_additive_expression(
     return expr
 
 
-def independent_terms(expr) -> Tuple[S.Expr]:
-    if isinstance(expr, S.Add):
+def independent_terms(expr) -> Tuple[sp.Expr]:
+    if isinstance(expr, sp.Add):
         return expr.args
     return expr,  # ',' for tuple return
 
 
 @lru_cache()
 def split_effects(
-        expr: S.Expr,
-        symbols: Sequence[S.Symbol],
-) -> Tuple[Tuple[S.Expr], Tuple[S.Expr]]:
+        expr: sp.Expr,
+        symbols: Sequence[sp.Symbol],
+) -> Tuple[Tuple[sp.Expr], Tuple[sp.Expr]]:
     """Additive effects"""
     expr_expanded = expr.expand(add=True)
     all_symbol_set = set(symbols)
@@ -510,7 +516,7 @@ def split_effects(
         all_minus_xi = all_symbol_set - {xi}
 
         main, _ = expr_expanded.as_independent(*all_minus_xi, as_Add=True)
-        main: S.Expr  # type hint
+        main: sp.Expr  # type hint
 
         # Single main effect per symbol
         main_effects.append(main)
@@ -522,8 +528,8 @@ def split_effects(
 
 def _bad_domain(domain, no_empty_set, simplified):
     """True if bad, False if good"""
-    return ((no_empty_set and domain is S.EmptySet) or
-            (simplified and (domain.free_symbols or domain.atoms(S.Dummy))))
+    return ((no_empty_set and domain is sp.EmptySet) or
+            (simplified and (domain.free_symbols or domain.atoms(sp.Dummy))))
 
 
 def _brute_force_errored_domain(term, undesirables, errored_symbols,
@@ -572,13 +578,13 @@ def _brute_force_errored_domain(term, undesirables, errored_symbols,
                     # TODO: better-consider existing assumptions from symbols...
                     replacements = OrderedDict(
                         (symbol,
-                         (S.Symbol(symbol.name, **{assumption: True,
-                                                   **symbol.assumptions0})
+                         (sp.Symbol(symbol.name, **{assumption: True,
+                                                    **symbol.assumptions0})
                           ))  # Mapping entry: symbol --> symbol w/ assumption
                         for symbol, assumption in symbol_comb
                     )
                     intervals = (
-                        ASSUMPTION_DOMAIN.get(assumption, S.Reals)
+                        ASSUMPTION_DOMAIN.get(assumption, sp.Reals)
                         for _, assumption in symbol_comb
                     )
                     # Insert symbols with assumptions into term
@@ -652,7 +658,7 @@ def _valid_variable_domains_term(term, assumptions, no_empty_set, simplified,
         if verbose:
             print(f'start term {term} symbol {symbol}')
         try:
-            domain = continuous_domain(term, symbol, S.Reals)
+            domain = continuous_domain(term, symbol, sp.Reals)
             if _bad_domain(domain, no_empty_set, simplified):
                 if verbose:
                     print(f'undesirable domain for {symbol}: {domain}')
@@ -702,7 +708,7 @@ def valid_variable_domains(terms, assumptions=None, no_empty_set=True,
 
     Real domains only! TODO: allow other domains?
     """
-    if isinstance(terms, S.Expr):
+    if isinstance(terms, sp.Expr):
         # More efficient to look at each term of expression in case of
         #  NotImplementedError in valid domain finding
         terms = independent_terms(terms)
@@ -718,7 +724,7 @@ def valid_variable_domains(terms, assumptions=None, no_empty_set=True,
             verbose=verbose)
         # Update valid intervals of each variable
         for symbol, domain in domains_term.items():
-            domains[symbol] = domains.get(symbol, S.Reals).intersect(domain)
+            domains[symbol] = domains.get(symbol, sp.Reals).intersect(domain)
 
     # bad domains can arise (namely empty set) from intersections of intervals
     for symbol, domain in domains.items():
@@ -782,7 +788,7 @@ class AdditiveModel(object):
 
         # Generate n_features symbols with unique names from domain
         self.symbol_names = symbol_names(self.n_features)
-        self.symbols = S.symbols(self.symbol_names, **kwargs)
+        self.symbols = sp.symbols(self.symbol_names, **kwargs)
         self.expr = self._generate_model(coefficients)  # TODO interactions
         self._symbol_map = None
 
@@ -791,7 +797,7 @@ class AdditiveModel(object):
         self._check()
 
     def _check(self):
-        if not isinstance(self.expr, S.Add):
+        if not isinstance(self.expr, sp.Add):
             warnings.warn('Expression is not additive! Output is dependent on '
                           'all input variables: '
                           'optype {}'.format(type(self.expr)))
@@ -799,13 +805,13 @@ class AdditiveModel(object):
     @classmethod
     def from_expr(
             cls,
-            expr: S.Expr,
+            expr: sp.Expr,
             symbols: Symbol1orMore,
             backend=None,
     ):
         """Symbols needs to be ordered properly"""
         # Ensure expr symbols are a subset of symbols
-        symbols = (symbols,) if isinstance(symbols, S.Symbol) else symbols
+        symbols = (symbols,) if isinstance(symbols, sp.Symbol) else symbols
         missing_symbols = set(expr.free_symbols) - set(symbols)
         if missing_symbols:
             raise ValueError('expr contains symbols not specified in symbols: '
@@ -822,26 +828,26 @@ class AdditiveModel(object):
         model._check()
         return model
 
-    def get_symbol(self, symbol_name: str) -> S.Symbol:
+    def get_symbol(self, symbol_name: str) -> sp.Symbol:
         if self._symbol_map is None:
             self._symbol_map = dict(zip(self.symbol_names, self.symbols))
         return self._symbol_map[symbol_name]
 
     @property
-    def main_effects(self) -> Tuple[S.Expr]:
+    def main_effects(self) -> Tuple[sp.Expr]:
         main_effects, _ = split_effects(self.expr, self.symbols)
         return main_effects
 
     @property
-    def interaction_effects(self) -> Tuple[S.Expr]:
+    def interaction_effects(self) -> Tuple[sp.Expr]:
         _, interaction_effects = split_effects(self.expr, self.symbols)
         return interaction_effects
 
     @property
-    def independent_terms(self) -> Tuple[S.Expr]:
+    def independent_terms(self) -> Tuple[sp.Expr]:
         return independent_terms(self.expr)
 
-    def _generate_model(self, coefficients) -> S.Expr:
+    def _generate_model(self, coefficients) -> sp.Expr:
         n_coefs_expect = self.n_features + 1
         coefs = as_iterator_of_size(
             coefficients, n_coefs_expect, 'coefficients')
@@ -890,7 +896,7 @@ class AdditiveModel(object):
             effects.extend(list(self.interaction_effects))
 
         contributions = defaultdict(lambda: np.zeros(len(x)))
-        all_effects = defaultdict(lambda: S.Number(0))
+        all_effects = defaultdict(lambda: sp.Number(0))
         for effect in effects:
             effect_symbols = sorted(effect.free_symbols, key=lambda s: s.name)
             effect_symbols = tuple(effect_symbols)
@@ -915,7 +921,7 @@ class AdditiveModel(object):
         return contributions
 
     def pprint(self):
-        S.pprint(self.expr)
+        sp.pprint(self.expr)
 
     def __repr__(self):
         return str(self.expr)
@@ -934,7 +940,7 @@ def tsang_iclr18_models(
     #  Min/Max functions don't vectorize as expected. Here is a "beautiful" fix
     #  https://stackoverflow.com/a/60725243/6557588
     # 10 variables
-    all_symbols = S.symbols('x1:11', real=True)
+    all_symbols = sp.symbols('x1:11', real=True)
     # TODO:
     #  - 30k data points, 1/3 each train/valid/test
     #  - tan et al. use 50k points and a modified equation
@@ -949,61 +955,61 @@ def tsang_iclr18_models(
 
     synthetic_functions = dict(
         f1=AdditiveModel.from_expr(
-            S.pi ** (x1 * x2) * S.sqrt(2 * x3)
-            - S.asin(x4)
-            + S.log(x3 + x5)
-            - x9 / x10 * S.sqrt(x7 / x8)
+            sp.pi ** (x1 * x2) * sp.sqrt(2 * x3)
+            - sp.asin(x4)
+            + sp.log(x3 + x5)
+            - x9 / x10 * sp.sqrt(x7 / x8)
             - x2 * x7,
             all_symbols
         ),
         f2=AdditiveModel.from_expr(
-            S.pi ** (x1 * x2) * S.sqrt(2 * abs(x3))
-            - S.asin(x4 / 2)
-            + S.log(abs(x3 + x5) + 1)
-            + x9 / (1 + abs(x10)) * S.sqrt(x7 / (1 + abs(x8)))
+            sp.pi ** (x1 * x2) * sp.sqrt(2 * abs(x3))
+            - sp.asin(x4 / 2)
+            + sp.log(abs(x3 + x5) + 1)
+            + x9 / (1 + abs(x10)) * sp.sqrt(x7 / (1 + abs(x8)))
             - x2 * x7,
             all_symbols
         ),
         f3=AdditiveModel.from_expr(
-            S.exp(abs(x1 - x2))
+            sp.exp(abs(x1 - x2))
             + abs(x2 * x3)
             - x3 ** (2 * abs(x4))
-            + S.log(x4 ** 2 + x5 ** 2 + x7 ** 2 + x8 ** 2)
+            + sp.log(x4 ** 2 + x5 ** 2 + x7 ** 2 + x8 ** 2)
             + x9
             + 1 / (1 + x10 ** 2),
             all_symbols
         ),
         f4=AdditiveModel.from_expr(
-            S.exp(abs(x1 - x2))
+            sp.exp(abs(x1 - x2))
             + abs(x2 * x3)
             - x3 ** (2 * abs(x4))
             + (x1 * x4) ** 2
-            + S.log(x4 ** 2 + x5 ** 2 + x7 ** 2 + x8 ** 2)
+            + sp.log(x4 ** 2 + x5 ** 2 + x7 ** 2 + x8 ** 2)
             + x9
             + 1 / (1 + x10 ** 2),
             all_symbols
         ),
         f5=AdditiveModel.from_expr(
             1 / (1 + x1 ** 2 + x2 ** 2 + x3 ** 2)
-            + S.sqrt(S.exp(x4 + x5))
+            + sp.sqrt(sp.exp(x4 + x5))
             + abs(x6 + x7)
             + x8 * x9 * x10,
             all_symbols
         ),
         f6=AdditiveModel.from_expr(
-            S.exp(abs(x1 * x2) + 1)
-            - S.exp(abs(x3 + x4) + 1)
-            + S.cos(x5 + x6 - x8)
-            + S.sqrt(x8 ** 2 + x9 ** 2 + x10 ** 2),
+            sp.exp(abs(x1 * x2) + 1)
+            - sp.exp(abs(x3 + x4) + 1)
+            + sp.cos(x5 + x6 - x8)
+            + sp.sqrt(x8 ** 2 + x9 ** 2 + x10 ** 2),
             all_symbols
         ),
         f7=AdditiveModel.from_expr(
-            (S.atan(x1) + S.atan(x2)) ** 2
+            (sp.atan(x1) + sp.atan(x2)) ** 2
             # Ha! You think you could do this but nooooo
             # + sym.Max(x3 * x4 + x6, 0)
             # Have to do this $#!% instead to get it vectorized. Also note that
             # the 0. has to be a float for certain backends to not complain.
-            + S.Piecewise((f7_int, f7_int > 0), (0., True))
+            + sp.Piecewise((f7_int, f7_int > 0), (0., True))
             - 1 / (1 + (x4 * x5 * x6 * x7 * x8) ** 2)
             + (abs(x7) / (1 + abs(x9))) ** 5
             + sum(all_symbols),
@@ -1013,23 +1019,23 @@ def tsang_iclr18_models(
             x1 * x2
             + 2 ** (x3 + x5 + x6)
             + 2 ** (x3 + x4 + x5 + x7)
-            + S.sin(x7 * S.sin(x8 + x9))
-            + S.acos(S.Integer(9) / S.Integer(10) * x10),
+            + sp.sin(x7 * sp.sin(x8 + x9))
+            + sp.acos(sp.Integer(9) / sp.Integer(10) * x10),
             all_symbols
         ),
         f9=AdditiveModel.from_expr(
-            S.tanh(x1 * x2 + x3 * x4) * S.sqrt(abs(x5))
-            + S.exp(x5 + x6)
-            + S.log((x6 * x7 * x8) ** 2 + 1)
+            sp.tanh(x1 * x2 + x3 * x4) * sp.sqrt(abs(x5))
+            + sp.exp(x5 + x6)
+            + sp.log((x6 * x7 * x8) ** 2 + 1)
             + x9 * x10
             + 1 / (1 + abs(x10)),
             all_symbols
         ),
         f10=AdditiveModel.from_expr(
-            S.sinh(x1 + x2)
-            + S.acos(S.tanh(x3 + x5 + x7))
-            + S.cos(x4 + x5)
-            + 1 / S.cos(x7 * x9),  # sec=1/cos (some backends don't have sec)
+            sp.sinh(x1 + x2)
+            + sp.acos(sp.tanh(x3 + x5 + x7))
+            + sp.cos(x4 + x5)
+            + 1 / sp.cos(x7 * x9),  # sec=1/cos (some backends don't have sec)
             all_symbols
         ),
     )

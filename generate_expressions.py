@@ -13,7 +13,7 @@ from tqdm.auto import tqdm
 from joblib import Parallel
 from joblib import delayed
 
-import sympy as S
+import sympy as sp
 import numpy as np
 
 from posthoceval.model_generation import generate_additive_expression
@@ -104,8 +104,8 @@ def periodicity_wrapper(func):
 #             `.__.-'  .-' _-.-'
 #                      `.__,'
 # ascii credit: https://www.asciiart.eu/animals/monkeys
-S.periodicity = S.calculus.util.periodicity = S.calculus.periodicity = \
-    periodicity_wrapper(S.periodicity)
+sp.periodicity = sp.calculus.util.periodicity = sp.calculus.periodicity = \
+    periodicity_wrapper(sp.periodicity)
 
 
 def generate_expression(symbols, seed, verbose=0, **kwargs):
@@ -130,13 +130,13 @@ def generate_expression(symbols, seed, verbose=0, **kwargs):
         except (RuntimeError, RecursionError) as e:
             # import traceback
             print('Failed to find domains for:')
-            print(S.pretty(expr))
+            print(sp.pretty(expr))
             print('Yet another exception...', e, file=sys.stderr)
             # traceback.print_exc()
         else:
             break
     print(f'Generated valid expression in {tries} tries.')
-    print(S.pretty(expr))
+    print(sp.pretty(expr))
 
     return ExprResult(
         symbols=symbols,
@@ -183,7 +183,7 @@ def run(n_feats_range, n_runs, out_dir, seed, kwargs):
             nonlocal seed
 
             for n_feat in n_feats_range:
-                symbols = S.symbols(f'x1:{n_feat + 1}', real=True)
+                symbols = sp.symbols(f'x1:{n_feat + 1}', real=True)
 
                 for kw_val in dict_product(kwargs):
                     job_kwargs = default_kwargs.copy()
