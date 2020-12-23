@@ -5,11 +5,13 @@ import threading
 import random
 import pickle
 import math
+import traceback
 from functools import wraps
 from collections import namedtuple
 from datetime import datetime
 
 from multiprocessing import TimeoutError
+from multiprocessing import Lock
 
 from tqdm.auto import tqdm
 from joblib import Parallel
@@ -140,7 +142,11 @@ def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
                 tqdm_write(sp.pretty(expr))
             else:
                 tqdm_write('Wow...failed to generate expression...')
-            tqdm_write('Yet another exception...', e, file=sys.stderr)
+            # tqdm_write('Yet another exception...', e, file=sys.stderr)
+            exc_lines = traceback.format_exception(
+                *sys.exc_info(), limit=None, chain=True)
+            for line in exc_lines:
+                tqdm_write(line, file=sys.stderr, end='')
         else:
             break
     tqdm_write(f'Generated valid expression in {tries} tries.')
@@ -188,8 +194,7 @@ def run(n_feats_range, n_runs, out_dir, seed, kwargs, timeout=3):
                             total=total_expressions)) as pbar:
         import inspect
 
-        # https://github.com/tqdm/tqdm/issues/759
-        tqdm.get_lock()
+        tqdm.set_lock(Lock())
         inspect.builtins.print = tqdm_write
 
         def jobs():
