@@ -110,6 +110,10 @@ sp.periodicity = sp.calculus.util.periodicity = sp.calculus.periodicity = \
     periodicity_wrapper(sp.periodicity)
 
 
+def tqdm_write(*args, sep=' ', **kwargs):
+    tqdm.write(sep.join(map(str, args)), **kwargs)
+
+
 def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
     """kwargs: see `generate_additive_expression`"""
     # sympy uses python random module in spots, set seed for reproducibility
@@ -124,23 +128,23 @@ def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
     while True:
         tries += 1
         expr = None
-        print('Generating expression...')
+        tqdm_write('Generating expression...')
         try:
             expr = generate_additive_expression(symbols, seed=rs, **kwargs)
-            print('Attempting to find valid domains...')
+            tqdm_write('Attempting to find valid domains...')
             domains = valid_variable_domains(expr, fail_action='error',
                                              verbose=verbose, timeout=timeout)
         except (RuntimeError, RecursionError, TimeoutError) as e:
             if expr is None:
-                print('Failed to find domains for:')
-                print(sp.pretty(expr))
+                tqdm_write('Failed to find domains for:')
+                tqdm_write(sp.pretty(expr))
             else:
-                print('Wow...failed to generate expression...')
-            print('Yet another exception...', e, file=sys.stderr)
+                tqdm_write('Wow...failed to generate expression...')
+            tqdm_write('Yet another exception...', e, file=sys.stderr)
         else:
             break
-    print(f'Generated valid expression in {tries} tries.')
-    print(sp.pretty(expr))
+    tqdm_write(f'Generated valid expression in {tries} tries.')
+    tqdm_write(sp.pretty(expr))
 
     return ExprResult(
         symbols=symbols,
@@ -183,9 +187,6 @@ def run(n_feats_range, n_runs, out_dir, seed, kwargs, timeout=3):
     with tqdm_parallel(tqdm(desc='Expression Generation',
                             total=total_expressions)) as pbar:
         import inspect
-
-        def tqdm_write(*args, sep=' ', **kwargs):
-            tqdm.write(sep.join(map(str, args)), **kwargs)
 
         # https://github.com/tqdm/tqdm/issues/759
         tqdm.get_lock()
