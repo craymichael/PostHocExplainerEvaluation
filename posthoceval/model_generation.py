@@ -98,11 +98,12 @@ OPS_SINGLE_ARG_WEIGHTS = (
 # Multiple argument ops (non-additive)
 OPS_MULTI_ARG_LINEAR = [
     sp.Mul,
-    lambda a, b: a / b,
+    # lambda a, b: a / b,
 ]
 OPS_MULTI_ARG_LINEAR_WEIGHTS = [
-    0.5,
-    0.5,
+    1.,
+    # 0.5,
+    # 0.5,
 ]
 OPS_MULTI_ARG_NONLINEAR = [
     sp.Pow,

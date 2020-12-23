@@ -4,6 +4,7 @@ All functions of format:
 """
 import logging
 from functools import partial
+from typing import Iterable
 
 from sklearn import metrics
 from sklearn.metrics import pairwise
@@ -12,7 +13,7 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 __all__ = [
-    'effect_detection_f1',
+    'effect_detection_f1', 'effect_detection_jaccard_index',
     'effect_detection_precision', 'effect_detection_recall',
     'mean_squared_error', 'mse',
     'root_mean_squared_error', 'rmse',
@@ -26,6 +27,18 @@ def _standardize_effect(e):
     e = tuple(sorted({*e})) if isinstance(e, tuple) else (e,)
     assert e, 'received empty effect'
     return e
+
+
+def strict_eval(y_true: Iterable, y_pred: Iterable):
+    """TODO: also return goodness - as arg"""
+    y_true = {*map(_standardize_effect, y_true)}
+    y_pred = {*map(_standardize_effect, y_pred)}
+
+    matching = [((match,), (match,)) for match in y_true & y_pred]
+    matching.extend(((miss,), (None,)) for miss in y_true - y_pred)
+    matching.extend(((None,), (miss,)) for miss in y_pred - y_true)
+
+    return matching
 
 
 def _effects_confusion_matrix(y_true, y_pred, effects='all'):
