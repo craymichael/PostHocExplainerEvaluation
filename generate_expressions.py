@@ -137,7 +137,6 @@ def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
             else:
                 print('Wow...failed to generate expression...')
             print('Yet another exception...', e, file=sys.stderr)
-            # traceback.print_exc()
         else:
             break
     print(f'Generated valid expression in {tries} tries.')
@@ -188,17 +187,19 @@ def run(n_feats_range, n_runs, out_dir, seed, kwargs, timeout=3):
         def tqdm_write(*args, sep=' ', **kwargs):
             tqdm.write(sep.join(map(str, args)), **kwargs)
 
+        # https://github.com/tqdm/tqdm/issues/759
+        tqdm.get_lock()
         inspect.builtins.print = tqdm_write
 
         def jobs():
             nonlocal seed
 
             for n_feat in n_feats_range:
-                symbols = sp.symbols(f'x1:{n_feat + 1}', real=True)
-
                 for kw_val in dict_product(kwargs):
                     job_kwargs = default_kwargs.copy()
                     job_kwargs.update(kw_val)
+
+                    symbols = sp.symbols(f'x1:{n_feat + 1}', real=True)
 
                     print(f'{n_feat} features, generate expr with:')
                     print(job_kwargs)
