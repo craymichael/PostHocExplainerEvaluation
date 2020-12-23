@@ -13,5 +13,4 @@ tqdm
 tensorflow-gpu
 alibi
 alibi[ray]
-git+git@github.com:craymichael/sympy.git@60bbce89cc1e638e6ee813ad4da2877d76d0a628#egg=sympy
--e git+git@github.com:craymichael/sympy.git@60bbce89cc1e638e6ee813ad4da2877d76d0a628#egg=sympy
+-e git+https://github.com/craymichael/sympy.git@60bbce89cc1e638e6ee813ad4da2877d76d0a628#egg=sympy

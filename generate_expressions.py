@@ -149,7 +149,7 @@ def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
     )
 
 
-def run(n_feats_range, n_runs, out_dir, seed, kwargs, timeout=6.9):
+def run(n_feats_range, n_runs, out_dir, seed, kwargs, timeout=3):
     os.makedirs(out_dir, exist_ok=True)
 
     # default kwargs
