@@ -27,8 +27,8 @@ from posthoceval.utils import dict_product
 _RUNNING_PERIODICITY_IDS = {}
 _MAX_RECURSIONS = 1_000
 
-# https://bugs.python.org/issue25222
-sys.setrecursionlimit(200)
+# # https://bugs.python.org/issue25222
+# sys.setrecursionlimit(200)
 
 ExprResult = namedtuple('ExprResult',
                         'symbols,expr,domains,state,kwargs')
@@ -124,8 +124,8 @@ def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
     while True:
         tries += 1
         print('Generating expression...')
-        expr = generate_additive_expression(symbols, seed=rs, **kwargs)
         try:
+            expr = generate_additive_expression(symbols, seed=rs, **kwargs)
             print('Attempting to find valid domains...')
             domains = valid_variable_domains(expr, fail_action='error',
                                              verbose=verbose, timeout=timeout)
