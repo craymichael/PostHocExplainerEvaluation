@@ -89,7 +89,7 @@ OPS_SINGLE_ARG = OPS_TRIG + [
 ]
 # Weights in model generation
 # `_trig_pct` trig
-_trig_pct = .4
+_trig_pct = .2
 _len_non_trig = len(OPS_SINGLE_ARG) - len(OPS_TRIG)
 OPS_SINGLE_ARG_WEIGHTS = (
         [_trig_pct / len(OPS_TRIG)] * len(OPS_TRIG) +
@@ -98,12 +98,11 @@ OPS_SINGLE_ARG_WEIGHTS = (
 # Multiple argument ops (non-additive)
 OPS_MULTI_ARG_LINEAR = [
     sp.Mul,
-    # lambda a, b: a / b,
+    lambda a, b: a / b,
 ]
 OPS_MULTI_ARG_LINEAR_WEIGHTS = [
-    1.,
-    # 0.5,
-    # 0.5,
+    0.8,
+    0.2,
 ]
 OPS_MULTI_ARG_NONLINEAR = [
     sp.Pow,
