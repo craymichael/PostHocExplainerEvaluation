@@ -123,6 +123,7 @@ def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
     tries = 0
     while True:
         tries += 1
+        expr = None
         print('Generating expression...')
         try:
             expr = generate_additive_expression(symbols, seed=rs, **kwargs)
@@ -130,9 +131,11 @@ def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
             domains = valid_variable_domains(expr, fail_action='error',
                                              verbose=verbose, timeout=timeout)
         except (RuntimeError, RecursionError, TimeoutError) as e:
-            # import traceback
-            print('Failed to find domains for:')
-            print(sp.pretty(expr))
+            if expr is None:
+                print('Failed to find domains for:')
+                print(sp.pretty(expr))
+            else:
+                print('Wow...failed to generate expression...')
             print('Yet another exception...', e, file=sys.stderr)
             # traceback.print_exc()
         else:
