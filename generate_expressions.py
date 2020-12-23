@@ -180,6 +180,12 @@ def run(n_feats_range, n_runs, out_dir, seed, kwargs, timeout=10):
 
     with tqdm_parallel(tqdm(desc='Expression Generation',
                             total=total_expressions)) as pbar:
+        import inspect
+
+        def tqdm_write(*args, sep=' ', **kwargs):
+            tqdm.write(sep.join(map(str, args)), **kwargs)
+
+        inspect.builtins.print = tqdm_write
 
         def jobs():
             nonlocal seed
@@ -191,10 +197,11 @@ def run(n_feats_range, n_runs, out_dir, seed, kwargs, timeout=10):
                     job_kwargs = default_kwargs.copy()
                     job_kwargs.update(kw_val)
 
-                    print('generate with', job_kwargs)
+                    print(f'{n_feat} features, generate expr with:')
+                    print(job_kwargs)
                     for _ in range(n_runs):
                         yield delayed(generate_expression)(
-                            symbols, seed, timeout=timeout, **job_kwargs)
+                            symbols, seed, timeout=timeout, xxx=tqdm_write, **job_kwargs)
                         # increment seed (don't have same RNG state per job)
                         seed += 1
 

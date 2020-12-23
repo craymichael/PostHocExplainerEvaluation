@@ -3,6 +3,7 @@ libgpuarray/
 # profiling files
 *.pstat
 
+*.pkl
 .idea/
 .~lock.*
 

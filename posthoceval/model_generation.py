@@ -669,7 +669,7 @@ def can_timeout(decorated):
 @can_timeout
 def _valid_variable_domains_term(term, assumptions, no_empty_set, simplified,
                                  fail_action, verbose=False):
-    """Real domains only!"""
+    """Real domains only! Note: @can_timeout --> timeout kwarg"""
     domains = {}
     undesirables = {}
     errored_symbols = []
@@ -718,7 +718,8 @@ def _valid_variable_domains_term(term, assumptions, no_empty_set, simplified,
 
 
 def valid_variable_domains(terms, assumptions=None, no_empty_set=True,
-                           simplified=True, fail_action='warn', verbose=False):
+                           simplified=True, fail_action='warn', verbose=False,
+                           timeout=None):
     """Find the valid continuous domains of the free variables of a symbolic
     expression. Expects additive terms to be provided, but will split up a
     sympy expression too.
@@ -740,7 +741,7 @@ def valid_variable_domains(terms, assumptions=None, no_empty_set=True,
         # Get valid domains
         domains_term = _valid_variable_domains_term(
             term, assumptions, no_empty_set, simplified, fail_action,
-            verbose=verbose)
+            verbose=verbose, timeout=timeout)
         # Update valid intervals of each variable
         for symbol, domain in domains_term.items():
             domains[symbol] = domains.get(symbol, sp.Reals).intersect(domain)
