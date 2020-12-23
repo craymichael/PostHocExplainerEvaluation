@@ -9,6 +9,8 @@ from functools import wraps
 from collections import namedtuple
 from datetime import datetime
 
+from multiprocessing import TimeoutError
+
 from tqdm.auto import tqdm
 from joblib import Parallel
 from joblib import delayed
@@ -108,7 +110,7 @@ sp.periodicity = sp.calculus.util.periodicity = sp.calculus.periodicity = \
     periodicity_wrapper(sp.periodicity)
 
 
-def generate_expression(symbols, seed, verbose=0, **kwargs):
+def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
     """kwargs: see `generate_additive_expression`"""
     # sympy uses python random module in spots, set seed for reproducibility
     random.seed(seed, version=2)
@@ -127,7 +129,7 @@ def generate_expression(symbols, seed, verbose=0, **kwargs):
             print('Attempting to find valid domains...')
             domains = valid_variable_domains(expr, fail_action='error',
                                              verbose=verbose)
-        except (RuntimeError, RecursionError) as e:
+        except (RuntimeError, RecursionError, TimeoutError) as e:
             # import traceback
             print('Failed to find domains for:')
             print(sp.pretty(expr))
@@ -147,7 +149,7 @@ def generate_expression(symbols, seed, verbose=0, **kwargs):
     )
 
 
-def run(n_feats_range, n_runs, out_dir, seed, kwargs):
+def run(n_feats_range, n_runs, out_dir, seed, kwargs, timeout=10):
     os.makedirs(out_dir, exist_ok=True)
 
     # default kwargs
@@ -192,7 +194,7 @@ def run(n_feats_range, n_runs, out_dir, seed, kwargs):
                     print('generate with', job_kwargs)
                     for _ in range(n_runs):
                         yield delayed(generate_expression)(
-                            symbols, seed, **job_kwargs)
+                            symbols, seed, timeout=timeout, **job_kwargs)
                         # increment seed (don't have same RNG state per job)
                         seed += 1
 

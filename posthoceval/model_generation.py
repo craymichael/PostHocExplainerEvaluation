@@ -15,6 +15,9 @@ from itertools import product
 from itertools import cycle
 from collections import OrderedDict
 from collections import defaultdict
+from functools import wraps
+
+import multiprocessing as mp
 
 import sympy as sp
 from sympy.calculus.util import continuous_domain
@@ -647,7 +650,23 @@ def _brute_force_errored_domain(term, undesirables, errored_symbols,
     return domains  # empty dict if made here
 
 
+# kudos https://github.com/joblib/joblib/pull/366#issuecomment-267603530
+def can_timeout(decorated):
+    """May raise `TimeoutError`"""
+    @wraps(decorated)
+    def inner(*args, timeout=None, **kwargs):
+        if timeout is None:  # normal functionality
+            return decorated(*args, **kwargs)
+        # timeout raised if applicable
+        pool = mp.pool.ThreadPool(1)
+        async_result = pool.apply_async(decorated, args, kwargs)
+        return async_result.get(timeout)
+
+    return inner
+
+
 @lru_cache(maxsize=int(2 ** 15))
+@can_timeout
 def _valid_variable_domains_term(term, assumptions, no_empty_set, simplified,
                                  fail_action, verbose=False):
     """Real domains only!"""

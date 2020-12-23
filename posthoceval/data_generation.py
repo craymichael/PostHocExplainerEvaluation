@@ -9,6 +9,9 @@ from sympy.stats.rv import sample_iter_subs
 
 
 def sample(variables, distribution, n_samples, constraints=None, cov=None):
+    # TODO satisfy desired covariance matrix...
+    assert cov is None, 'not supported yet...'
+
     # TODO: setting seed may not be possible...until 1.7.1
     #  https://github.com/sympy/sympy/pull/20528/
     if isinstance(distribution, Sequence):
@@ -48,8 +51,5 @@ def sample(variables, distribution, n_samples, constraints=None, cov=None):
             dtype=np.float32,
         )
         columns.append(samples_v)
-
-    # TODO satisfy desired covariance matrix...
-    assert cov is None, 'not supported yet...'
 
     return np.stack(columns, axis=1)
