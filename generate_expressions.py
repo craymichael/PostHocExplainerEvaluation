@@ -128,7 +128,7 @@ def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
         try:
             print('Attempting to find valid domains...')
             domains = valid_variable_domains(expr, fail_action='error',
-                                             verbose=verbose)
+                                             verbose=verbose, timeout=timeout)
         except (RuntimeError, RecursionError, TimeoutError) as e:
             # import traceback
             print('Failed to find domains for:')
@@ -149,7 +149,7 @@ def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
     )
 
 
-def run(n_feats_range, n_runs, out_dir, seed, kwargs, timeout=10):
+def run(n_feats_range, n_runs, out_dir, seed, kwargs, timeout=6.9):
     os.makedirs(out_dir, exist_ok=True)
 
     # default kwargs
@@ -201,7 +201,7 @@ def run(n_feats_range, n_runs, out_dir, seed, kwargs, timeout=10):
                     print(job_kwargs)
                     for _ in range(n_runs):
                         yield delayed(generate_expression)(
-                            symbols, seed, timeout=timeout, xxx=tqdm_write, **job_kwargs)
+                            symbols, seed, timeout=timeout, **job_kwargs)
                         # increment seed (don't have same RNG state per job)
                         seed += 1
 
