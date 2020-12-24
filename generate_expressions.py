@@ -11,7 +11,6 @@ from collections import namedtuple
 from datetime import datetime
 
 from multiprocessing import TimeoutError
-from multiprocessing import Lock
 
 from tqdm.auto import tqdm
 from joblib import Parallel
@@ -23,6 +22,7 @@ import numpy as np
 from posthoceval.model_generation import generate_additive_expression
 from posthoceval.model_generation import valid_variable_domains
 from posthoceval.model_generation import as_random_state
+from posthoceval.model_generation import independent_terms
 from posthoceval.utils import tqdm_parallel
 from posthoceval.utils import dict_product
 
@@ -134,6 +134,8 @@ def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
         try:
             expr = generate_additive_expression(symbols, seed=rs, **kwargs)
             tqdm_write('Attempting to find valid domains...')
+            # TODO TODO TODO: ERROR OUT ON TERMS NOT THE WHOLE FUCKING
+            #  EXPRESSION
             domains = valid_variable_domains(expr, fail_action='error',
                                              verbose=verbose, timeout=timeout)
         except (RuntimeError, RecursionError, TimeoutError) as e:
@@ -142,7 +144,6 @@ def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
                 tqdm_write(sp.pretty(expr))
             else:
                 tqdm_write('Wow...failed to generate expression...')
-            # tqdm_write('Yet another exception...', e, file=sys.stderr)
             exc_lines = traceback.format_exception(
                 *sys.exc_info(), limit=None, chain=True)
             for line in exc_lines:
@@ -194,7 +195,7 @@ def run(n_feats_range, n_runs, out_dir, seed, kwargs, timeout=30):
                             total=total_expressions)) as pbar:
         import inspect
 
-        tqdm.set_lock(Lock())
+        # TODO: deal with this....
         inspect.builtins.print = tqdm_write
 
         def jobs():

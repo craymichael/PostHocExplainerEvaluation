@@ -537,7 +537,7 @@ def _bad_domain(domain, no_empty_set, simplified):
 
 def _brute_force_errored_domain(term, undesirables, errored_symbols,
                                 assumptions, no_empty_set, simplified,
-                                fail_action, true_brute_force=False,
+                                fail_action, interval, true_brute_force=False,
                                 verbose=False):
     """Used in the case that domain-finding for a particular sympy op is not
     implemented
@@ -587,17 +587,18 @@ def _brute_force_errored_domain(term, undesirables, errored_symbols,
                         for symbol, assumption in symbol_comb
                     )
                     intervals = (
-                        ASSUMPTION_DOMAIN.get(assumption, sp.Reals)
+                        ASSUMPTION_DOMAIN.get(assumption,
+                                              sp.Reals).intersect(interval)
                         for _, assumption in symbol_comb
                     )
                     # Insert symbols with assumptions into term
                     term_subs = term.subs(replacements)
                     undesired_domain = False
-                    for symbol, interval in zip(replacements.keys(),
-                                                intervals):
+                    for symbol, s_interval in zip(replacements.keys(),
+                                                  intervals):
                         replacement = replacements[symbol]
                         domain = continuous_domain(term_subs, replacement,
-                                                   interval)
+                                                   s_interval)
 
                         if _bad_domain(domain, no_empty_set, simplified):
                             undesired_domain = True
@@ -622,7 +623,8 @@ def _brute_force_errored_domain(term, undesirables, errored_symbols,
             # Return function with a true brute force run...
             return _brute_force_errored_domain(
                 term, undesirables, errored_symbols, assumptions, no_empty_set,
-                simplified, fail_action, true_brute_force=True
+                simplified, fail_action, interval=interval,
+                true_brute_force=True
             )
 
         failed_symbols = set(errored_symbols) - set(domains.keys())
@@ -653,6 +655,7 @@ def _brute_force_errored_domain(term, undesirables, errored_symbols,
 # kudos https://github.com/joblib/joblib/pull/366#issuecomment-267603530
 def can_timeout(decorated):
     """May raise `TimeoutError`"""
+
     @wraps(decorated)
     def inner(*args, timeout=None, **kwargs):
         if timeout is None:  # normal functionality
@@ -668,7 +671,7 @@ def can_timeout(decorated):
 @lru_cache(maxsize=int(2 ** 15))
 @can_timeout
 def _valid_variable_domains_term(term, assumptions, no_empty_set, simplified,
-                                 fail_action, verbose=False):
+                                 fail_action, interval, verbose=False):
     """Real domains only! Note: @can_timeout --> timeout kwarg"""
     domains = {}
     undesirables = {}
@@ -677,7 +680,7 @@ def _valid_variable_domains_term(term, assumptions, no_empty_set, simplified,
         if verbose:
             print(f'start term {term} symbol {symbol}')
         try:
-            domain = continuous_domain(term, symbol, sp.Reals)
+            domain = continuous_domain(term, symbol, interval)
             if _bad_domain(domain, no_empty_set, simplified):
                 if verbose:
                     print(f'undesirable domain for {symbol}: {domain}')
@@ -712,14 +715,15 @@ def _valid_variable_domains_term(term, assumptions, no_empty_set, simplified,
     domains.update(
         _brute_force_errored_domain(term, undesirables, errored_symbols,
                                     assumptions, no_empty_set, simplified,
-                                    fail_action, verbose=verbose)
+                                    fail_action, interval=interval,
+                                    verbose=verbose)
     )
     return domains
 
 
 def valid_variable_domains(terms, assumptions=None, no_empty_set=True,
                            simplified=True, fail_action='warn', verbose=False,
-                           timeout=None):
+                           interval=sp.Reals, timeout=None):
     """Find the valid continuous domains of the free variables of a symbolic
     expression. Expects additive terms to be provided, but will split up a
     sympy expression too.
@@ -741,7 +745,7 @@ def valid_variable_domains(terms, assumptions=None, no_empty_set=True,
         # Get valid domains
         domains_term = _valid_variable_domains_term(
             term, assumptions, no_empty_set, simplified, fail_action,
-            verbose=verbose, timeout=timeout)
+            interval=interval, verbose=verbose, timeout=timeout)
         # Update valid intervals of each variable
         for symbol, domain in domains_term.items():
             domains[symbol] = domains.get(symbol, sp.Reals).intersect(domain)
