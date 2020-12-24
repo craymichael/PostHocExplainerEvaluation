@@ -127,6 +127,8 @@ def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
 
     # TODO: yeah this shouldn't have much longevity:
     interval = sp.Interval(-1, +1)
+    validate_kwargs = {'interval': interval, 'timeout': timeout,
+                       'verbose': verbose}
 
     tries = 0
     while True:
@@ -136,13 +138,13 @@ def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
         try:
             expr = generate_additive_expression(
                 symbols, seed=rs, validate=True,
-                validate_kwargs={'interval': interval}, **kwargs
+                validate_kwargs=validate_kwargs, **kwargs
             )
             tqdm_write('Attempting to find valid domains...')
-            # TODO TODO TODO: ERROR OUT ON TERMS NOT THE WHOLE FUCKING
-            #  EXPRESSION
+            # some or all terms redundant with validate in expr gen,
+            # but results should be cached (with same args)
             domains = valid_variable_domains(expr, fail_action='error',
-                                             verbose=verbose, timeout=timeout)
+                                             **validate_kwargs)
         except (RuntimeError, RecursionError, TimeoutError) as e:
             if expr is None:
                 tqdm_write('Failed to find domains for:')

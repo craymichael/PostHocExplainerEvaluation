@@ -379,14 +379,47 @@ def generate_additive_expression(
     main_features = cycle(features)
 
     for i in range(n_main_nonlinear):
-        term = next(main_features)
-        for _ in range(main_nonlinear_op_counts[i]):
-            op = next(main_nonlinear_ops_iter)
-            term = op(term)
+        feature = next(main_features)
+
+        validate_try = 0
+        alternative_ops = None
+        while validate_try < validate_tries:
+            term = feature
+
+            if alternative_ops is None:
+                for _ in range(main_nonlinear_op_counts[i]):
+                    op = next(main_nonlinear_ops_iter)
+                    term = op(term)
+            else:
+                for op in alternative_ops:
+                    term = op(term)
+
+            # TODO: doc the crap out of this "elegance"
+            if not validate:
+                break
+            try:
+                valid_variable_domains(term, fail_action='error',
+                                       **validate_kwargs)
+                break  # we good
+            except (RuntimeError, RecursionError, TimeoutError):
+                validate_try += 1
+
+                # try again with new selection of ops...
+                alternative_ops = choice_objects(
+                    nonlinear_single_arg_ops, main_nonlinear_op_counts[i],
+                    replace=True, p=nonlinear_single_arg_ops_weights, seed=rs
+                )
+
+            # Then we continue...
+        else:
+            raise RuntimeError(f'Could not validate a term of the expression '
+                               f'in {validate_tries} tries...')
+
         expr += term
 
     # Linear main effects
     for _ in range(n_main - n_main_nonlinear):
+        # no validation needed here...
         expr += next(main_features)
 
     # Nonlinear interaction effects
@@ -524,6 +557,7 @@ def generate_additive_expression(
     # Linear interaction effects
     n_interaction_linear = n_interaction - n_interaction_nonlinear
     for _ in range(n_interaction_linear):
+        # no validation needed here either...
         term_features = next(interaction_features)
         linear_interaction_ops = choice_objects(
             linear_multi_arg_ops, len(term_features) - 1,
