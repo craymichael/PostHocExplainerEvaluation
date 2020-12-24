@@ -702,7 +702,7 @@ def _brute_force_errored_domain(term, undesirables, errored_symbols,
             # Return function with a true brute force run...
             return _brute_force_errored_domain(
                 term, undesirables, errored_symbols, assumptions, no_empty_set,
-                simplified, fail_action, interval=interval,
+                simplified, no_finite_set, fail_action, interval=interval,
                 true_brute_force=True
             )
 
