@@ -18,6 +18,7 @@ from collections import defaultdict
 from functools import wraps
 
 import multiprocessing as mp
+from multiprocessing import TimeoutError
 
 import sympy as sp
 from sympy.calculus.util import continuous_domain
@@ -187,6 +188,9 @@ def generate_additive_expression(
         nonlinear_multi_arg_ops_weights=None,
         linear_multi_arg_ops=None,
         linear_multi_arg_ops_weights=None,
+        validate=False,
+        validate_kwargs=None,
+        validate_tries=50,
         seed=None,
 ) -> sp.Expr:
     """
@@ -205,6 +209,9 @@ def generate_additive_expression(
     :param seed: For reproducibility
     :return:
     """
+    validate_kwargs = validate_kwargs or {}
+    assert validate_tries >= 1
+
     n_features = len(symbols)
 
     if pct_nonlinear is None:
@@ -417,8 +424,9 @@ def generate_additive_expression(
     interaction_nonlinear_ops = []
     idx_single = idx_multi = 0
     # both op count lists are length of num. nonlinear interactions
-    for count_single, count_multi in zip(interaction_nonlinear_op_counts_single,
-                                         interaction_nonlinear_op_counts_multi):
+    for (count_single,
+         count_multi) in zip(interaction_nonlinear_op_counts_single,
+                             interaction_nonlinear_op_counts_multi):
         # tuple of (single ops, multi ops)
         ops_i = (
             interaction_nonlinear_ops_single[idx_single:
@@ -436,12 +444,12 @@ def generate_additive_expression(
     #  times
     interaction_features = cycle(uniq_interactions)
 
-    for term_ops_single, term_ops_multi in interaction_nonlinear_ops:
+    for i, (term_ops_single,
+            term_ops_multi) in enumerate(interaction_nonlinear_ops):
         term_features = next(interaction_features)
         n_term_features = len(term_features)
 
-        # TODO(inelegant)
-        n_multi_ops_term = len(term_ops_multi)
+        n_multi_ops_term = interaction_nonlinear_op_counts_multi[i]
 
         # there are this many linear ops needed to have all terms interact.
         # if n_interact_bridges is < 0 then term_features will by cycled
@@ -459,28 +467,58 @@ def generate_additive_expression(
         n_additions = int(round(
             nonlinear_interaction_additivity * n_interact_bridges))
 
-        linear_bridge_ops_multi = choice_objects(
-            linear_multi_arg_ops, n_interact_bridges - n_additions,
-            replace=True, p=linear_multi_arg_ops_weights, seed=rs
-        )
-        linear_bridge_ops_multi += [sp.Add] * n_additions
-        term_ops_multi += linear_bridge_ops_multi
-        # shuffle 'em
-        rs.shuffle(term_ops_multi)  # actually is fast on objects
+        validate_try = 0
+        while validate_try < validate_tries:
+            linear_bridge_ops_multi = choice_objects(
+                linear_multi_arg_ops, n_interact_bridges - n_additions,
+                replace=True, p=linear_multi_arg_ops_weights, seed=rs
+            )
+            linear_bridge_ops_multi += [sp.Add] * n_additions
+            term_ops_multi += linear_bridge_ops_multi
+            # shuffle 'em
+            rs.shuffle(term_ops_multi)  # actually is fast on objects
 
-        # now we have...
-        #  - features in term_features_leaf
-        #  - multi ops in term_ops_multi
-        #  - single ops in term_ops_single
-        # TODO: Abs() (and potentially others) here can be simplified out due to
-        #  symbols restricted to positive domain
-        term = RandExprTree(
-            leaves=term_features_leaf,
-            parents_with_children=term_ops_multi,
-            parents_with_child=term_ops_single,
-            root_blacklist=(sp.Add,),
-            seed=seed
-        ).to_expression()
+            # now we have...
+            #  - features in term_features_leaf
+            #  - multi ops in term_ops_multi
+            #  - single ops in term_ops_single
+            # TODO: Abs() (and potentially others) here can be simplified out
+            #  due to symbols restricted to positive domain
+            term = RandExprTree(
+                leaves=term_features_leaf,
+                parents_with_children=term_ops_multi,
+                parents_with_child=term_ops_single,
+                root_blacklist=(sp.Add,),
+                seed=seed
+            ).to_expression()
+
+            # TODO: doc the crap out of this "elegance"
+            if not validate:
+                break
+            try:
+                valid_variable_domains(term, fail_action='error',
+                                       **validate_kwargs)
+                break  # we good
+            except (RuntimeError, RecursionError, TimeoutError):
+                validate_try += 1
+
+                # try again with new selection of ops...
+                term_ops_single = choice_objects(
+                    nonlinear_single_arg_ops,
+                    interaction_nonlinear_op_counts_single[i],
+                    replace=True, p=nonlinear_single_arg_ops_weights, seed=rs
+                )
+                term_ops_multi = choice_objects(
+                    nonlinear_multi_arg_ops,
+                    interaction_nonlinear_op_counts_multi[i],
+                    replace=True, p=nonlinear_multi_arg_ops_weights, seed=rs
+                )
+
+            # Then we continue...
+        else:
+            raise RuntimeError(f'Could not validate a term of the expression '
+                               f'in {validate_tries} tries...')
+
         expr += term
 
     # Linear interaction effects

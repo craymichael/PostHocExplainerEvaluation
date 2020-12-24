@@ -22,7 +22,6 @@ import numpy as np
 from posthoceval.model_generation import generate_additive_expression
 from posthoceval.model_generation import valid_variable_domains
 from posthoceval.model_generation import as_random_state
-from posthoceval.model_generation import independent_terms
 from posthoceval.utils import tqdm_parallel
 from posthoceval.utils import dict_product
 
@@ -126,13 +125,19 @@ def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
     # reproducibility, reseeded per job
     rs = as_random_state(seed)
 
+    # TODO: yeah this shouldn't have much longevity:
+    interval = sp.Interval(-1, +1)
+
     tries = 0
     while True:
         tries += 1
         expr = None
         tqdm_write('Generating expression...')
         try:
-            expr = generate_additive_expression(symbols, seed=rs, **kwargs)
+            expr = generate_additive_expression(
+                symbols, seed=rs, validate=True,
+                validate_kwargs={'interval': interval}, **kwargs
+            )
             tqdm_write('Attempting to find valid domains...')
             # TODO TODO TODO: ERROR OUT ON TERMS NOT THE WHOLE FUCKING
             #  EXPRESSION
