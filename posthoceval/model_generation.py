@@ -378,6 +378,8 @@ def generate_additive_expression(
     # TODO cycle --> choice all features mod len(features) times
     main_features = cycle(features)
 
+    domains = {}  # used in validation
+
     for i in range(n_main_nonlinear):
         feature = next(main_features)
 
@@ -398,8 +400,9 @@ def generate_additive_expression(
             if not validate:
                 break
             try:
-                valid_variable_domains(term, fail_action='error',
-                                       **validate_kwargs)
+                domains = valid_variable_domains(term, fail_action='error',
+                                                 init_domains=domains,
+                                                 **validate_kwargs)
                 break  # we good
             except (RuntimeError, RecursionError, TimeoutError):
                 validate_try += 1
@@ -529,8 +532,9 @@ def generate_additive_expression(
             if not validate:
                 break
             try:
-                valid_variable_domains(term, fail_action='error',
-                                       **validate_kwargs)
+                domains = valid_variable_domains(term, fail_action='error',
+                                                 init_domains=domains,
+                                                 **validate_kwargs)
                 break  # we good
             except (RuntimeError, RecursionError, TimeoutError):
                 validate_try += 1
@@ -601,16 +605,18 @@ def split_effects(
     return tuple(main_effects), tuple(interaction_effects)
 
 
-def _bad_domain(domain, no_empty_set, simplified):
+def _bad_domain(domain, no_empty_set, simplified, no_finite_set):
     """True if bad, False if good"""
     return ((no_empty_set and domain is sp.EmptySet) or
-            (simplified and (domain.free_symbols or domain.atoms(sp.Dummy))))
+            (simplified and (domain.free_symbols or domain.atoms(sp.Dummy))) or
+            # type much faster than isinstance
+            (no_finite_set and (type(domain) is sp.FiniteSet)))
 
 
 def _brute_force_errored_domain(term, undesirables, errored_symbols,
                                 assumptions, no_empty_set, simplified,
-                                fail_action, interval, true_brute_force=False,
-                                verbose=False):
+                                no_finite_set, fail_action, interval,
+                                true_brute_force=False, verbose=False):
     """Used in the case that domain-finding for a particular sympy op is not
     implemented
 
@@ -672,7 +678,8 @@ def _brute_force_errored_domain(term, undesirables, errored_symbols,
                         domain = continuous_domain(term_subs, replacement,
                                                    s_interval)
 
-                        if _bad_domain(domain, no_empty_set, simplified):
+                        if _bad_domain(domain, no_empty_set, simplified,
+                                       no_finite_set):
                             undesired_domain = True
                             if symbol not in undesirables:
                                 undesirables[symbol] = domain
@@ -743,7 +750,8 @@ def can_timeout(decorated):
 @lru_cache(maxsize=int(2 ** 15))
 @can_timeout
 def _valid_variable_domains_term(term, assumptions, no_empty_set, simplified,
-                                 fail_action, interval, verbose=False):
+                                 no_finite_set, fail_action, interval,
+                                 verbose=False):
     """Real domains only! Note: @can_timeout --> timeout kwarg"""
     domains = {}
     undesirables = {}
@@ -753,7 +761,7 @@ def _valid_variable_domains_term(term, assumptions, no_empty_set, simplified,
             print(f'start term {term} symbol {symbol}')
         try:
             domain = continuous_domain(term, symbol, interval)
-            if _bad_domain(domain, no_empty_set, simplified):
+            if _bad_domain(domain, no_empty_set, simplified, no_finite_set):
                 if verbose:
                     print(f'undesirable domain for {symbol}: {domain}')
                 errored_symbols.append(symbol)
@@ -787,15 +795,16 @@ def _valid_variable_domains_term(term, assumptions, no_empty_set, simplified,
     domains.update(
         _brute_force_errored_domain(term, undesirables, errored_symbols,
                                     assumptions, no_empty_set, simplified,
-                                    fail_action, interval=interval,
-                                    verbose=verbose)
+                                    no_finite_set, fail_action,
+                                    interval=interval, verbose=verbose)
     )
     return domains
 
 
 def valid_variable_domains(terms, assumptions=None, no_empty_set=True,
-                           simplified=True, fail_action='warn', verbose=False,
-                           interval=sp.Reals, timeout=None):
+                           simplified=True, no_finite_set=True,
+                           init_domains=None, fail_action='warn',
+                           verbose=False, interval=sp.Reals, timeout=None):
     """Find the valid continuous domains of the free variables of a symbolic
     expression. Expects additive terms to be provided, but will split up a
     sympy expression too.
@@ -812,19 +821,23 @@ def valid_variable_domains(terms, assumptions=None, no_empty_set=True,
     if assumptions is None:
         assumptions = tuple(ASSUMPTION_DOMAIN.keys())
 
-    domains = {}
+    if init_domains is None:
+        domains = {}
+    else:
+        domains = init_domains.copy()
+
     for term in terms:
         # Get valid domains
         domains_term = _valid_variable_domains_term(
-            term, assumptions, no_empty_set, simplified, fail_action,
-            interval=interval, verbose=verbose, timeout=timeout)
+            term, assumptions, no_empty_set, simplified, no_finite_set,
+            fail_action, interval=interval, verbose=verbose, timeout=timeout)
         # Update valid intervals of each variable
         for symbol, domain in domains_term.items():
-            domains[symbol] = domains.get(symbol, sp.Reals).intersect(domain)
+            domains[symbol] = domains.get(symbol, interval).intersect(domain)
 
     # bad domains can arise (namely empty set) from intersections of intervals
     for symbol, domain in domains.items():
-        if _bad_domain(domain, no_empty_set, simplified):
+        if _bad_domain(domain, no_empty_set, simplified, no_finite_set):
             fail_msg = (f'desirable domain (simplified={simplified}, '
                         f'no_empty_set={no_empty_set}) for symbol {symbol}: '
                         f'{domain}')
@@ -956,6 +969,7 @@ class AdditiveModel(object):
     @property
     def valid_variable_domains(self):
         """See documentation of `valid_variable_domains` function"""
+        # TODO: prolly get rid of this property or turn into function...
         return valid_variable_domains(self.independent_terms)
 
     def __call__(
