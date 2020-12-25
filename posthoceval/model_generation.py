@@ -741,8 +741,12 @@ def can_timeout(decorated):
             return decorated(*args, **kwargs)
         # timeout raised if applicable
         pool = mp.pool.ThreadPool(1)
-        async_result = pool.apply_async(decorated, args, kwargs)
-        return async_result.get(timeout)
+        try:
+            async_result = pool.apply_async(decorated, args, kwargs)
+            ret = async_result.get(timeout)
+        finally:
+            pool.close()
+        return ret
 
     return inner
 

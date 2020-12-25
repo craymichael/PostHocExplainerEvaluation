@@ -25,6 +25,12 @@ from posthoceval.model_generation import as_random_state
 from posthoceval.utils import tqdm_parallel
 from posthoceval.utils import dict_product
 
+# === DEBUG ===
+from posthoceval.profile import profile, set_profile
+
+set_profile(True)
+# === DEBUG ===
+
 _RUNNING_PERIODICITY_IDS = {}
 _MAX_RECURSIONS = 1_000
 
@@ -115,6 +121,7 @@ def tqdm_write(*args, sep=' ', **kwargs):
     tqdm.write(sep.join(map(str, args)), **kwargs)
 
 
+@profile
 def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
     """kwargs: see `generate_additive_expression`"""
     # sympy uses python random module in spots, set seed for reproducibility

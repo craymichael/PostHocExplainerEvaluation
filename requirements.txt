@@ -11,6 +11,7 @@ scikit-learn
 fastcache
 tqdm
 tensorflow-gpu
+memory_profiler
 alibi
 alibi[ray]
 -e git+https://github.com/craymichael/sympy.git@60bbce89cc1e638e6ee813ad4da2877d76d0a628#egg=sympy
