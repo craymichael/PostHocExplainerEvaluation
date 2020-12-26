@@ -12,14 +12,13 @@ def set_profile(state):
 
 def profile(func):
     if _PROFILE:
-        @mem_profile
         @wraps(func)
         def wrapper(*args, **kwargs):
             if _PROFILE:
                 profiler = cProfile.Profile()
                 try:
                     profiler.enable()
-                    ret = func(*args, **kwargs)
+                    ret = mem_profile(func(*args, **kwargs))
                     profiler.disable()
                     return ret
                 finally:
