@@ -31,14 +31,19 @@ def profile(func):
 
 
 def mem_profile(func=None, *args, **kwargs):
-    if _PROFILE:
-        return _mem_profile(func, *args, **kwargs)
-    elif func is None:
+    if func is None:
         def wrapper(func_):
-            return mem_profile(func_)
-    else:
-        @wraps(func)
-        def wrapper(*args_, **kwargs_):
+            return mem_profile(func_, *args, **kwargs)
+
+        return wrapper
+    # otherwise
+    mem_profile_func = _mem_profile(func, *args, **kwargs)
+
+    @wraps(func)
+    def wrapper(*args_, **kwargs_):
+        if _PROFILE:
+            return mem_profile_func(*args_, **kwargs_)
+        else:
             return func(*args_, **kwargs_)
 
     return wrapper
