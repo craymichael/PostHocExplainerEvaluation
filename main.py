@@ -233,7 +233,7 @@ def eval_and_plot(data, contribs_true, effects_true, contribs_explainers,
         else:
             # Main effects
 
-            data_feat_sym = data[symbol]
+            data_feat_sym = data[symbol[0]]
 
             # ax_title = symbol.name
             ax_title = '[' + symbol.name + ']: ' + str(contrib_eff_true)
