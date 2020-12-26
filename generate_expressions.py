@@ -32,10 +32,6 @@ set_profile(True)
 # === DEBUG ===
 
 _RUNNING_PERIODICITY_IDS = {}
-_MAX_RECURSIONS = 1_000
-
-# # https://bugs.python.org/issue25222
-# sys.setrecursionlimit(200)
 
 ExprResult = namedtuple('ExprResult',
                         'symbols,expr,domains,state,kwargs')
@@ -58,7 +54,7 @@ def periodicity_wrapper(func):
             if not ident_present:
                 _RUNNING_PERIODICITY_IDS[ident] = 0
 
-            if _MAX_RECURSIONS < _RUNNING_PERIODICITY_IDS[ident]:
+            if sys.getrecursionlimit() < _RUNNING_PERIODICITY_IDS[ident]:
                 raise_error[0] = True
                 sys.exit()
             try:
