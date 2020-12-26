@@ -24,7 +24,8 @@ __all__ = [
 
 
 def _standardize_effect(e):
-    e = tuple(sorted({*e})) if isinstance(e, tuple) else (e,)
+    """sorted by str for consistency"""
+    e = tuple(sorted({*e}, key=str)) if isinstance(e, tuple) else (e,)
     assert e, 'received empty effect'
     return e
 

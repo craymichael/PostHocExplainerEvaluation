@@ -334,7 +334,7 @@ def evaluate_explainers(debug=False):
     # Make data
     print('Data')
     # n_samples = 30_000 if not debug else 20
-    n_samples = 1_000 if not debug else 20  # TODO
+    n_samples = 10_000 if not debug else 20  # TODO
     # TODO: better data ranges based on continuity of function
     # TODO: use valid_variable_domains when properly+cleanly integrated
     # data = np.random.uniform(-1, +1, size=(n_samples, model.n_features))
