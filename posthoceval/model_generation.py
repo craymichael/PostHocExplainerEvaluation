@@ -37,6 +37,9 @@ from posthoceval.utils import is_float
 from posthoceval.evaluate import symbolic_evaluate_func
 from posthoceval.expression_tree import RandExprTree
 
+from posthoceval.profile import profile
+from posthoceval.profile import mem_profile
+
 # logger = logging.getLogger(__name__)
 
 # Custom typing
@@ -168,6 +171,8 @@ def place_into_bins(n_bins, n_items, shift=0, skew=0):
     return n_items_per_bin
 
 
+@profile
+@mem_profile
 def generate_additive_expression(
         symbols,
         n_main=None,

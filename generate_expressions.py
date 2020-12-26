@@ -26,9 +26,9 @@ from posthoceval.utils import tqdm_parallel
 from posthoceval.utils import dict_product
 
 # === DEBUG ===
-from posthoceval.profile import profile, set_profile, mem_profile
-
-set_profile(True)
+from posthoceval.profile import profile
+from posthoceval.profile import mem_profile
+from posthoceval.profile import set_profile
 # === DEBUG ===
 
 _RUNNING_PERIODICITY_IDS = {}
@@ -400,6 +400,10 @@ if __name__ == '__main__':
             help='Seed for reproducibility. Technically the starting seed '
                  'from which each seed is derived per job'
         )
+        parser.add_argument(
+            '--profile', action='store_true',
+            help='Profile this run'
+        )
 
         args = parser.parse_args()
 
@@ -407,6 +411,8 @@ if __name__ == '__main__':
             sys.exit('The arguments --kwarg and --kwarg-range '
                      'must all have the same number of arguments. Received: '
                      f'{len(args.kwarg)}, {len(args.kwarg_range)}')
+
+        set_profile(args.profile)
 
         if isinstance(args.kwarg_dtype, str):
             kwarg_dtype = [args.kwarg_dtype] * len(args.kwarg)
