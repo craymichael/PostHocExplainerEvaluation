@@ -173,7 +173,7 @@ def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
     )
 
 
-def run(n_feats_range, n_runs, out_dir, seed, kwargs, timeout=30):
+def run(n_feats_range, n_runs, out_dir, seed, kwargs, n_jobs=-1, timeout=30):
     os.makedirs(out_dir, exist_ok=True)
 
     # default kwargs
@@ -226,8 +226,10 @@ def run(n_feats_range, n_runs, out_dir, seed, kwargs, timeout=30):
                             symbols, seed, timeout=timeout, **job_kwargs)
                         # increment seed (don't have same RNG state per job)
                         seed += 1
-
-        results = Parallel(n_jobs=-1)(jobs())
+        if n_jobs == 1:
+            results = [f(*a, **kw) for f, a, kw in jobs()]
+        else:
+            results = Parallel(n_jobs=n_jobs)(jobs())
 
     param_str = '-vs-'.join(k for k in kwargs.keys())
 
@@ -396,6 +398,10 @@ if __name__ == '__main__':
             help='Output directory to save generated expressions'
         )
         parser.add_argument(
+            '--n-jobs', default=-1, type=int,
+            help='Number of jobs (parallel)'
+        )
+        parser.add_argument(
             '--seed', default=42, type=int,
             help='Seed for reproducibility. Technically the starting seed '
                  'from which each seed is derived per job'
@@ -437,6 +443,7 @@ if __name__ == '__main__':
             n_feats_range=n_feats_range,
             n_runs=args.n_runs,
             out_dir=args.out_dir,
+            n_jobs=args.n_jobs,
             seed=args.seed,
             kwargs=kwargs
         )
