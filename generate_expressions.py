@@ -26,7 +26,7 @@ from posthoceval.utils import tqdm_parallel
 from posthoceval.utils import dict_product
 
 # === DEBUG ===
-from posthoceval.profile import profile, set_profile
+from posthoceval.profile import profile, set_profile, mem_profile
 
 set_profile(True)
 # === DEBUG ===
@@ -81,8 +81,8 @@ def periodicity_wrapper(func):
                 if other_exception[0] is not None:
                     raise other_exception[0]
                 raise RecursionError(
-                    f'Maximum recursions ({_MAX_RECURSIONS}) in {func} '
-                    f'exceeded!'
+                    f'Maximum recursions ({sys.getrecursionlimit()}) in '
+                    f'{func} exceeded!'
                 )
             return ret_val[0]
 
@@ -118,6 +118,7 @@ def tqdm_write(*args, sep=' ', **kwargs):
 
 
 @profile
+@mem_profile
 def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
     """kwargs: see `generate_additive_expression`"""
     # sympy uses python random module in spots, set seed for reproducibility

@@ -1,6 +1,6 @@
 import cProfile
 from functools import wraps
-from memory_profiler import profile as mem_profile
+from memory_profiler import profile as _mem_profile
 
 _PROFILE = False
 
@@ -18,7 +18,7 @@ def profile(func):
                 profiler = cProfile.Profile()
                 try:
                     profiler.enable()
-                    ret = mem_profile(func(*args, **kwargs))
+                    ret = func(*args, **kwargs)
                     profiler.disable()
                     return ret
                 finally:
@@ -26,5 +26,19 @@ def profile(func):
                     profiler.dump_stats(filename)
     else:
         wrapper = func
+
+    return wrapper
+
+
+def mem_profile(func=None, *args, **kwargs):
+    if _PROFILE:
+        return _mem_profile(func, *args, **kwargs)
+    elif func is None:
+        def wrapper(func_):
+            return mem_profile(func_)
+    else:
+        @wraps(func)
+        def wrapper(*args_, **kwargs_):
+            return func(*args_, **kwargs_)
 
     return wrapper
