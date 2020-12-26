@@ -34,7 +34,7 @@ sns.set(
 def _standardize_effects(effects):
     if isinstance(effects, dict):
         d = effects.copy()
-        for e, v in d.items():
+        for e, v in effects.items():
             e_std = _standardize_effect(e)
             d[e_std] = d.pop(e)
         return d
