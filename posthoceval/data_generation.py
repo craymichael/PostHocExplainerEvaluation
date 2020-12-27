@@ -1,6 +1,8 @@
 from typing import Sequence
 from itertools import repeat
 
+import random
+
 import numpy as np
 
 import sympy as sp
@@ -8,12 +10,18 @@ from sympy import stats
 from sympy.stats.rv import sample_iter_subs
 
 
-def sample(variables, distribution, n_samples, constraints=None, cov=None):
+def sample(variables, distribution, n_samples, constraints=None, cov=None,
+           seed=None):
+    if seed is not None:
+        # TODO: setting seed may not be possible...until 1.7.1
+        #  https://github.com/sympy/sympy/pull/20528/
+        # This may be sufficient for now...
+        random.seed(seed)
+        np.random.seed(seed)
+
     # TODO satisfy desired covariance matrix...
     assert cov is None, 'not supported yet...'
 
-    # TODO: setting seed may not be possible...until 1.7.1
-    #  https://github.com/sympy/sympy/pull/20528/
     if isinstance(distribution, Sequence):
         assert len(distribution) == len(variables)
     else:
@@ -34,9 +42,7 @@ def sample(variables, distribution, n_samples, constraints=None, cov=None):
     for v, d in zip(variables, distribution):
         constraint = constraints.get(v)
 
-        args = ()
-        if constraint:
-            args = (constraint,)
+        args = () if constraint is None else (constraint,)
 
         # TODO: note that sympy==1.6 is necessary, there is a non-public
         #  regression for some expressions in 1.7

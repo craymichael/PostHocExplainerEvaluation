@@ -219,8 +219,8 @@ def run(n_feats_range, n_runs, out_dir, seed, kwargs, n_jobs=-1, timeout=30):
 
                     symbols = sp.symbols(f'x1:{n_feat + 1}', real=True)
 
-                    print(f'{n_feat} features, generate expr with:')
-                    print(job_kwargs)
+                    tqdm_write(f'{n_feat} features, generate expr with:')
+                    tqdm_write(job_kwargs)
                     for _ in range(n_runs):
                         yield delayed(generate_expression)(
                             symbols, seed, timeout=timeout, **job_kwargs)
@@ -398,7 +398,7 @@ if __name__ == '__main__':
             help='Output directory to save generated expressions'
         )
         parser.add_argument(
-            '--n-jobs', default=-1, type=int,
+            '--n-jobs', '-j', default=-1, type=int,
             help='Number of jobs (parallel)'
         )
         parser.add_argument(

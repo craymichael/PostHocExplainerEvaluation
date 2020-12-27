@@ -36,8 +36,8 @@ def strict_eval(y_true: Iterable, y_pred: Iterable):
     y_pred = {*map(_standardize_effect, y_pred)}
 
     matching = [((match,), (match,)) for match in y_true & y_pred]
-    matching.extend(((miss,), (None,)) for miss in y_true - y_pred)
-    matching.extend(((None,), (miss,)) for miss in y_pred - y_true)
+    matching.extend(((miss,), ()) for miss in y_true - y_pred)  # noqa
+    matching.extend(((), (miss,)) for miss in y_pred - y_true)  # noqa
 
     return matching
 
