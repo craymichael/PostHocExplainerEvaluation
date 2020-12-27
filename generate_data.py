@@ -14,6 +14,7 @@ from joblib import delayed
 from tqdm.auto import tqdm
 
 from sympy import stats
+import numpy as np
 
 from posthoceval.data_generation import sample
 from posthoceval.utils import tqdm_parallel
@@ -23,23 +24,28 @@ ExprResult = namedtuple('ExprResult',
                         'symbols,expr,domains,state,kwargs')
 
 
-def generate_data(symbols, domains, n_samples, seed):
-    U = stats.Uniform('U', -1, +1)
+def generate_data(out_filename, symbols, domains, n_samples, seed):
+    U = stats.Uniform('U', -1, +1)  # TODO: hard-coded...
 
-    return sample(
+    a = sample(
         variables=symbols,
         distribution=U,
         n_samples=n_samples,
         constraints={v: k.contains(U) for v, k in domains.items()},
         seed=seed,
     )
+    np.savez_compressed(out_filename, data=a)
 
 
 def run(out_dir, expr_filename, n_samples, scale_samples, n_jobs, seed):
-    os.makedirs(out_dir, exist_ok=True)
+    out_dir_full = os.path.join(out_dir, expr_filename.rsplit('.', 1)[0])
+    os.makedirs(out_dir_full, exist_ok=True)
 
+    print('Loading', expr_filename)
     with open(expr_filename, 'rb') as f:
         expr_data = pickle.load(f)
+
+    print('Will save compressed numpy arrays to', out_dir_full)
 
     n_expr = len(expr_data)
 
@@ -48,7 +54,7 @@ def run(out_dir, expr_filename, n_samples, scale_samples, n_jobs, seed):
         def jobs():
             nonlocal seed
 
-            for expr_result in expr_data:
+            for i, expr_result in enumerate(expr_data):
                 symbols = expr_result.symbols
                 domains = expr_result.domains
 
@@ -56,19 +62,16 @@ def run(out_dir, expr_filename, n_samples, scale_samples, n_jobs, seed):
                 if scale_samples:
                     n_samples_job *= round(sqrt(len(symbols)))
 
+                out_filename = os.path.join(out_dir_full, str(i))
                 yield delayed(generate_data)(
-                    symbols, domains, n_samples_job, seed)
+                    out_filename, symbols, domains, n_samples_job, seed)
                 # increment seed (don't have same RNG state per job)
                 seed += 1
 
         if n_jobs == 1:
-            results = [f(*a, **kw) for f, a, kw in jobs()]
+            [f(*a, **kw) for f, a, kw in jobs()]
         else:
-            results = Parallel(n_jobs=n_jobs)(jobs())
-
-        print(results)
-
-    # TODO save results
+            Parallel(n_jobs=n_jobs)(jobs())
 
 
 if __name__ == '__main__':
