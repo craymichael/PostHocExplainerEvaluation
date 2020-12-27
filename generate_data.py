@@ -38,7 +38,8 @@ def generate_data(out_filename, symbols, domains, n_samples, seed):
 
 
 def run(out_dir, expr_filename, n_samples, scale_samples, n_jobs, seed):
-    out_dir_full = os.path.join(out_dir, expr_filename.rsplit('.', 1)[0])
+    out_dir_full = os.path.join(
+        out_dir, os.path.dirname(expr_filename).rsplit('.', 1)[0])
     os.makedirs(out_dir_full, exist_ok=True)
 
     print('Loading', expr_filename)
