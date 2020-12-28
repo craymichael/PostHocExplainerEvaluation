@@ -13,6 +13,7 @@ from joblib import delayed
 
 from tqdm.auto import tqdm
 
+import sympy as sp
 from sympy import stats
 import numpy as np
 
@@ -28,13 +29,60 @@ def generate_data(out_filename, symbols, domains, n_samples, seed):
     if os.path.isfile(out_filename):
         return
 
-    U = stats.Uniform('U', -1, +1)  # TODO: hard-coded...
+    # Note: uniform distributions only supported with this code
+    # TODO: hard-coded...
+    low = -1
+    high = +1
+
+    distribution = []
+    constraints = {}
+    for v, k in domains.items():
+        interval = sp.Interval(low, high)
+        valid_interval = sp.Intersection(interval, k)
+        non_interval = False
+        if isinstance(valid_interval, sp.Interval):
+            intervals = [valid_interval]
+        elif (isinstance(valid_interval, sp.Union) and
+              all(isinstance(i, sp.Interval) for i in valid_interval.args)):
+            # naive special case optimization...
+            intervals = valid_interval.args
+            non_interval = True
+        else:
+            # failed to find optimization...
+            U = stats.Uniform('U', low, high)
+
+            distribution.append(U)
+            constraints[v] = valid_interval.contains(U)
+            continue
+        # otherwise
+        left = None
+        left_open = None
+        right = None
+        right_open = None
+        for i in intervals:
+            if left is None or i.left > left:
+                left = i.left
+                left_open = i.left_open
+            if right is None or i.right > right:
+                right = i.right
+                right_open = i.right_open
+        # number-fudging
+        if left_open:
+            left = np.nextafter(left, +1, dtype=np.float32)
+        if right_open:
+            right = np.nextafter(right, -1, dtype=np.float32)
+
+        U = stats.Uniform('U', left, right)
+
+        distribution.append(U)
+        if non_interval:
+            constraints[v] = valid_interval.contains(U)
 
     a = sample(
         variables=symbols,
-        distribution=U,
+        distribution=distribution,
         n_samples=n_samples,
-        constraints={v: k.contains(U) for v, k in domains.items()},
+        constraints=constraints,
         seed=seed,
     )
     np.savez_compressed(out_filename, data=a)

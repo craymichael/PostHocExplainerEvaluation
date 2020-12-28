@@ -44,18 +44,27 @@ def sample(variables, distribution, n_samples, constraints=None, cov=None,
 
         args = () if constraint is None else (constraint,)
 
-        # TODO: note that sympy==1.6 is necessary, there is a non-public
-        #  regression for some expressions in 1.7
-        #  https://github.com/sympy/sympy/issues/20563
-        try:
-            samples = sp.stats.sample_iter(d, *args)
-        except NameError:
-            samples = sample_iter_subs(d, *args)
+        if not args and isinstance(d, stats.Uniform):
+            # get instance of UniformDistribution
+            u_dist = d.args[1].args[1]  # TODO: future-proof, naive
+            low, high = u_dist.left, u_dist.right
+            # Use numpy which is insanely faster right now
+            samples_v = np.random.uniform(low, high, size=n_samples).astype(
+                np.float32)
+        else:
+            # TODO: note that sympy==1.6 is necessary, there is a non-public
+            #  regression for some expressions in 1.7
+            #  https://github.com/sympy/sympy/issues/20563
+            try:
+                samples = sp.stats.sample_iter(d, *args)
+            except NameError:
+                samples = sample_iter_subs(d, *args)
 
-        samples_v = np.fromiter(
-            (next(samples) for _ in range(n_samples)),
-            dtype=np.float32,
-        )
+            samples_v = np.fromiter(
+                (next(samples) for _ in range(n_samples)),
+                dtype=np.float32,
+            )
+
         columns.append(samples_v)
 
     return np.stack(columns, axis=1)
