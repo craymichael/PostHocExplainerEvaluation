@@ -77,7 +77,7 @@ def sample(variables, distribution, n_samples, constraints=None, cov=None,
             #  regression for some expressions in 1.7
             #  https://github.com/sympy/sympy/issues/20563
             from sympy.stats.rv import random_symbols
-            print(d, *args, random_symbols(args[0]), args[0].free_symbols, d.free_symbols)
+            print(d, *args, random_symbols(args[0]), args[0].free_symbols, d.free_symbols, d.pspace, d.pspace.values)
             try:
                 samples = sp.stats.sample_iter(d, *args)
             except NameError:
