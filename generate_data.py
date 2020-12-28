@@ -25,6 +25,9 @@ ExprResult = namedtuple('ExprResult',
 
 
 def generate_data(out_filename, symbols, domains, n_samples, seed):
+    if os.path.isfile(out_filename):
+        return
+
     U = stats.Uniform('U', -1, +1)  # TODO: hard-coded...
 
     a = sample(
