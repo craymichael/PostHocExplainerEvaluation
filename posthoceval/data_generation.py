@@ -21,8 +21,11 @@ def _get_uniform_args(distribution):
                                               '__class__')
             if actual_distribution_cls is not None:
                 if actual_distribution_cls.__name__ == 'UniformDistribution':
-                    return (actual_distribution_obj.left,
-                            actual_distribution_obj.right)
+                    try:
+                        return (float(actual_distribution_obj.left),
+                                float(actual_distribution_obj.right))
+                    except (ValueError, TypeError, NotImplementedError):
+                        pass
     return None
 
 
@@ -73,6 +76,7 @@ def sample(variables, distribution, n_samples, constraints=None, cov=None,
             # TODO: note that sympy==1.6 is necessary, there is a non-public
             #  regression for some expressions in 1.7
             #  https://github.com/sympy/sympy/issues/20563
+            print(d, args)
             try:
                 samples = sp.stats.sample_iter(d, *args)
             except NameError:
