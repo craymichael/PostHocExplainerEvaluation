@@ -9,6 +9,7 @@ import sympy as sp
 from sympy import stats
 from sympy.stats.rv import sample_iter_subs
 
+
 def _get_uniform_args(distribution):
     # so easy to get distribution arguments...ex
     #  U.pspace.distribution.left
@@ -23,6 +24,8 @@ def _get_uniform_args(distribution):
                     return (actual_distribution_obj.left,
                             actual_distribution_obj.right)
     return None
+
+
 def sample(variables, distribution, n_samples, constraints=None, cov=None,
            seed=None):
     if seed is not None:

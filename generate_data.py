@@ -67,6 +67,8 @@ def generate_data(out_filename, symbols, domains, n_samples, seed):
                 right = i.right
                 right_open = i.right_open
         # number-fudging
+        left = float(left)  # noqa
+        right = float(right)  # noqa
         if left_open:
             left = np.nextafter(left, +1, dtype=np.float32)
         if right_open:
