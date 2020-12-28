@@ -35,11 +35,92 @@ def strict_eval(y_true: Iterable, y_pred: Iterable):
     y_true = {*map(_standardize_effect, y_true)}
     y_pred = {*map(_standardize_effect, y_pred)}
 
-    matching = [((match,), (match,)) for match in y_true & y_pred]
-    matching.extend(((miss,), ()) for miss in y_true - y_pred)  # noqa
-    matching.extend(((), (miss,)) for miss in y_pred - y_true)  # noqa
+    matching = [([match], [match]) for match in y_true & y_pred]
+    matching.extend(([miss], []) for miss in y_true - y_pred)  # noqa
+    matching.extend(([], [miss]) for miss in y_pred - y_true)  # noqa
 
     return matching
+
+
+def generous_eval(y_true: Iterable, y_pred: Iterable, maybe_exact=False):
+    """TODO: also return goodness - as arg"""
+    y_true = {*map(_standardize_effect, y_true)}
+    y_pred = {*map(_standardize_effect, y_pred)}
+
+    components = []
+
+    if maybe_exact:
+        # find exact matches and remove them before the "fuzzier" (more
+        # generous) matching
+        common = y_true & y_pred
+        components.extend(([effect], [effect]) for effect in common)
+        y_true -= common
+        y_pred -= common
+
+    # as lists for indexing
+    y_true = [*y_true]
+    y_pred = [*y_pred]
+
+    y_true_sets = [*map(set, y_true)]
+    y_pred_sets = [*map(set, y_pred)]
+
+    n_true = len(y_true)
+    n_pred = len(y_pred)
+
+    visited_t = set()
+    visited_p = set()
+
+    # create adjacency matrix (somewhat sparse as bipartite)
+    adj = np.fromiter((effect_t & effect_p
+                       for effect_t in y_true_sets
+                       for effect_p in y_pred_sets),
+                      dtype=bool).reshape(n_true, n_pred)
+
+    # find connected components
+    for i0 in range(len(y_true)):
+        if i0 in visited_t:  # visited
+            continue
+        visited_t.add(i0)  # visit
+
+        component_t = [y_true[i0]]
+        component_p = []
+
+        stack = [i0]
+        stack_t = True
+
+        # find connected component i0 is part of
+        while stack:
+            new_stack = []
+            if stack_t:  # coming from true side of graph
+                for i in stack:
+                    for j in range(n_pred):
+                        # not connected or visited
+                        if not adj[i, j] or j in visited_p:
+                            continue
+                        visited_p.add(j)  # visit
+                        component_p.append(y_pred[j])
+                        new_stack.append(j)
+            else:  # coming from pred side of graph
+                for j in stack:
+                    for i in range(n_true):
+                        # not connected or visited
+                        if not adj[i, j] or i in visited_t:
+                            continue
+                        visited_t.add(i)  # visit
+                        component_t.append(y_true[i])
+                        new_stack.append(i)
+            stack = new_stack
+            stack_t = not stack_t  # swap sides of graph
+
+        components.append((component_t, component_p))
+
+    # discover nodes on pred that haven't been visited (guaranteed all true
+    #  nodes/effects have been visited by this point)
+    for j, effect_p in enumerate(y_pred):
+        if j not in visited_p:
+            components.append(([], [effect_p]))
+
+    return components
 
 
 def _effects_confusion_matrix(y_true, y_pred, effects='all'):
