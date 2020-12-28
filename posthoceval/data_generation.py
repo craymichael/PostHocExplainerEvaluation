@@ -9,7 +9,20 @@ import sympy as sp
 from sympy import stats
 from sympy.stats.rv import sample_iter_subs
 
-
+def _get_uniform_args(distribution):
+    # so easy to get distribution arguments...ex
+    #  U.pspace.distribution.left
+    if hasattr(distribution, 'pspace'):
+        pspace = distribution.pspace
+        if hasattr(pspace, 'distribution'):
+            actual_distribution_obj = pspace.distribution
+            actual_distribution_cls = getattr(actual_distribution_obj,
+                                              '__class__')
+            if actual_distribution_cls is not None:
+                if actual_distribution_cls.__name__ == 'UniformDistribution':
+                    return (actual_distribution_obj.left,
+                            actual_distribution_obj.right)
+    return None
 def sample(variables, distribution, n_samples, constraints=None, cov=None,
            seed=None):
     if seed is not None:
@@ -44,10 +57,12 @@ def sample(variables, distribution, n_samples, constraints=None, cov=None,
 
         args = () if constraint is None else (constraint,)
 
-        if not args and isinstance(d, stats.Uniform):
+        # if uniform...
+        uniform_args = _get_uniform_args(d)
+
+        if not args and uniform_args is not None:
             # get instance of UniformDistribution
-            u_dist = d.args[1].args[1]  # TODO: future-proof, naive
-            low, high = u_dist.left, u_dist.right
+            low, high = uniform_args
             # Use numpy which is insanely faster right now
             samples_v = np.random.uniform(low, high, size=n_samples).astype(
                 np.float32)
