@@ -1,3 +1,4 @@
+import warnings
 from typing import Sequence
 from itertools import repeat
 
@@ -60,19 +61,51 @@ def sample(variables, distribution, n_samples, constraints=None, cov=None,
     columns = []
     for v, d in zip(variables, distribution):
         constraint = constraints.get(v)
-
-        args = () if constraint is None else (constraint,)
+        no_constraint = constraint is None
 
         # if uniform...
         uniform_args = _get_uniform_args(d)
 
-        if not args and uniform_args is not None:
+        if ((no_constraint or len(constraint.free_symbols) == 1)
+                and uniform_args is not None):
             # get instance of UniformDistribution
             low, high = uniform_args
-            # Use numpy which is insanely faster right now
-            samples_v = np.random.uniform(low, high, size=n_samples).astype(
-                np.float32)
+
+            # Use numpy which is insanely faster right now (than sympy
+            # sampling)
+            def sample_func(n_samples_):
+                return np.random.uniform(low, high, size=n_samples_).astype(
+                    np.float32)
+
+            samples_v = sample_func(n_samples)
+            if not no_constraint:
+                # meet constraints
+                try:
+                    # entirely possible that this will break in sympy
+                    constraint_func = sp.lambdify(
+                        constraint.free_symbols, constraint, module='scipy')
+                except (NameError, ValueError, TypeError):
+                    warnings.warn('Could not lambdify...using sympy '
+                                  'validation instead...')
+                    # next symbol (only one symbol per above check)
+                    c_symbol = [*constraint.free_symbols][0]
+
+                    def constraint_func(values):
+                        return np.fromiter(
+                            (constraint.subs({c_symbol: val})
+                             for val in values), dtype=bool
+                        )
+
+                while True:
+                    invalid_sample_idxs = np.where(
+                        ~constraint_func(samples_v))[0]
+                    if invalid_sample_idxs.size == 0:
+                        break  # constraints met
+                    samples_v[invalid_sample_idxs] = sample_func(
+                        len(invalid_sample_idxs))
         else:
+            args = () if no_constraint else (constraint,)
+
             # TODO: note that sympy==1.6 is necessary, there is a non-public
             #  regression for some expressions in 1.7
             #  https://github.com/sympy/sympy/issues/20563
