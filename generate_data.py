@@ -36,10 +36,14 @@ def generate_data(out_filename, symbols, domains, n_samples, seed):
 
     distribution = []
     constraints = {}
-    for v, k in domains.items():
+    # for v, k in domains.items():
+    for symbol in symbols:
+        domain = domains[symbol]
         interval = sp.Interval(low, high)
-        valid_interval = sp.Intersection(interval, k)
+        valid_interval = sp.Intersection(interval, domain)
         non_interval = False
+        print('interval', interval)
+        print('valid_interval', valid_interval)
         if isinstance(valid_interval, sp.Interval):
             intervals = [valid_interval]
         elif (isinstance(valid_interval, sp.Union) and
@@ -52,7 +56,7 @@ def generate_data(out_filename, symbols, domains, n_samples, seed):
             U = stats.Uniform('U', low, high)
 
             distribution.append(U)
-            constraints[v] = valid_interval.contains(U)
+            constraints[symbol] = valid_interval.contains(U)
             continue
         # otherwise
         left = None
@@ -77,8 +81,10 @@ def generate_data(out_filename, symbols, domains, n_samples, seed):
         U = stats.Uniform('U', left, right)
 
         distribution.append(U)
+        print('U', U)
         if non_interval:
-            constraints[v] = valid_interval.contains(U)
+            print('constraint', valid_interval.contains(U))
+            constraints[symbol] = valid_interval.contains(U)
 
     a = sample(
         variables=symbols,

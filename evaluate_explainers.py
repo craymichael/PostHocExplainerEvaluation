@@ -6,6 +6,10 @@ from posthoceval import metrics
 from posthoceval.explainers.local.shap import KernelSHAPExplainer
 
 
+def run():
+    pass
+
+
 if __name__ == '__main__':
     import argparse
 
