@@ -26,7 +26,7 @@ ExprResult = namedtuple('ExprResult',
 
 
 def generate_data(out_filename, symbols, domains, n_samples, seed):
-    if os.path.isfile(out_filename):
+    if os.path.isfile(out_filename) and False:  # TODO
         return
 
     # Note: uniform distributions only supported with this code
@@ -116,7 +116,7 @@ def run(out_dir, expr_filename, n_samples, scale_samples, n_jobs, seed):
                 if scale_samples:
                     n_samples_job *= round(sqrt(len(symbols)))
 
-                out_filename = os.path.join(out_dir_full, str(i))
+                out_filename = os.path.join(out_dir_full, str(i)) + '.npz'
                 yield delayed(generate_data)(
                     out_filename, symbols, domains, n_samples_job, seed)
                 # increment seed (don't have same RNG state per job)
