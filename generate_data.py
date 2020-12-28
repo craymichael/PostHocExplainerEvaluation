@@ -26,7 +26,7 @@ ExprResult = namedtuple('ExprResult',
 
 
 def generate_data(out_filename, symbols, domains, n_samples, seed):
-    if os.path.isfile(out_filename) and False:  # TODO
+    if os.path.isfile(out_filename):
         return
 
     # Note: uniform distributions only supported with this code
@@ -36,14 +36,20 @@ def generate_data(out_filename, symbols, domains, n_samples, seed):
 
     distribution = []
     constraints = {}
-    # for v, k in domains.items():
+
     for symbol in symbols:
-        domain = domains[symbol]
+        domain = domains.get(symbol)
+
+        if domain is None:
+            # no domain provided (possible that symbol is a dummy variable in
+            # expression)
+            U = stats.Uniform('U', low, high)
+            distribution.append(U)
+            continue
+
         interval = sp.Interval(low, high)
         valid_interval = sp.Intersection(interval, domain)
         non_interval = False
-        print('interval', interval)
-        print('valid_interval', valid_interval)
         if isinstance(valid_interval, sp.Interval):
             intervals = [valid_interval]
         elif (isinstance(valid_interval, sp.Union) and
@@ -81,9 +87,7 @@ def generate_data(out_filename, symbols, domains, n_samples, seed):
         U = stats.Uniform('U', left, right)
 
         distribution.append(U)
-        print('U', U)
         if non_interval:
-            print('constraint', valid_interval.contains(U))
             constraints[symbol] = valid_interval.contains(U)
 
     a = sample(
