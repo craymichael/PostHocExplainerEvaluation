@@ -43,7 +43,7 @@ def run(expr_filename, out_dir, data_dir, max_explain, seed):
     data_files = [fn for _, fn in sorted(zip(file_ids, data_files),
                                          key=lambda id_fn: id_fn[0])]
 
-    for data_file, expr_result in tqdm(zip(expr_data, data_files),
+    for data_file, expr_result in tqdm(zip(data_files, expr_data),
                                        total=n_results):
         # type hint
         expr_result: ExprResult
