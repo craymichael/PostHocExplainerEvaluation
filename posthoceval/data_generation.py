@@ -84,6 +84,8 @@ def sample(variables, distribution, n_samples, constraints=None, cov=None,
                     # entirely possible that this will break in sympy
                     constraint_func = sp.lambdify(
                         [*constraint.free_symbols], constraint, modules='numpy')
+                    # test to make sure things work ok
+                    constraint_func(samples_v[:1])
                 except (NameError, ValueError, TypeError):
                     warnings.warn(f'Could not lambdify {constraint}...using '
                                   f'sympy validation instead...')
