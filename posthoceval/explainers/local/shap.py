@@ -63,7 +63,7 @@ class KernelSHAPExplainer(BaseExplainer):
         self.expected_value_ = self._explainer.expected_value
 
     def predict(self, X):
-        pass
+        pass  # TODO: n/a
 
     @profile
     def feature_contributions(self, X, return_y=False):

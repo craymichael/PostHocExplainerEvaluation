@@ -2,6 +2,7 @@
 run.py - A PostHocExplainerEvaluation file
 Copyright (C) 2020  Zach Carmichael
 """
+import warnings
 import os
 import pickle
 
@@ -27,6 +28,8 @@ ExprResult = namedtuple('ExprResult',
 
 def generate_data(out_filename, symbols, domains, n_samples, seed):
     if os.path.isfile(out_filename):
+        warnings.warn(f'{out_filename} already exists, skipping generating '
+                      f'data for the related model')
         return
 
     # Note: uniform distributions only supported with this code
@@ -105,7 +108,7 @@ def run(out_dir, expr_filename, n_samples, scale_samples, n_jobs, seed):
         out_dir, os.path.basename(expr_filename).rsplit('.', 1)[0])
     os.makedirs(out_dir_full, exist_ok=True)
 
-    print('Loading', expr_filename)
+    print('Loading', expr_filename, '(this may take a while)')
     with open(expr_filename, 'rb') as f:
         expr_data = pickle.load(f)
 
