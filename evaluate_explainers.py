@@ -28,9 +28,10 @@ def save_explanation(data, filename):
 
 
 def run(expr_filename, out_dir, data_dir, max_explain, seed):
+    basename_experiment = os.path.basename(expr_filename).rsplit('.', 1)[0]
     # TODO: other explainers...
 
-    explainer_out_dir = os.path.join(out_dir, 'SHAP')
+    explainer_out_dir = os.path.join(out_dir, basename_experiment, 'SHAP')
     os.makedirs(explainer_out_dir, exist_ok=True)
 
     print('Loading', expr_filename, '(this may take a while)')
