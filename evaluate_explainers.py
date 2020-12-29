@@ -3,17 +3,21 @@ evaluate_explainers.py - A PostHocExplainerEvaluation file
 Copyright (C) 2020  Zach Carmichael
 """
 import os
+import sys
 
 # take no risks
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = "2"
 import pickle
 from glob import glob
 
+import traceback
+
 from concurrent.futures import ThreadPoolExecutor
 
 from tqdm.auto import tqdm
 
 import numpy as np
+import sympy as sp
 
 from posthoceval import metrics
 from posthoceval.model_generation import AdditiveModel
@@ -62,6 +66,12 @@ def run(expr_filename, out_dir, data_dir, max_explain, seed):
             # type hint
             expr_result: ExprResult
 
+            out_filename = os.path.join(explainer_out_dir, str(i)) + '.npz'
+
+            if os.path.exists(out_filename):
+                tqdm.write(f'{out_filename} exists, skipping!')
+                continue
+
             tqdm.write('Generating model')
             model = AdditiveModel.from_expr(
                 expr=expr_result.expr,
@@ -75,25 +85,34 @@ def run(expr_filename, out_dir, data_dir, max_explain, seed):
             )
             tqdm.write(f'Loading data from {data_file}')
             data = np.load(data_file)['data']
-
-            tqdm.write('Fitting explainer')
-            explainer.fit(data)
-
-            tqdm.write('Explaining')
             to_explain = data
             if max_explain is not None and max_explain < len(to_explain):
                 to_explain = to_explain[:max_explain]
-            explanation = explainer.feature_contributions(to_explain)
 
+            try:
+                tqdm.write('Fitting explainer')
+                explainer.fit(data)
+
+                tqdm.write('Explaining')
+                explanation = explainer.feature_contributions(to_explain)
+
+            except (ValueError, TypeError):
+                tqdm.write(f'Failed to explain model {i}:\n')
+                tqdm.write(sp.pretty(expr_result.expr))
+
+                exc_lines = traceback.format_exception(
+                    *sys.exc_info(), limit=None, chain=True)
+                for line in exc_lines:
+                    tqdm.write(str(line), file=sys.stderr, end='')
+
+                continue
             # save things in parallel
             tqdm.write('Adding explanation to save queue')
-            out_filename = os.path.join(explainer_out_dir, str(i)) + '.npz'
             executor.submit(save_explanation, explanation, out_filename)
 
 
 if __name__ == '__main__':
     import argparse
-    import sys
 
 
     def main():
