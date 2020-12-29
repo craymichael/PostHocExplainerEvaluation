@@ -12,6 +12,17 @@ from posthoceval.model_generation import AdditiveModel
 from posthoceval.explainers._base import BaseExplainer
 from posthoceval.explainers.global_.global_shap import GlobalKernelSHAP
 
+try:
+    import ray
+except ImportError:
+    pass
+else:
+    # tell ray to shut up and not launch the dashboard...
+    ray.init(
+        include_dashboard=False,
+        logging_level=logging.WARNING,
+    )
+
 logger = logging.getLogger(__name__)
 
 
@@ -69,7 +80,7 @@ class KernelSHAPExplainer(BaseExplainer):
         pass  # TODO: n/a
 
     @profile
-    def feature_contributions(self, X, return_y=False):
+    def feature_contributions(self, X, return_y=False, as_dict=False):
         if self.verbose > 0:
             logger.info('Fetching KernelSHAP explanations')
 
@@ -86,7 +97,11 @@ class KernelSHAPExplainer(BaseExplainer):
         y = explanation.raw['raw_prediction']
         # shap_values_g = explanation.raw['importances']['0']
 
-        contribs_shap = dict(zip(self.model.symbols, shap_values.T))
+        # TODO: move this logic to super? likely redundant between explainers
+        if as_dict:
+            contribs_shap = dict(zip(self.model.symbols, shap_values.T))
+        else:
+            contribs_shap = shap_values
         if return_y:
             return contribs_shap, y
         return contribs_shap

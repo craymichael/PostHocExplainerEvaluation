@@ -6,6 +6,8 @@ import os
 import pickle
 from glob import glob
 
+from concurrent.futures import ThreadPoolExecutor
+
 from tqdm.auto import tqdm
 
 import numpy as np
@@ -18,8 +20,15 @@ from posthoceval.explainers.local.shap import KernelSHAPExplainer
 from posthoceval.results import ExprResult  # noqa
 
 
+def save_explanation(data, filename):
+    np.savez_compressed(filename, data=data)
+
+
 def run(expr_filename, out_dir, data_dir, max_explain, seed):
-    os.makedirs(out_dir, exist_ok=True)
+    # TODO: other explainers...
+
+    explainer_out_dir = os.path.join(out_dir, 'SHAP')
+    os.makedirs(explainer_out_dir, exist_ok=True)
 
     print('Loading', expr_filename, '(this may take a while)')
     with open(expr_filename, 'rb') as f:
@@ -43,35 +52,39 @@ def run(expr_filename, out_dir, data_dir, max_explain, seed):
     data_files = [fn for _, fn in sorted(zip(file_ids, data_files),
                                          key=lambda id_fn: id_fn[0])]
 
-    for data_file, expr_result in tqdm(zip(data_files, expr_data),
-                                       total=n_results):
-        # type hint
-        expr_result: ExprResult
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        for i, (data_file, expr_result) in tqdm(
+                enumerate(zip(data_files, expr_data)), total=n_results):
+            # type hint
+            expr_result: ExprResult
 
-        tqdm.write('Generating model')
-        model = AdditiveModel.from_expr(
-            expr=expr_result.expr,
-            symbols=expr_result.symbols,
-        )
+            tqdm.write('Generating model')
+            model = AdditiveModel.from_expr(
+                expr=expr_result.expr,
+                symbols=expr_result.symbols,
+            )
 
-        tqdm.write('Creating explainer')
-        explainer = KernelSHAPExplainer(
-            model,
-            seed=seed,
+            tqdm.write('Creating explainer')
+            explainer = KernelSHAPExplainer(
+                model,
+                seed=seed,
+            )
+            tqdm.write(f'Loading data from {data_file}')
+            data = np.load(data_file)['data']
 
-        )
-        tqdm.write(f'Loading data from {data_file}')
-        data = np.load(data_file)['data']
+            tqdm.write('Fitting explainer')
+            explainer.fit(data)
 
-        tqdm.write('Fitting explainer')
-        explainer.fit(data)
+            tqdm.write('Explaining')
+            to_explain = data
+            if max_explain is not None and max_explain < len(to_explain):
+                to_explain = to_explain[:max_explain]
+            explanation = explainer.feature_contributions(to_explain)
 
-        tqdm.write('Explaining')
-        to_explain = data
-        if max_explain is not None and max_explain < len(to_explain):
-            to_explain = to_explain[:max_explain]
-        explanation = explainer.feature_contributions(to_explain)
-        tqdm.write(str(explanation))
+            # save things in parallel
+            tqdm.write('Adding explanation to save queue')
+            out_filename = os.path.join(explainer_out_dir, str(i)) + '.npz'
+            executor.submit(save_explanation, explanation, out_filename)
 
 
 if __name__ == '__main__':
