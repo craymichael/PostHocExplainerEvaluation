@@ -822,6 +822,10 @@ def valid_variable_domains(terms, assumptions=None, no_empty_set=True,
 
     Real domains only! TODO: allow other domains?
     """
+    # TODO!!! sympy treats reals as complex - any valid domains *may be in the
+    #  complex domain* - this is crap, and may lead to unexpected errors down
+    #  the road. Is there a way to mitigate this??
+
     if isinstance(terms, sp.Expr):
         # More efficient to look at each term of expression in case of
         #  NotImplementedError in valid domain finding

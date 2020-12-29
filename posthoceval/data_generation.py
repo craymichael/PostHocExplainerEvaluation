@@ -80,10 +80,13 @@ def sample(variables, distribution, n_samples, constraints=None, cov=None,
             samples_v = sample_func(n_samples)
             if not no_constraint:
                 # meet constraints
+                # TODO: potentially swap to my `symbolic_evaluate_func`
                 try:
                     # entirely possible that this will break in sympy
                     constraint_func = sp.lambdify(
-                        [*constraint.free_symbols], constraint, modules='numpy')
+                        [*constraint.free_symbols], constraint,
+                        modules='numpy'
+                    )
                     # test to make sure things work ok
                     constraint_func(samples_v[:1])
                 except (NameError, ValueError, TypeError):

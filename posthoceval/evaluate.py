@@ -165,6 +165,34 @@ def f2py_func(expr, symbols):
     return ufuncify(symbols, expr.expand(), backend='f2py')
 
 
+# known unsupported functions on most backends
+UNSUPPORTED_FUNC_REPLACEMENTS = {
+    # cot
+    sp.cot: lambda x: 1 / sp.tan(x),
+    sp.coth: lambda x: (sp.cosh(x)) / (sp.sinh(x)),
+    sp.acot: lambda x: sp.Piecewise(
+        ((sp.pi / 2) - sp.atan(x), x >= 0),
+        (-sp.atan(x) - (sp.pi / 2), True),
+    ),
+    sp.acoth: lambda x: (sp.log((x + 1) / (x - 1))) / 2,
+    # csc
+    sp.csc: lambda x: 1 / sp.sin(x),
+    sp.csch: lambda x: 1 / (sp.sinh(x)),
+    sp.acsc: lambda x: sp.asin(1 / x),
+    sp.acsch: lambda x: sp.log((1 / x) + sp.sqrt((1 / (x ** 2)) + 1)),
+    # sec
+    sp.sec: lambda x: 1 / sp.cos(x),
+    sp.sech: lambda x: 1 / (sp.cosh(x)),
+    sp.asec: lambda x: sp.acos(1 / x),
+    sp.asech: lambda x: sp.log((1 + sp.sqrt(1 - (x ** 2))) / x),
+    # sinc
+    sp.sinc: lambda x: sp.Piecewise(
+        ((sp.sin(x)) / x, x != 0),
+        (1, True),
+    ),
+}
+
+
 def symbolic_evaluate_func(expr, symbols, x=None, backend=None):
     if backend is None:
         try:
@@ -200,4 +228,9 @@ def symbolic_evaluate_func(expr, symbols, x=None, backend=None):
         eval_func = llvm_func
     else:
         raise ValueError(backend)
+
+    # substitute known unsupported functions on most backends
+    for k, v in UNSUPPORTED_FUNC_REPLACEMENTS.items():
+        expr = expr.replace(k, v)
+
     return eval_func(expr, tuple(symbols))
