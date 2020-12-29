@@ -6,6 +6,7 @@ scipy
 theano
 numexpr
 seaborn
+scikit-image
 interpret
 scikit-learn
 fastcache
