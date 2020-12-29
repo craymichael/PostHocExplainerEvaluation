@@ -3,6 +3,9 @@ evaluate_explainers.py - A PostHocExplainerEvaluation file
 Copyright (C) 2020  Zach Carmichael
 """
 import os
+
+# take no risks
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = "2"
 import pickle
 from glob import glob
 
