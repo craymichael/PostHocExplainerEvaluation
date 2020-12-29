@@ -22,8 +22,7 @@ from posthoceval.data_generation import sample
 from posthoceval.utils import tqdm_parallel
 
 # Needed for pickle loading of this result type
-ExprResult = namedtuple('ExprResult',
-                        'symbols,expr,domains,state,kwargs')
+from posthoceval.results import ExprResult  # noqa
 
 
 def generate_data(out_filename, symbols, domains, n_samples, seed):

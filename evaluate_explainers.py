@@ -3,25 +3,75 @@ evaluate_explainers.py - A PostHocExplainerEvaluation file
 Copyright (C) 2020  Zach Carmichael
 """
 import os
-
 import pickle
+from glob import glob
 
 from tqdm.auto import tqdm
 
+import numpy as np
+
 from posthoceval import metrics
 from posthoceval.model_generation import AdditiveModel
+from posthoceval.utils import assert_same_size
 from posthoceval.explainers.local.shap import KernelSHAPExplainer
+# Needed for pickle loading of this result type
+from posthoceval.results import ExprResult  # noqa
 
 
-def run(expr_filename, out_dir, data_dir, seed):
+def run(expr_filename, out_dir, data_dir, max_explain, seed):
     os.makedirs(out_dir, exist_ok=True)
 
     print('Loading', expr_filename, '(this may take a while)')
     with open(expr_filename, 'rb') as f:
         expr_data = pickle.load(f)
 
-    model = AdditiveModel.from_expr()
-    KernelSHAPExplainer()
+    print('Loading data')
+    data_files = glob(os.path.join(data_dir, '*.npz'))
+    assert_same_size(expr_data, data_files, f'data files (in {data_dir})')
+
+    # grab each file ID as integer index
+    file_ids = [*map(lambda fn: int(os.path.basename(fn).rsplit('.')[0]),
+                     data_files)]
+    assert len(file_ids) == len({*file_ids}), 'duplicate data file IDs!'
+    assert min(file_ids) == 0, 'file ID index does not start at 0'
+    n_results = len(expr_data)
+    assert max(file_ids) == (n_results - 1), (
+        f'file ID index does not end with {n_results - 1} (number of results)')
+
+    # now that data looks good, just sort the file names so we can zip together
+    # with the loaded expression data
+    data_files = [fn for _, fn in sorted(zip(file_ids, data_files),
+                                         key=lambda id_fn: id_fn[0])]
+
+    for data_file, expr_result in tqdm(zip(expr_data, data_files),
+                                       total=n_results):
+        # type hint
+        expr_result: ExprResult
+
+        tqdm.write('Generating model')
+        model = AdditiveModel.from_expr(
+            expr=expr_result.expr,
+            symbols=expr_result.symbols,
+        )
+
+        tqdm.write('Creating explainer')
+        explainer = KernelSHAPExplainer(
+            model,
+            seed=seed,
+
+        )
+        tqdm.write(f'Loading data from {data_file}')
+        data = np.load(data_file)['data']
+
+        tqdm.write('Fitting explainer')
+        explainer.fit(data)
+
+        tqdm.write('Explaining')
+        to_explain = data
+        if max_explain is not None and max_explain < len(to_explain):
+            to_explain = to_explain[:max_explain]
+        explanation = explainer.feature_contributions(to_explain)
+        tqdm.write(str(explanation))
 
 
 if __name__ == '__main__':
@@ -44,14 +94,21 @@ if __name__ == '__main__':
             '--out-dir', '-O', default=default_out_dir,
             help='Output directory to save explanations'
         )
+        parser.add_argument(
+            '--data-dir', '-D',
+            help='Data directory where generated data for expr_filename exists'
+        )
+        parser.add_argument(
+            '--max-explain', type=int,
+            help='Maximum number of data points to explain per model'
+        )
         # parser.add_argument(
         #     '--n-jobs', '-j', default=-1, type=int,
         #     help='Number of jobs to use in generation'
         # )
         parser.add_argument(
             '--seed', default=42, type=int,
-            help='Seed for reproducibility. Technically the starting seed '
-                 'from which each seed is derived per job'
+            help='Seed for reproducibility'
         )
 
         args = parser.parse_args()
@@ -69,6 +126,7 @@ if __name__ == '__main__':
         run(out_dir=args.out_dir,
             expr_filename=args.expr_filename,
             data_dir=data_dir,
+            max_explain=args.max_explain,
             # n_jobs=args.n_jobs,  # TODO: explainers should be parallel...
             seed=args.seed)
 

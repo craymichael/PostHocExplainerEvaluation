@@ -31,10 +31,10 @@ from posthoceval.profile import mem_profile
 from posthoceval.profile import set_profile
 # === DEBUG ===
 
-_RUNNING_PERIODICITY_IDS = {}
+# Needed for pickle loading of this result type
+from posthoceval.results import ExprResult  # noqa
 
-ExprResult = namedtuple('ExprResult',
-                        'symbols,expr,domains,state,kwargs')
+_RUNNING_PERIODICITY_IDS = {}
 
 
 def periodicity_wrapper(func):
@@ -168,7 +168,7 @@ def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
         symbols=symbols,
         expr=expr,
         domains=domains,
-        state=rs.__getstate__(),
+        state=rs.__getstate__(),  # TODO: get state before run.... -_-
         kwargs=kwargs
     )
 
@@ -226,6 +226,7 @@ def run(n_feats_range, n_runs, out_dir, seed, kwargs, n_jobs=-1, timeout=30):
                             symbols, seed, timeout=timeout, **job_kwargs)
                         # increment seed (don't have same RNG state per job)
                         seed += 1
+
         if n_jobs == 1:
             results = [f(*a, **kw) for f, a, kw in jobs()]
         else:

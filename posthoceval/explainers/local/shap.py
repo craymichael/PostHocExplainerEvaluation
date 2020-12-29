@@ -1,6 +1,7 @@
 import logging
 
 from typing import Union
+from typing import Optional
 
 from alibi.explainers import KernelShap
 from joblib import cpu_count
@@ -21,6 +22,7 @@ class KernelSHAPExplainer(BaseExplainer):
                  model: AdditiveModel,
                  n_background_samples: int = 100,
                  n_cpus: int = -1,
+                 seed: Optional[int] = None,
                  verbose: Union[int, bool] = 1):
         """"""
         self.model = model
@@ -40,7 +42,8 @@ class KernelSHAPExplainer(BaseExplainer):
                 # (roughly) equal parts and distributed across the available
                 # CPUs
                 'batch_size': None,
-            }
+            },
+            seed=seed,
         )
         # attributes set after fit
         self.expected_value_ = None
