@@ -81,7 +81,7 @@ def explain(out_filename, expr_result, data_file, max_explain, seed):
 
 
 def run(expr_filename, out_dir, data_dir, max_explain, seed, n_jobs,
-        debug=False):
+        start_at=None, step_size=None, debug=False):
     basename_experiment = os.path.basename(expr_filename).rsplit('.', 1)[0]
     # TODO: other explainers...
 
@@ -109,6 +109,13 @@ def run(expr_filename, out_dir, data_dir, max_explain, seed, n_jobs,
     # with the loaded expression data
     data_files = [fn for _, fn in sorted(zip(file_ids, data_files),
                                          key=lambda id_fn: id_fn[0])]
+
+    if start_at is not None:
+        data_files = data_files[start_at - 1:]
+        expr_data = expr_data[start_at - 1:]
+    if step_size is not None:
+        data_files = data_files[:step_size]
+        expr_data = expr_data[:step_size]
 
     with tqdm_parallel(tqdm(desc='Data Generation', total=n_results)):
 
@@ -165,6 +172,14 @@ if __name__ == '__main__':
             help='Seed for reproducibility'
         )
         parser.add_argument(
+            '--start-at', default=None, type=int,
+            help='start index (1-indexed) for .pkl file'
+        )
+        parser.add_argument(
+            '--step-size', default=None, type=int,
+            help='Size of increment for evaluation'
+        )
+        parser.add_argument(
             '--debug', action='store_true',
             help='Single process, ensure things work. Run for one model.'
         )
@@ -187,6 +202,8 @@ if __name__ == '__main__':
             max_explain=args.max_explain,
             n_jobs=args.n_jobs,
             seed=args.seed,
+            start_at=args.start_at,
+            step_size=args.step_size,
             debug=args.debug)
 
 
