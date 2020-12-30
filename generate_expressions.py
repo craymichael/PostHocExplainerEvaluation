@@ -228,6 +228,7 @@ def run(n_feats_range, n_runs, out_dir, seed, kwargs, n_jobs=-1, timeout=30):
                         seed += 1
 
         if n_jobs == 1:
+            # TODO: this doesn't update tqdm
             results = [f(*a, **kw) for f, a, kw in jobs()]
         else:
             results = Parallel(n_jobs=n_jobs)(jobs())

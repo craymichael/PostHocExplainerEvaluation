@@ -7,7 +7,6 @@ import os
 import pickle
 
 from math import sqrt
-from collections import namedtuple
 
 from joblib import Parallel
 from joblib import delayed
@@ -126,6 +125,8 @@ def run(out_dir, expr_filename, n_samples, scale_samples, n_jobs, seed):
 
                 n_samples_job = n_samples
                 if scale_samples:
+                    # higher-dim may increase variance of the output of
+                    # generated expressions
                     n_samples_job *= round(sqrt(len(symbols)))
 
                 out_filename = os.path.join(out_dir_full, str(i)) + '.npz'
@@ -135,6 +136,7 @@ def run(out_dir, expr_filename, n_samples, scale_samples, n_jobs, seed):
                 seed += 1
 
         if n_jobs == 1:
+            # TODO: this doesn't update tqdm
             [f(*a, **kw) for f, a, kw in jobs()]
         else:
             Parallel(n_jobs=n_jobs)(jobs())

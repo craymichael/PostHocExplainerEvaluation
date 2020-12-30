@@ -5,33 +5,82 @@ Copyright (C) 2020  Zach Carmichael
 import os
 import sys
 
-# take no risks
+# ssshhhhhhhhhhhh
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = "2"
+# # lazy load tensorflow
+# from posthoceval.lazy_loader import LazyLoader
+#
+# _ = LazyLoader('tensorflow')
+
 import pickle
 from glob import glob
 
 import traceback
 
-from concurrent.futures import ThreadPoolExecutor
-
 from tqdm.auto import tqdm
+
+from joblib import Parallel
+from joblib import delayed
 
 import numpy as np
 import sympy as sp
 
-from posthoceval import metrics
 from posthoceval.model_generation import AdditiveModel
 from posthoceval.utils import assert_same_size
 from posthoceval.explainers.local.shap import KernelSHAPExplainer
+from posthoceval.utils import tqdm_parallel
 # Needed for pickle loading of this result type
 from posthoceval.results import ExprResult  # noqa
 
 
-def save_explanation(data, filename):
-    np.savez_compressed(filename, data=data)
+def explain(out_filename, expr_result, data_file, max_explain, seed):
+    # type hint
+    expr_result: ExprResult
+
+    if os.path.exists(out_filename):
+        tqdm.write(f'{out_filename} exists, skipping!')
+        return
+
+    tqdm.write('Generating model')
+    model = AdditiveModel.from_expr(
+        expr=expr_result.expr,
+        symbols=expr_result.symbols,
+    )
+
+    tqdm.write('Creating explainer')
+    explainer = KernelSHAPExplainer(
+        model,
+        seed=seed,
+    )
+    tqdm.write(f'Loading data from {data_file}')
+    data = np.load(data_file)['data']
+    to_explain = data
+    if max_explain is not None and max_explain < len(to_explain):
+        to_explain = to_explain[:max_explain]
+
+    try:
+        tqdm.write('Fitting explainer')
+        explainer.fit(data)
+
+        tqdm.write('Explaining')
+        explanation = explainer.feature_contributions(to_explain)
+
+    except (ValueError, TypeError):
+        tqdm.write(f'Failed to explain model:')
+        tqdm.write(sp.pretty(expr_result.expr))
+
+        exc_lines = traceback.format_exception(
+            *sys.exc_info(), limit=None, chain=True)
+        for line in exc_lines:
+            tqdm.write(str(line), file=sys.stderr, end='')
+
+        return
+    # save things in parallel
+    tqdm.write('Saving explanation')
+    np.savez_compressed(out_filename, data=explanation)
 
 
-def run(expr_filename, out_dir, data_dir, max_explain, seed):
+def run(expr_filename, out_dir, data_dir, max_explain, seed, n_jobs):
     basename_experiment = os.path.basename(expr_filename).rsplit('.', 1)[0]
     # TODO: other explainers...
 
@@ -60,55 +109,20 @@ def run(expr_filename, out_dir, data_dir, max_explain, seed):
     data_files = [fn for _, fn in sorted(zip(file_ids, data_files),
                                          key=lambda id_fn: id_fn[0])]
 
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        for i, (data_file, expr_result) in tqdm(
-                enumerate(zip(data_files, expr_data)), total=n_results):
-            # type hint
-            expr_result: ExprResult
+    with tqdm_parallel(tqdm(desc='Data Generation', total=n_results)):
 
-            out_filename = os.path.join(explainer_out_dir, str(i)) + '.npz'
+        def jobs():
+            for i, (data_file, expr_result) in enumerate(
+                    zip(data_files, expr_data)):
+                out_filename = os.path.join(explainer_out_dir, str(i)) + '.npz'
+                yield delayed(explain)(
+                    out_filename, expr_result, data_file, max_explain, seed)
 
-            if os.path.exists(out_filename):
-                tqdm.write(f'{out_filename} exists, skipping!')
-                continue
-
-            tqdm.write('Generating model')
-            model = AdditiveModel.from_expr(
-                expr=expr_result.expr,
-                symbols=expr_result.symbols,
-            )
-
-            tqdm.write('Creating explainer')
-            explainer = KernelSHAPExplainer(
-                model,
-                seed=seed,
-            )
-            tqdm.write(f'Loading data from {data_file}')
-            data = np.load(data_file)['data']
-            to_explain = data
-            if max_explain is not None and max_explain < len(to_explain):
-                to_explain = to_explain[:max_explain]
-
-            try:
-                tqdm.write('Fitting explainer')
-                explainer.fit(data)
-
-                tqdm.write('Explaining')
-                explanation = explainer.feature_contributions(to_explain)
-
-            except (ValueError, TypeError):
-                tqdm.write(f'Failed to explain model {i}:\n')
-                tqdm.write(sp.pretty(expr_result.expr))
-
-                exc_lines = traceback.format_exception(
-                    *sys.exc_info(), limit=None, chain=True)
-                for line in exc_lines:
-                    tqdm.write(str(line), file=sys.stderr, end='')
-
-                continue
-            # save things in parallel
-            tqdm.write('Adding explanation to save queue')
-            executor.submit(save_explanation, explanation, out_filename)
+        if n_jobs == 1:
+            # TODO: this doesn't update tqdm
+            [f(*a, **kw) for f, a, kw in jobs()]
+        else:
+            Parallel(n_jobs=n_jobs)(jobs())
 
 
 if __name__ == '__main__':
@@ -138,10 +152,10 @@ if __name__ == '__main__':
             '--max-explain', type=int,
             help='Maximum number of data points to explain per model'
         )
-        # parser.add_argument(
-        #     '--n-jobs', '-j', default=-1, type=int,
-        #     help='Number of jobs to use in generation'
-        # )
+        parser.add_argument(
+            '--n-jobs', '-j', default=-1, type=int,
+            help='Number of jobs to use in generation'
+        )
         parser.add_argument(
             '--seed', default=42, type=int,
             help='Seed for reproducibility'
@@ -163,7 +177,7 @@ if __name__ == '__main__':
             expr_filename=args.expr_filename,
             data_dir=data_dir,
             max_explain=args.max_explain,
-            # n_jobs=args.n_jobs,  # TODO: explainers should be parallel...
+            n_jobs=args.n_jobs,
             seed=args.seed)
 
 
