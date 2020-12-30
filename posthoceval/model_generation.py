@@ -52,33 +52,33 @@ OPS_TRIG = [
     # cos
     sp.cos,
     sp.cosh,
-    sp.acos,
-    sp.acosh,
+    # sp.acos,  # nan outside [-1, +1], remove for now...
+    # sp.acosh,  # remove for now...
     # sin
     sp.sin,
     sp.sinh,
-    sp.asin,
+    # sp.asin,  # nan outside [-1, +1], remove for now...
     sp.asinh,
     # tan
     sp.tan,
     sp.tanh,
     sp.atan,
-    sp.atanh,
+    # sp.atanh,  # infinite at +-1, remove for now...
     # cot
     sp.cot,
-    sp.coth,
+    # sp.coth,  # zoo at 0
     sp.acot,
-    sp.acoth,
+    # sp.acoth,  # imaginary in [-1, +1], remove for now...
     # csc
     sp.csc,
-    sp.csch,
-    sp.acsc,
-    sp.acsch,
+    # sp.csch,  # zoo at 0
+    # sp.acsc,  # imaginary in [-1, +1], remove for now...
+    # sp.acsch,  # zoo at 0
     # sec
-    sp.sec,
+    # sp.sec,  # zoo at 0
     sp.sech,
-    sp.asec,
-    sp.asech,
+    # sp.asec,  # imaginary in [-1, +1], remove for now...
+    # sp.asech,  # imaginary in [-1, +1], remove for now...
     # special
     sp.sinc,
 ]
