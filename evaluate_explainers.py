@@ -80,7 +80,8 @@ def explain(out_filename, expr_result, data_file, max_explain, seed):
     np.savez_compressed(out_filename, data=explanation)
 
 
-def run(expr_filename, out_dir, data_dir, max_explain, seed, n_jobs):
+def run(expr_filename, out_dir, data_dir, max_explain, seed, n_jobs,
+        debug=False):
     basename_experiment = os.path.basename(expr_filename).rsplit('.', 1)[0]
     # TODO: other explainers...
 
@@ -118,7 +119,10 @@ def run(expr_filename, out_dir, data_dir, max_explain, seed, n_jobs):
                 yield delayed(explain)(
                     out_filename, expr_result, data_file, max_explain, seed)
 
-        if n_jobs == 1:
+                if debug:  # one iteration
+                    break
+
+        if n_jobs == 1 or debug:
             # TODO: this doesn't update tqdm
             [f(*a, **kw) for f, a, kw in jobs()]
         else:
@@ -160,6 +164,10 @@ if __name__ == '__main__':
             '--seed', default=42, type=int,
             help='Seed for reproducibility'
         )
+        parser.add_argument(
+            '--debug', action='store_true',
+            help='Single process, ensure things work. Run for one model.'
+        )
 
         args = parser.parse_args()
 
@@ -178,7 +186,8 @@ if __name__ == '__main__':
             data_dir=data_dir,
             max_explain=args.max_explain,
             n_jobs=args.n_jobs,
-            seed=args.seed)
+            seed=args.seed,
+            debug=args.debug)
 
 
     main()
