@@ -123,6 +123,8 @@ def run(expr_filename, out_dir, data_dir, max_explain, seed, n_jobs,
         def jobs():
             for i, (data_file, expr_result) in enumerate(
                     zip(data_files, expr_data)):
+                if start_at is not None:
+                    i += start_at
                 out_filename = os.path.join(explainer_out_dir, str(i)) + '.npz'
                 yield delayed(explain)(
                     out_filename, expr_result, data_file, max_explain, seed)
