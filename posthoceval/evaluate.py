@@ -124,6 +124,11 @@ def tensorflow_func(expr, symbols):
 @lru_cache()
 def ufuncify_numpy_func(expr, symbols):
     from sympy.utilities.autowrap import ufuncify
+    if len(symbols) >= 31:
+        # ufuncify (f2py) can only handle 32 total inputs and
+        # outputs
+        warnings.warn('ufuncify+numpy is gonna crash (can only support 32 '
+                      'total inputs and outputs)')
 
     return ufuncify(symbols, expr.expand(), backend='numpy')
 
@@ -195,11 +200,17 @@ UNSUPPORTED_FUNC_REPLACEMENTS = {
 
 def symbolic_evaluate_func(expr, symbols, x=None, backend=None):
     if backend is None:
-        try:
-            import numexpr
-            backend = 'numexpr'
-        except ImportError:
-            backend = 'f2py'
+        if len(symbols) >= 32:
+            # See https://github.com/numpy/numpy/issues/4398
+            # NPY_MAXARGS is set to 32, functions can not be lambdified using
+            # numexpr
+            backend = 'numpy'
+        else:
+            try:
+                import numexpr
+                backend = 'numexpr'
+            except ImportError:
+                backend = 'f2py'
         # TODO: set default backend smarter...
         # backend = 'f2py'  # requires numpy
         # if x is not None and len(x) > 1_100:  # empirical benchmark
