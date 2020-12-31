@@ -51,6 +51,7 @@ def explain(out_filename, expr_result, data_file, max_explain, seed):
     explainer = KernelSHAPExplainer(
         model,
         seed=seed,
+        n_cpus=1,  # TODO: parallelize my way in this script...validate
     )
     tqdm.write(f'Loading data from {data_file}')
     data = np.load(data_file)['data']

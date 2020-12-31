@@ -53,7 +53,7 @@ class KernelSHAPExplainer(BaseExplainer):
                 # (roughly) equal parts and distributed across the available
                 # CPUs
                 'batch_size': None,
-            },
+            } if n_cpus > 1 else None,
             seed=seed,
         )
         # attributes set after fit
