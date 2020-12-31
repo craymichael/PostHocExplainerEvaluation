@@ -12,16 +12,26 @@ from posthoceval.model_generation import AdditiveModel
 from posthoceval.explainers._base import BaseExplainer
 from posthoceval.explainers.global_.global_shap import GlobalKernelSHAP
 
-try:
-    import ray
-except ImportError:
-    pass
-else:
-    # tell ray to shut up and not launch the dashboard...
-    ray.init(
-        include_dashboard=False,
-        logging_level=logging.WARNING,
-    )
+_RAY_INIT = False
+
+
+def init_ray():
+    global _RAY_INIT
+
+    if _RAY_INIT:
+        return
+    _RAY_INIT = True
+    try:
+        import ray
+    except ImportError:
+        pass
+    else:
+        # tell ray to shut up and not launch the dashboard...
+        ray.init(
+            include_dashboard=False,
+            logging_level=logging.WARNING,
+        )
+
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +52,11 @@ class KernelSHAPExplainer(BaseExplainer):
         if n_cpus < 0:
             n_cpus = cpu_count() + n_cpus + 1
 
+        use_ray = n_cpus > 1
+
+        if use_ray:
+            init_ray()
+
         self._explainer = KernelShap(
             self.model,
             feature_names=self.model.symbol_names,
@@ -53,7 +68,7 @@ class KernelSHAPExplainer(BaseExplainer):
                 # (roughly) equal parts and distributed across the available
                 # CPUs
                 'batch_size': None,
-            } if n_cpus > 1 else None,
+            } if use_ray else None,
             seed=seed,
         )
         # attributes set after fit
