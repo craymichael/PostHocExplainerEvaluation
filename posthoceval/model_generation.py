@@ -85,7 +85,7 @@ OPS_TRIG = [
 OPS_SINGLE_ARG = OPS_TRIG + [
     sp.Abs,
     sp.sqrt,
-    sp.cbrt,
+    # sp.cbrt,  # disable for now, continuous_domain gives Reals (not [0, oo])
     lambda a: sp.Pow(a, 2),
     lambda a: sp.Pow(a, 3),
     sp.exp,
@@ -109,7 +109,7 @@ OPS_MULTI_ARG_LINEAR_WEIGHTS = [
     0.2,
 ]
 OPS_MULTI_ARG_NONLINEAR = [
-    sp.Pow,
+    # sp.Pow,  # neg. to power of val<1 --> complex (disable for now)
     # Max (which can be vectorized)
     lambda a, b: sp.Piecewise((a, a > b), (b, True)),
     # Min (which can be vectorized)

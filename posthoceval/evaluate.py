@@ -177,7 +177,7 @@ UNSUPPORTED_FUNC_REPLACEMENTS = {
     sp.coth: lambda x: (sp.cosh(x)) / (sp.sinh(x)),
     sp.acot: lambda x: sp.Piecewise(
         ((sp.pi / 2) - sp.atan(x), x >= 0),
-        (-sp.atan(x) - (sp.pi / 2), True),
+        (-sp.atan(x) - (sp.pi / 2), True)
     ),
     sp.acoth: lambda x: (sp.log((x + 1) / (x - 1))) / 2,
     # csc
@@ -193,7 +193,7 @@ UNSUPPORTED_FUNC_REPLACEMENTS = {
     # sinc
     sp.sinc: lambda x: sp.Piecewise(
         ((sp.sin(x)) / x, x != 0),
-        (1, True),
+        (1, True)
     ),
 }
 
