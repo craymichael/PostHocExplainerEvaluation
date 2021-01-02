@@ -82,7 +82,7 @@ def explain(out_filename, expr_result, data_file, max_explain, seed):
 
 
 def run(expr_filename, out_dir, data_dir, max_explain, seed, n_jobs,
-        start_at=None, step_size=None, debug=False):
+        start_at=1, step_size=1, debug=False):
     basename_experiment = os.path.basename(expr_filename).rsplit('.', 1)[0]
     # TODO: other explainers...
 
@@ -111,20 +111,19 @@ def run(expr_filename, out_dir, data_dir, max_explain, seed, n_jobs,
     data_files = [fn for _, fn in sorted(zip(file_ids, data_files),
                                          key=lambda id_fn: id_fn[0])]
 
-    if start_at is not None:
-        data_files = data_files[start_at - 1:]
-        expr_data = expr_data[start_at - 1:]
-    if step_size is not None:
-        data_files = data_files[:step_size]
-        expr_data = expr_data[:step_size]
+    # same as indexing as [start_at - 1::step_size]
+    indices = slice(start_at - 1, None, step_size)
+
+    file_ids = range(n_results)[indices]
+    data_files = data_files[indices]
+    expr_data = expr_data[indices]
 
     with tqdm_parallel(tqdm(desc='Data Generation', total=n_results)):
 
         def jobs():
-            for i, (data_file, expr_result) in enumerate(
-                    zip(data_files, expr_data)):
-                if start_at is not None:
-                    i += start_at
+            for i, data_file, expr_result in zip(file_ids,
+                                                 data_files,
+                                                 expr_data):
                 out_filename = os.path.join(explainer_out_dir, str(i)) + '.npz'
                 yield delayed(explain)(
                     out_filename, expr_result, data_file, max_explain, seed)
@@ -141,6 +140,18 @@ def run(expr_filename, out_dir, data_dir, max_explain, seed, n_jobs,
 
 if __name__ == '__main__':
     import argparse
+
+
+    def positive_int(x):
+        try:
+            x = int(x)
+        except ValueError:
+            raise argparse.ArgumentTypeError(f'{x} is not a valid integer.')
+
+        if x < 1:
+            raise argparse.ArgumentTypeError(f'{x} must be positive.')
+
+        return x
 
 
     def main():
@@ -163,7 +174,7 @@ if __name__ == '__main__':
             help='Data directory where generated data for expr_filename exists'
         )
         parser.add_argument(
-            '--max-explain', type=int,
+            '--max-explain', type=positive_int,
             help='Maximum number of data points to explain per model'
         )
         parser.add_argument(
@@ -175,11 +186,11 @@ if __name__ == '__main__':
             help='Seed for reproducibility'
         )
         parser.add_argument(
-            '--start-at', default=None, type=int,
+            '--start-at', default=1, type=positive_int,
             help='start index (1-indexed) for .pkl file'
         )
         parser.add_argument(
-            '--step-size', default=None, type=int,
+            '--step-size', default=1, type=positive_int,
             help='Size of increment for evaluation'
         )
         parser.add_argument(
