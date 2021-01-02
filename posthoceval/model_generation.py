@@ -116,17 +116,14 @@ OPS_MULTI_ARG_NONLINEAR = [
     lambda a, b: sp.Piecewise((a, a < b), (b, True)),
 ]
 OPS_MULTI_ARG_NONLINEAR_WEIGHTS = [
+    # old:
+    # 0.5,
+    # 0.25,
+    # 0.25,
+    # new:
     0.5,
-    0.25,
-    0.25,
+    0.5,
 ]
-
-# OPS_MULTI_ARG = OPS_MULTI_ARG_LINEAR + OPS_MULTI_ARG_NONLINEAR
-# # Weights in model generation
-# OPS_MULTI_ARG_WEIGHTS = (OPS_MULTI_ARG_LINEAR_WEIGHTS +
-#                          OPS_MULTI_ARG_NONLINEAR_WEIGHTS)
-
-# TODO: exponent of integer, mul of integer
 
 # Ordered from least to most constraining on domain
 ASSUMPTION_DOMAIN = OrderedDict((
