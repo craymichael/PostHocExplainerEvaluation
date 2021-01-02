@@ -24,6 +24,7 @@ from posthoceval.model_generation import valid_variable_domains
 from posthoceval.model_generation import as_random_state
 from posthoceval.utils import tqdm_parallel
 from posthoceval.utils import dict_product
+from posthoceval.utils import prod
 
 # === DEBUG ===
 from posthoceval.profile import profile
@@ -198,7 +199,7 @@ def run(n_feats_range, n_runs, out_dir, seed, kwargs, n_jobs=-1, timeout=30):
         linear_multi_arg_ops_weights=None,
     )
 
-    total_expressions = math.prod((
+    total_expressions = prod((
         n_runs, len(n_feats_range), *(len(v) for v in kwargs.values())
     ))
 

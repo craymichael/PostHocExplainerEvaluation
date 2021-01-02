@@ -17,6 +17,28 @@ import joblib
 
 import numpy as np
 
+import math
+
+if hasattr(math, 'prod'):  # available in 3.8+
+    prod = math.prod
+else:  # functionally equivalent w/o positional argument checking
+    """
+    >>> %timeit reduce(mul, values)
+    180 µs ± 2.15 µs per loop (mean ± std. dev. of 7 runs, 10000 loops each)
+    
+    >>> %timeit math.prod(values)
+    133 µs ± 1.57 µs per loop (mean ± std. dev. of 7 runs, 10000 loops each)
+    
+    >>> math.prod(values) == reduce(mul, values)
+    True
+    """
+    import operator
+    from functools import reduce
+
+
+    def prod(iterable, start=1):
+        return reduce(operator.mul, iterable, start)
+
 _RANK_AS_ARRAY_TYPE = defaultdict(lambda: 'tensor',
                                   {0: 'scalar', 1: 'vector', 2: 'matrix'})
 
