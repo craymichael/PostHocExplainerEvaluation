@@ -85,7 +85,8 @@ OPS_TRIG = [
 OPS_SINGLE_ARG = OPS_TRIG + [
     sp.Abs,
     sp.sqrt,
-    # sp.cbrt,  # disable for now, continuous_domain gives Reals (not [0, oo])
+    # numpy does not have good support for powers of negatives...
+    # sp.cbrt,  # disable for now, continuous_domain gives Reals
     lambda a: sp.Pow(a, 2),
     lambda a: sp.Pow(a, 3),
     sp.exp,

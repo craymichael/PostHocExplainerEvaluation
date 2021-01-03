@@ -15,4 +15,4 @@ tensorflow-gpu
 memory_profiler
 alibi
 alibi[ray]
--e git+https://github.com/craymichael/sympy.git@e627de8736b39d65858fbdd63785a72277c5c67c#egg=sympy
+-e git+https://github.com/craymichael/sympy.git@95ea6b0a2451382e307f516486d91f412fdf82f2#egg=sympy
