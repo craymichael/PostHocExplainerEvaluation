@@ -232,6 +232,7 @@ if __name__ == '__main__':
             n_jobs=args.n_jobs,
             seed=args.seed,
             start_at=args.start_at,
+            explainer=args.explainer,
             step_size=args.step_size,
             debug=args.debug)
 
