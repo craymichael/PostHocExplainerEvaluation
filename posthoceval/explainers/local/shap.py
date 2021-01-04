@@ -14,6 +14,8 @@ from posthoceval.explainers.global_.global_shap import GlobalKernelSHAP
 
 _RAY_INIT = False
 
+logger = logging.getLogger(__name__)
+
 
 def init_ray():
     global _RAY_INIT
@@ -33,16 +35,13 @@ def init_ray():
         )
 
 
-logger = logging.getLogger(__name__)
-
-
 class KernelSHAPExplainer(BaseExplainer):
     """"""
 
     def __init__(self,
                  model: AdditiveModel,
                  n_background_samples: int = 100,
-                 n_cpus: int = -1,
+                 n_cpus: int = 1,
                  seed: Optional[int] = None,
                  verbose: Union[int, bool] = 1):
         """"""

@@ -28,12 +28,14 @@ import sympy as sp
 from posthoceval.model_generation import AdditiveModel
 from posthoceval.utils import assert_same_size
 from posthoceval.explainers.local.shap import KernelSHAPExplainer
+from posthoceval.explainers.local.lime import LIMEExplainer
 from posthoceval.utils import tqdm_parallel
 # Needed for pickle loading of this result type
 from posthoceval.results import ExprResult  # noqa
 
 
-def explain(out_filename, expr_result, data_file, max_explain, seed):
+def explain(explainer_cls, out_filename, expr_result, data_file, max_explain,
+            seed):
     # type hint
     expr_result: ExprResult
 
@@ -48,10 +50,9 @@ def explain(out_filename, expr_result, data_file, max_explain, seed):
     )
 
     tqdm.write('Creating explainer')
-    explainer = KernelSHAPExplainer(
+    explainer = explainer_cls(
         model,
         seed=seed,
-        n_cpus=1,  # TODO: parallelize my way in this script...validate
     )
     tqdm.write(f'Loading data from {data_file}')
     data = np.load(data_file)['data']
@@ -82,11 +83,19 @@ def explain(out_filename, expr_result, data_file, max_explain, seed):
 
 
 def run(expr_filename, out_dir, data_dir, max_explain, seed, n_jobs,
-        start_at=1, step_size=1, debug=False):
+        start_at=1, step_size=1, explainer='SHAP', debug=False):
+    """"""
+    if explainer == 'SHAP':
+        explainer_cls = KernelSHAPExplainer
+    elif explainer == 'LIME':
+        explainer_cls = LIMEExplainer
+    else:
+        raise ValueError(f'{explainer} is not a valid explainer name')
+
     basename_experiment = os.path.basename(expr_filename).rsplit('.', 1)[0]
     # TODO: other explainers...
 
-    explainer_out_dir = os.path.join(out_dir, basename_experiment, 'SHAP')
+    explainer_out_dir = os.path.join(out_dir, basename_experiment, explainer)
     os.makedirs(explainer_out_dir, exist_ok=True)
 
     print('Loading', expr_filename, '(this may take a while)')
@@ -126,7 +135,9 @@ def run(expr_filename, out_dir, data_dir, max_explain, seed, n_jobs,
                                                  expr_data):
                 out_filename = os.path.join(explainer_out_dir, str(i)) + '.npz'
                 yield delayed(explain)(
-                    out_filename, expr_result, data_file, max_explain, seed)
+                    explainer_cls, out_filename, expr_result, data_file,
+                    max_explain, seed
+                )
 
                 if debug:  # one iteration
                     break
@@ -172,6 +183,10 @@ if __name__ == '__main__':
         parser.add_argument(
             '--data-dir', '-D',
             help='Data directory where generated data for expr_filename exists'
+        )
+        parser.add_argument(
+            '--explainer', '-X', choices=['SHAP', 'LIME'], default='SHAP',
+            help='The explainer to evaluate'
         )
         parser.add_argument(
             '--max-explain', type=positive_int,
