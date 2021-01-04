@@ -47,7 +47,7 @@ class LIMEExplainer(BaseExplainer):
             random_state=self.seed,
             discretize_continuous=False,
             explain_kwargs={'num_features': X.shape[1],
-                            'num_samples': 1000}
+                            'num_samples': 5000}
         )
 
     def predict(self, X):
