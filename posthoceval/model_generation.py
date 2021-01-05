@@ -967,6 +967,7 @@ class AdditiveModel(object):
     def independent_terms(self) -> Tuple[sp.Expr]:
         return independent_terms(self.expr)
 
+    # TODO: yeah kill this crap, refactor init, integrate random stuff...
     def _generate_model(self, coefficients) -> sp.Expr:
         n_coefs_expect = self.n_features + 1
         coefs = as_iterator_of_size(
@@ -1016,8 +1017,11 @@ class AdditiveModel(object):
         if interaction_effects:
             effects.extend(self.interaction_effects)
 
-        contributions = defaultdict(lambda: np.zeros(len(x)))
-        all_effects = defaultdict(lambda: sp.Number(0))
+        # contributions = defaultdict(lambda: np.zeros(len(x)))
+        # all_effects = defaultdict(lambda: sp.Number(0))
+        contributions = {}
+        all_effects = {}
+
         for effect in effects:
             effect_symbols = sorted(effect.free_symbols, key=lambda s: s.name)
             effect_symbols = tuple(effect_symbols)
@@ -1025,10 +1029,10 @@ class AdditiveModel(object):
             related_features = [x[:, self.symbols.index(s)]
                                 for s in effect_symbols]
             if effect == 0:
-                continue  # skip zero-effects (zeros in defaultdict)
+                continue  # skip zero-effects
             eval_func = symbolic_evaluate_func(effect,
                                                effect_symbols,
-                                               x=x,
+                                               x=x,  # TODO(x)
                                                backend=backend)
             contribution = eval_func(*related_features)
             contributions[effect_symbols] = contribution
