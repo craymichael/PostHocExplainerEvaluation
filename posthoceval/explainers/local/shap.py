@@ -100,7 +100,8 @@ class KernelSHAPExplainer(BaseExplainer):
 
         # Explain with n_cpus > 1 and silent=False gives awful output
         # unfortunately (multiple processes using tqdm in parallel)
-        explanation = self._explainer.explain(X, silent=True)
+        # l1_reg=False --> explain all features, not a subset
+        explanation = self._explainer.explain(X, silent=True, l1_reg=False)
 
         # Note: explanation.raw['importances'] has aggregated scores per output
         # with corresponding keys, e.g., '0' & '1' for two outputs. Also has

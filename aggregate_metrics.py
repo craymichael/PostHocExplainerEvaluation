@@ -30,6 +30,10 @@ class CustomJSONEncoder(json.JSONEncoder):
 def compute_metrics(true_expl, pred_expl):
     # per-effect metrics
     per_match_metrics = []
+
+    # assume all equal...
+    n_explained = len(pred_expl.values()[0])
+
     for name, effect_wise_metric in (
             ('strict_matching', metrics.strict_eval),
             ('generous_matching', metrics.generous_eval),
@@ -45,8 +49,16 @@ def compute_metrics(true_expl, pred_expl):
             # for each pair in the match
             # the "worse" the match, the more effects will be in match
             # list needed so sum of single effect won't reduce to scalar
-            contribs_true = sum([true_expl[effect] for effect in match_true])
-            contribs_pred = sum([pred_expl[effect] for effect in match_pred])
+            if match_true:
+                contribs_true = sum(
+                    [true_expl[effect] for effect in match_true])
+            else:
+                contribs_true = np.zeros(n_explained)
+            if match_pred:
+                contribs_pred = sum(
+                    [pred_expl[effect] for effect in match_pred])
+            else:
+                contribs_pred = np.zeros(n_explained)
 
             # now we evaluate the fidelity with various error metrics!
             err_dict = {}
