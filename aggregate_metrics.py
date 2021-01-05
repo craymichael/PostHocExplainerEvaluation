@@ -6,6 +6,8 @@ import os
 import sys
 import json
 import pickle
+from typing import Dict
+from typing import Tuple
 from functools import partial
 
 from tqdm.auto import tqdm
@@ -18,6 +20,8 @@ from posthoceval.model_generation import AdditiveModel
 # Needed for pickle loading of this result type
 from posthoceval.results import ExprResult
 
+Explanation = Dict[Tuple[sp.Symbol], np.ndarray]
+
 
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -27,12 +31,9 @@ class CustomJSONEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-def compute_metrics(true_expl, pred_expl):
+def compute_metrics(true_expl, pred_expl, n_explained):
     # per-effect metrics
     per_match_metrics = []
-
-    # assume all equal...
-    n_explained = len(next(iter(pred_expl.values())))
 
     for name, effect_wise_metric in (
             ('strict_matching', metrics.strict_eval),
@@ -124,6 +125,53 @@ def compute_true_contributions(expr_result, data_file):
     return model, model.feature_contributions(data, return_effects=True)
 
 
+def clean_explanations(
+        true_expl: Explanation,
+        pred_expl: Explanation,
+) -> Tuple[Explanation, Explanation, int]:
+    """"""
+    true_expl = true_expl.copy()
+    pred_expl = pred_expl.copy()
+
+    true_lens = {*map(len, true_expl.values())}
+    pred_lens = {*map(len, pred_expl.values())}
+
+    assert len(pred_lens) == 1, (
+        'pred_expl has effect-wise explanations of non-uniform length')
+    assert len({true_lens}) == 1, (
+        'true_expl has effect-wise explanations of non-uniform length')
+
+    n_pred = pred_lens.pop()
+    n_true = true_lens.pop()
+
+    assert n_pred <= n_true, f'n_pred ({n_pred}) > n_true ({n_true})'
+
+    if n_pred < n_true:
+        tqdm.write(f'Truncating true_expl from {n_true} to {n_pred}')
+        # truncate latter explanations to save length
+        for k, v in true_expl.items():
+            true_expl[k] = v[:n_pred]
+
+    nan_idxs = np.zeros(n_pred, dtype=np.bool)
+    for v in pred_expl.values():
+        nan_idxs |= np.isnan(v)
+
+    if nan_idxs.any():
+        not_nan = ~nan_idxs
+        for k, v in true_expl.items():
+            true_expl[k] = v[not_nan]
+
+        for k, v in pred_expl.items():
+            pred_expl[k] = v[not_nan]
+
+        total_nan = nan_idxs.sum()
+        tqdm.write(f'Removed {total_nan} rows from explanations '
+                   f'({total_nan / n_pred:.2}%)')
+        n_pred -= total_nan
+
+    return true_expl, pred_expl, n_pred
+
+
 def standardize_contributions(contribs_dict):
     """standardize each effect tuple and remove effects that are 0-effects"""
     return {metrics.standardize_effect(k): v
@@ -196,7 +244,15 @@ def run(expr_filename, explainer_dir, data_dir, out_dir):
                 raise NotImplementedError('Multiple-data in .npz file not '
                                           'supported yet')
 
-            results = compute_metrics(true_expl, pred_expl)
+            true_expl, pred_expl, n_explained = (
+                clean_explanations(true_expl, pred_expl))
+
+            if n_explained == 0:
+                tqdm.write(f'Skipping {expl_id} as all instance explanations '
+                           f'by {explainer} contains nans')
+                continue
+
+            results = compute_metrics(true_expl, pred_expl, n_explained)
             results['model_kwargs'] = expr_result.kwargs
             results['effects'] = [
                 {'symbols': effect_symbols,
@@ -204,6 +260,7 @@ def run(expr_filename, explainer_dir, data_dir, out_dir):
                 for effect_symbols in true_expl
             ]
             results['all_symbols'] = expr_result.symbols
+            results['expl_id'] = expl_id
 
             all_results.append(results)
 

@@ -10,6 +10,7 @@ from typing import Tuple
 
 from sklearn import metrics
 from sklearn.metrics import pairwise
+
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,7 @@ __all__ = [
     'mean_absolute_percentage_error', 'mape',
     'accuracy', 'balanced_accuracy',
     'cosine_distances', 'euclidean_distances',
+    'standardize_effect',
 ]
 
 
