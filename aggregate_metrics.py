@@ -32,7 +32,7 @@ def compute_metrics(true_expl, pred_expl):
     per_match_metrics = []
 
     # assume all equal...
-    n_explained = len(pred_expl.values()[0])
+    n_explained = len(next(iter(pred_expl.values())))
 
     for name, effect_wise_metric in (
             ('strict_matching', metrics.strict_eval),
