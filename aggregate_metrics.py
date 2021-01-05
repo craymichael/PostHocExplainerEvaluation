@@ -44,8 +44,9 @@ def compute_metrics(true_expl, pred_expl):
                 goodness, matching):
             # for each pair in the match
             # the "worse" the match, the more effects will be in match
-            contribs_true = sum(true_expl[effect] for effect in match_true)
-            contribs_pred = sum(pred_expl[effect] for effect in match_pred)
+            # list needed so sum of single effect won't reduce to scalar
+            contribs_true = sum([true_expl[effect] for effect in match_true])
+            contribs_pred = sum([pred_expl[effect] for effect in match_pred])
 
             # now we evaluate the fidelity with various error metrics!
             err_dict = {}
