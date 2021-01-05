@@ -138,7 +138,7 @@ def run(expr_filename, explainer_dir, data_dir, out_dir):
 
         explanations = os.listdir(explainer_path)
         explained = [*map(lambda x: int(x.rsplit('.', 1)[0]), explanations)]
-        assert len(explained) == len(*explained)
+        assert len(explained) == len({*explained})
 
         all_results = []
 
