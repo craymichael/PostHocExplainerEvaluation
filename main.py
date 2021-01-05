@@ -23,7 +23,7 @@ from posthoceval.explainers.local.shap import gshap_explain
 from posthoceval.model_generation import AdditiveModel
 from posthoceval.model_generation import tsang_iclr18_models
 from posthoceval.profile import set_profile
-from posthoceval.metrics import _standardize_effect
+from posthoceval.metrics import standardize_effect
 from posthoceval import metrics
 
 sns.set(
@@ -35,11 +35,11 @@ def _standardize_effects(effects):
     if isinstance(effects, dict):
         d = effects.copy()
         for e, v in effects.items():
-            e_std = _standardize_effect(e)
+            e_std = standardize_effect(e)
             d[e_std] = d.pop(e)
         return d
     else:  # assume iterable
-        return [*map(_standardize_effect, effects)]
+        return [*map(standardize_effect, effects)]
 
 
 def eval_and_plot(data, contribs_true, effects_true, contribs_explainers,

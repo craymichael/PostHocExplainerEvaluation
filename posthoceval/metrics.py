@@ -11,11 +11,11 @@ from typing import Tuple
 from sklearn import metrics
 from sklearn.metrics import pairwise
 import numpy as np
-from scipy.stats import gmean
 
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    'strict_eval', 'generous_eval',
     'effect_detection_f1', 'effect_detection_jaccard_index',
     'effect_detection_precision', 'effect_detection_recall',
     'mean_squared_error', 'mse',
@@ -26,7 +26,7 @@ __all__ = [
 ]
 
 
-def _standardize_effect(e):
+def standardize_effect(e):
     """sorted by str for consistency"""
     e = tuple(sorted({*e}, key=str)) if isinstance(e, tuple) else (e,)
     assert e, 'received empty effect'
@@ -35,14 +35,21 @@ def _standardize_effect(e):
 
 def strict_eval(y_true: Iterable, y_pred: Iterable):
     """TODO: also return goodness - as arg"""
-    y_true = {*map(_standardize_effect, y_true)}
-    y_pred = {*map(_standardize_effect, y_pred)}
+    y_true = {*map(standardize_effect, y_true)}
+    y_pred = {*map(standardize_effect, y_pred)}
 
-    matching = [([match], [match]) for match in y_true & y_pred]
-    matching.extend(([miss], []) for miss in y_true - y_pred)  # noqa
-    matching.extend(([], [miss]) for miss in y_pred - y_true)  # noqa
+    intersection = y_true & y_pred
+    residual_true = y_true - y_pred
+    residual_pred = y_pred - y_true
 
-    return matching
+    matching = [([match], [match]) for match in intersection]
+    matching.extend(([miss], []) for miss in residual_true)
+    matching.extend(([], [miss]) for miss in residual_pred)
+
+    goodness = [1.] * len(intersection)
+    goodness.extend([0.] * (len(residual_true) + len(residual_pred)))
+
+    return matching, goodness
 
 
 def generous_eval(y_true: Iterable, y_pred: Iterable, maybe_exact=False):
@@ -54,8 +61,8 @@ def generous_eval(y_true: Iterable, y_pred: Iterable, maybe_exact=False):
     :return: components: effect pairs for direct comparison
     :return: goodness: average-Jaccard index of each effect pair
     """
-    y_true = {*map(_standardize_effect, y_true)}
-    y_pred = {*map(_standardize_effect, y_pred)}
+    y_true = {*map(standardize_effect, y_true)}
+    y_pred = {*map(standardize_effect, y_pred)}
 
     # List[
     #   Tuple[            | pair of y_true effect(s) & y_pred effect(s)
@@ -166,8 +173,8 @@ def _effects_confusion_matrix(y_true, y_pred, effects='all'):
     effects = effects.lower()
     assert effects in {'main', 'interaction', 'all'}
 
-    y_true = map(_standardize_effect, y_true)
-    y_pred = map(_standardize_effect, y_pred)
+    y_true = map(standardize_effect, y_true)
+    y_pred = map(standardize_effect, y_pred)
 
     if effects == 'main':
         # Main effects

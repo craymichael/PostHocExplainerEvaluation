@@ -1012,9 +1012,9 @@ class AdditiveModel(object):
                              'interaction_effects')
         effects = []
         if main_effects:
-            effects.extend(list(self.main_effects))
+            effects.extend(self.main_effects)
         if interaction_effects:
-            effects.extend(list(self.interaction_effects))
+            effects.extend(self.interaction_effects)
 
         contributions = defaultdict(lambda: np.zeros(len(x)))
         all_effects = defaultdict(lambda: sp.Number(0))
@@ -1025,14 +1025,12 @@ class AdditiveModel(object):
             related_features = [x[:, self.symbols.index(s)]
                                 for s in effect_symbols]
             if effect == 0:
-                continue  # skip zero-effects
+                continue  # skip zero-effects (zeros in defaultdict)
             eval_func = symbolic_evaluate_func(effect,
                                                effect_symbols,
                                                x=x,
                                                backend=backend)
             contribution = eval_func(*related_features)
-            if len(effect_symbols) == 1:
-                effect_symbols = effect_symbols[0]
             contributions[effect_symbols] = contribution
             if return_effects:
                 all_effects[effect_symbols] = effect
