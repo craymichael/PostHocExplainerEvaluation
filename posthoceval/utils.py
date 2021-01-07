@@ -182,3 +182,66 @@ def tqdm_parallel(tqdm_object):
     finally:
         joblib.parallel.BatchCompletionCallBack = old_batch_callback
         tqdm_object.close()
+
+
+def safe_parse_tuple(string_, verbose=False):
+    """naively parse string, only returns strings
+
+    why did i bother with this
+    """
+    return tuple(_safe_parse_tuple_generator(string_, verbose=verbose))
+
+
+def _safe_parse_tuple_generator(string_, verbose=False):
+    # updated dynamically
+    element = ''
+    left = None
+    tuple_open = tuple_closed = token_ready = False
+    # updated consistently
+    prev_token = None
+    # static
+    whitespace = ' \n\r\t\f\v'
+
+    for token in string_:
+        if verbose:
+            print(f'token \'{token}\' [left={left}|tuple_open={tuple_open}|'
+                  f'tuple_closed={tuple_closed}|token_ready={token_ready}|'
+                  f'prev_token=\'{prev_token}\'|element=\'{element}\'')
+        if left is not None:
+            if prev_token != '\\' and token == left:
+                yield element
+                left, element = None, ''
+            else:
+                element += token
+        elif token in whitespace:
+            if element:
+                yield element
+                element, token_ready = '', False
+            continue  # do not record whitespaces
+        elif not tuple_open:
+            assert token == '(', 'leading char must be "(" in tuple'
+            tuple_open = token_ready = True
+        elif tuple_closed:
+            raise AssertionError('no non-whitespace allowed after closing ")"')
+        elif token == ')':
+            if element:
+                yield element
+                element = ''
+            tuple_closed, token_ready = True, False
+        elif token == ',':
+            assert prev_token != ',', 'cannot have back to back commas'
+            assert prev_token != '(', 'cannot have comma after opening "("'
+            if element:
+                yield element
+                element = ''
+            token_ready = True
+        elif token_ready:
+            if token in '\'\"' and prev_token != '\\':
+                left = token
+            else:
+                element += token
+        else:
+            raise AssertionError(f'unexpected token \'{token}\'')
+        prev_token = token
+    assert tuple_closed, (f'failed to close an element with a {left}'
+                          if left else 'missing ")" to close tuple')

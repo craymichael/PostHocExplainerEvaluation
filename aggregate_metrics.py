@@ -18,10 +18,14 @@ import sympy as sp
 
 from posthoceval import metrics
 from posthoceval.model_generation import AdditiveModel
+from posthoceval.utils import safe_parse_tuple
 # Needed for pickle loading of this result type
 from posthoceval.results import ExprResult
 
 Explanation = Dict[Tuple[sp.Symbol], np.ndarray]
+
+# reserved name for true contributions
+TRUE_CONTRIBS_NAME = '__true__'
 
 
 class CustomJSONEncoder(json.JSONEncoder):
@@ -127,17 +131,38 @@ def compute_metrics(true_expl, pred_expl, n_explained):
     }
 
 
-def compute_true_contributions(expr_result, data_file):
+def compute_true_contributions(expr_result, data_file, explainer_dir, expl_id):
     tqdm.write('Generating model')
     model = AdditiveModel.from_expr(
         expr=expr_result.expr,
         symbols=expr_result.symbols,
     )
 
-    tqdm.write(f'Loading data from {data_file}')
-    data = np.load(data_file)['data']
+    # check if contributions have been saved before
+    cached_path = os.path.join(explainer_dir, TRUE_CONTRIBS_NAME,
+                               str(expl_id) + '.npz')
+    if os.path.exists(cached_path):
+        contribs = load_explanation(cached_path, model)
+    else:
+        tqdm.write(f'Loading data from {data_file}')
+        data = np.load(data_file)['data']
 
-    return model, model.feature_contributions(data, return_effects=True)
+        contribs = model.feature_contributions(data)
+
+        # cache contribs
+        save_kwargs = {
+            str(effect_symbols): contribution
+            for effect_symbols, contribution in contribs.items()
+        }
+        np.savez_compressed(cached_path, **save_kwargs)
+
+        # might not be necessary, but `load_explanation` does this (so do it
+        # for consistency)
+        contribs = standardize_contributions(contribs)
+
+    effects = model.make_effects_dict()
+
+    return model, contribs, effects
 
 
 def clean_explanations(
@@ -162,7 +187,7 @@ def clean_explanations(
     assert n_pred <= n_true, f'n_pred ({n_pred}) > n_true ({n_true})'
 
     if n_pred < n_true:
-        tqdm.write(f'Truncating true_expl from {n_true} to {n_pred}')
+        # tqdm.write(f'Truncating true_expl from {n_true} to {n_pred}')
         # truncate latter explanations to save length
         for k, v in true_expl.items():
             true_expl[k] = v[:n_pred]
@@ -197,6 +222,39 @@ def standardize_contributions(contribs_dict):
             if not np.allclose(v, 0.)}
 
 
+def load_explanation(expl_file: str, true_model: AdditiveModel):
+    if not os.path.exists(expl_file):
+        raise IOError(f'{expl_file} does not exist!')
+
+    expl_dict = np.load(expl_file)
+
+    if len(expl_dict) == 1 and 'data' in expl_dict:
+        expl = expl_dict['data']
+
+        assert expl.shape[1] == len(true_model.symbols), (
+            f'Non-keyword explanation received with '
+            f'{expl.shape[1]} features but model has '
+            f'{len(true_model.symbols)} features.'
+        )
+        # map to model symbols and standardize
+        expl = dict(zip(true_model.symbols, expl.T))
+    else:
+        expl = {}
+        for symbols_str, expl_data in expl_dict.items():
+            try:
+                symbol_strs = safe_parse_tuple(symbols_str)
+            except AssertionError:  # not a tuple...tisk tisk
+                symbol_strs = (symbols_str,)
+            # convert strings to symbols in model
+            symbols = tuple(map(true_model.get_symbol, symbol_strs))
+
+            expl[symbols] = expl_data
+
+    expl = standardize_contributions(expl)
+
+    return expl
+
+
 def run(expr_filename, explainer_dir, data_dir, out_dir):
     """"""
     np.seterr('raise')  # never trust silent fp in metrics
@@ -215,6 +273,9 @@ def run(expr_filename, explainer_dir, data_dir, out_dir):
     all_results = []
 
     for explainer in os.listdir(explainer_dir):
+        if explainer == TRUE_CONTRIBS_NAME:
+            continue
+
         explainer_path = os.path.join(explainer_dir, explainer)
         if not os.path.isdir(explainer_path):
             continue
@@ -238,33 +299,17 @@ def run(expr_filename, explainer_dir, data_dir, out_dir):
                 data_file = os.path.join(data_dir, f'{expl_id}.npz')
 
                 # cache result for later use (by other explainers)
-                true_model, (true_expl, true_effects) = (
-                    compute_true_contributions(expr_result, data_file))
+                true_model, true_expl, true_effects = (
+                    compute_true_contributions(expr_result, data_file,
+                                               explainer_dir, expl_id)
+                )
                 true_explanations[expl_id] = true_expl
                 true_effects_all[expl_id] = true_effects
 
                 true_models[expl_id] = true_model
 
             pred_expl_file = os.path.join(explainer_path, f'{expl_id}.npz')
-            if not os.path.exists(pred_expl_file):
-                raise IOError(f'{pred_expl_file} does not exist!')
-
-            pred_expl_dict = np.load(pred_expl_file)
-            if len(pred_expl_dict) == 1 and 'data' in pred_expl_dict:
-                pred_expl = pred_expl_dict['data']
-
-                assert pred_expl.shape[1] == len(true_model.symbols), (
-                    f'Non-keyword explanation received with '
-                    f'{pred_expl.shape[1]} features but model has '
-                    f'{len(true_model.symbols)} features.'
-                )
-                # map to model symbols and standardize
-                pred_expl = dict(zip(true_model.symbols, pred_expl.T))
-                pred_expl = standardize_contributions(pred_expl)
-            else:
-                # TODO: esp. in the case of interactions...
-                raise NotImplementedError('Multiple-data in .npz file not '
-                                          'supported yet')
+            pred_expl = load_explanation(pred_expl_file, true_model)
 
             true_expl, pred_expl, n_explained = (
                 clean_explanations(true_expl, pred_expl))

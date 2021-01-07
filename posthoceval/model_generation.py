@@ -999,6 +999,30 @@ class AdditiveModel(object):
                                            x=x, backend=backend)
         return eval_func(*(x[:, i] for i in range(self.n_features)))
 
+    def make_effects_dict(self,
+                          main_effects=True,
+                          interaction_effects=True):
+        if not (main_effects or interaction_effects):
+            raise ValueError('Must specify either main_effects or '
+                             'interaction_effects')
+        effects = []
+        if main_effects:
+            effects.extend(self.main_effects)
+        if interaction_effects:
+            effects.extend(self.interaction_effects)
+
+        effects_dict = {}
+
+        for effect in effects:
+            # standardize (TODO use metrics func?)
+            effect_symbols = sorted(effect.free_symbols, key=lambda s: s.name)
+            effect_symbols = tuple(effect_symbols)
+            if effect == 0:
+                continue  # skip zero-effects
+            effects_dict[effect_symbols] = effect
+
+        return effects_dict
+
     def feature_contributions(
             self,
             x: np.ndarray,
