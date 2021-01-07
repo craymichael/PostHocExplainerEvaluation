@@ -155,6 +155,9 @@ def clean_explanations(
     nan_idxs = np.zeros(n_pred, dtype=np.bool)
     for v in pred_expl.values():
         nan_idxs |= np.isnan(v)
+    for v in true_expl.values():
+        # yep, guess what - this can also happen...
+        nan_idxs |= np.isnan(v)
 
     if nan_idxs.any():
         not_nan = ~nan_idxs
