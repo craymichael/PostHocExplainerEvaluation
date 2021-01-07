@@ -6,6 +6,7 @@ import os
 import sys
 import json
 import pickle
+import warnings
 from typing import Dict
 from typing import Tuple
 from functools import partial
@@ -68,7 +69,21 @@ def compute_metrics(true_expl, pred_expl, n_explained):
                     ('mape', metrics.mape),
                     ('mse', metrics.mse),
             ):
-                err = err_metric(contribs_true, contribs_pred)
+                try:
+                    err = err_metric(contribs_true, contribs_pred)
+                except FloatingPointError:
+                    # overflow, probably
+                    dtype_orig = contribs_true.dtype
+                    err = err_metric(contribs_true.astype(np.float128),
+                                     contribs_pred.astype(np.float128))
+                    err_low_prec = err.astype(dtype_orig)
+                    if np.isinf(err_low_prec):
+                        warnings.warn(f'Necessary cast from {dtype_orig} to '
+                                      f'{err.dtype} to avoid '
+                                      f'FloatingPointError in {err_name}')
+                    else:
+                        err = err_low_prec
+
                 err_dict[err_name] = err
 
                 err_name_agg = err_name + '_mean'
@@ -184,6 +199,8 @@ def standardize_contributions(contribs_dict):
 
 def run(expr_filename, explainer_dir, data_dir, out_dir):
     """"""
+    np.seterr('raise')  # never trust silent fp in metrics
+
     expr_basename = os.path.basename(expr_filename).rsplit('.', 1)[0]
     os.makedirs(out_dir, exist_ok=True)
 
