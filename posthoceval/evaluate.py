@@ -90,7 +90,7 @@ def llvm_func(expr, symbols):
 @lru_cache()
 def numpy_func(expr, symbols):
     return sp.lambdify(symbols, expr.expand(),
-                       modules=['scipy', 'numpy'])
+                       modules=['numpy', 'scipy'])
 
 
 @lru_cache()
@@ -198,6 +198,12 @@ UNSUPPORTED_FUNC_REPLACEMENTS = {
 }
 
 
+def replace_unsupported_functions(expr):
+    for k, v in UNSUPPORTED_FUNC_REPLACEMENTS.items():
+        expr = expr.replace(k, v)
+    return expr
+
+
 def symbolic_evaluate_func(expr, symbols, x=None, backend=None):
     if backend is None:
         if len(symbols) >= 32:
@@ -219,7 +225,7 @@ def symbolic_evaluate_func(expr, symbols, x=None, backend=None):
         #         backend = 'numexpr'
         #     except ImportError:
         #         pass
-    if backend == 'numpy':
+    if backend == 'numpy':  # or scipy...
         eval_func = numpy_func
     elif backend == 'theano':
         eval_func = theano_func
@@ -241,7 +247,6 @@ def symbolic_evaluate_func(expr, symbols, x=None, backend=None):
         raise ValueError(backend)
 
     # substitute known unsupported functions on most backends
-    for k, v in UNSUPPORTED_FUNC_REPLACEMENTS.items():
-        expr = expr.replace(k, v)
+    expr = replace_unsupported_functions(expr)
 
     return eval_func(expr, tuple(symbols))

@@ -10,6 +10,8 @@ import sympy as sp
 from sympy import stats
 from sympy.stats.rv import sample_iter_subs
 
+from posthoceval.evaluate import symbolic_evaluate_func
+
 
 def _get_uniform_args(distribution):
     # so easy to get distribution arguments...ex
@@ -80,12 +82,11 @@ def sample(variables, distribution, n_samples, constraints=None, cov=None,
             samples_v = sample_func(n_samples)
             if not no_constraint:
                 # meet constraints
-                # TODO: potentially swap to my `symbolic_evaluate_func`
                 try:
                     # entirely possible that this will break in sympy
-                    constraint_func = sp.lambdify(
-                        [*constraint.free_symbols], constraint,
-                        modules='numpy'
+                    constraint_func = symbolic_evaluate_func(
+                        constraint, [*constraint.free_symbols],
+                        backend='numpy'
                     )
                     # test to make sure things work ok
                     constraint_func(samples_v[:1])

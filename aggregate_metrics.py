@@ -192,6 +192,8 @@ def run(expr_filename, explainer_dir, data_dir, out_dir):
     true_effects_all = {}
     true_models = {}
 
+    all_results = []
+
     for explainer in os.listdir(explainer_dir):
         explainer_path = os.path.join(explainer_dir, explainer)
         if not os.path.isdir(explainer_path):
@@ -201,7 +203,7 @@ def run(expr_filename, explainer_dir, data_dir, out_dir):
         explained = [*map(lambda x: int(x.rsplit('.', 1)[0]), explanations)]
         assert len(explained) == len({*explained})
 
-        all_results = []
+        results_explainer = []
 
         # now compute metrics for each model
         for expl_id in tqdm(explained, desc=explainer):
@@ -262,14 +264,19 @@ def run(expr_filename, explainer_dir, data_dir, out_dir):
             results['all_symbols'] = expr_result.symbols
             results['expl_id'] = expl_id
 
-            all_results.append(results)
+            results_explainer.append(results)
 
-        # Save to out_dir
-        out_filename = os.path.join(out_dir, expr_basename + '.json')
-        print('Writing results to', out_filename)
+        all_results.append({
+            'explainer': explainer,
+            'results': results_explainer,
+        })
 
-        with open(out_filename, 'w') as f:
-            json.dump(all_results, f, cls=CustomJSONEncoder)
+    # Save to out_dir
+    out_filename = os.path.join(out_dir, expr_basename + '.json')
+    print('Writing results to', out_filename)
+
+    with open(out_filename, 'w') as f:
+        json.dump(all_results, f, cls=CustomJSONEncoder)
 
 
 if __name__ == '__main__':
