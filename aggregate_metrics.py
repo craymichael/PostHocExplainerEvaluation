@@ -19,6 +19,8 @@ import sympy as sp
 from posthoceval import metrics
 from posthoceval.model_generation import AdditiveModel
 from posthoceval.utils import safe_parse_tuple
+from posthoceval.utils import is_int
+from posthoceval.utils import is_float
 # Needed for pickle loading of this result type
 from posthoceval.results import ExprResult
 
@@ -32,6 +34,10 @@ class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, sp.Symbol):
             return obj.name
+        if is_int(obj):
+            return int(obj)
+        if is_float(obj):
+            return float(obj)
         # Let the base class default method raise the TypeError
         return json.JSONEncoder.default(self, obj)
 
@@ -255,7 +261,7 @@ def load_explanation(expl_file: str, true_model: AdditiveModel):
     return expl
 
 
-def run(expr_filename, explainer_dir, data_dir, out_dir):
+def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False):
     """"""
     np.seterr('raise')  # never trust silent fp in metrics
 
@@ -331,10 +337,16 @@ def run(expr_filename, explainer_dir, data_dir, out_dir):
 
             results_explainer.append(results)
 
+            if debug:  # run once for one explainer
+                break
+
         all_results.append({
             'explainer': explainer,
             'results': results_explainer,
         })
+
+        if debug:  # run once for one explainer
+            break
 
     # Save to out_dir
     out_filename = os.path.join(out_dir, expr_basename + '.json')
@@ -369,6 +381,10 @@ if __name__ == '__main__':
             '--out-dir', '-O',
             help='Output directory to save metrics'
         )
+        parser.add_argument(  # hidden debug argument
+            '--debug', action='store_true',
+            help=argparse.SUPPRESS
+        )
 
         args = parser.parse_args()
 
@@ -401,7 +417,8 @@ if __name__ == '__main__':
         run(out_dir=out_dir,
             expr_filename=args.expr_filename,
             explainer_dir=explainer_dir,
-            data_dir=data_dir)
+            data_dir=data_dir,
+            debug=args.debug)
 
 
     main()
