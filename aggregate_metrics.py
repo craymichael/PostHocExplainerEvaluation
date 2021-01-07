@@ -138,7 +138,7 @@ def clean_explanations(
 
     assert len(pred_lens) == 1, (
         'pred_expl has effect-wise explanations of non-uniform length')
-    assert len({true_lens}) == 1, (
+    assert len(true_lens) == 1, (
         'true_expl has effect-wise explanations of non-uniform length')
 
     n_pred = pred_lens.pop()
