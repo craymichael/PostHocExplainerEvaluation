@@ -145,8 +145,10 @@ def compute_true_contributions(expr_result, data_file, explainer_dir, expl_id):
     )
 
     # check if contributions have been saved before
-    cached_path = os.path.join(explainer_dir, TRUE_CONTRIBS_NAME,
-                               str(expl_id) + '.npz')
+    cached_dir = os.path.join(explainer_dir, TRUE_CONTRIBS_NAME)
+    os.makedirs(cached_dir, exist_ok=True)
+
+    cached_path = os.path.join(cached_dir, str(expl_id) + '.npz')
     if os.path.exists(cached_path):
         contribs = load_explanation(cached_path, model)
     else:
