@@ -917,10 +917,13 @@ class AdditiveModel(object):
         self._check()
 
     def _check(self):
-        if not isinstance(self.expr, sp.Add):
-            warnings.warn('Expression is not additive! Output is dependent on '
-                          'all input variables: '
-                          'optype {}'.format(type(self.expr)))
+        # TODO: these messages are absolutely annoying...maybe check other
+        #  things?
+        # if not isinstance(self.expr, sp.Add):
+        #     warnings.warn('Expression is not additive! Output is dependent
+        #                   'on all input variables: '
+        #                   'optype {}'.format(type(self.expr)))
+        pass
 
     @classmethod
     def from_expr(
