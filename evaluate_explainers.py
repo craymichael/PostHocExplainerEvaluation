@@ -187,8 +187,8 @@ if __name__ == '__main__':
             help='Data directory where generated data for expr_filename exists'
         )
         parser.add_argument(
-            '--explainer', '-X', choices=['SHAP', 'LIME'], default='SHAP',
-            help='The explainer to evaluate'
+            '--explainer', '-X', choices=['SHAP', 'LIME', 'MAPLE'],
+            default='SHAP', help='The explainer to evaluate'
         )
         parser.add_argument(
             '--max-explain', type=positive_int,
