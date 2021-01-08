@@ -308,7 +308,7 @@ else:
         >>> mean_absolute_percentage_error(y_true, y_pred)
         0.5515...
         >>> mean_absolute_percentage_error(y_true, y_pred,
-                                           multioutput=[0.3, 0.7])
+        >>>                                multioutput=[0.3, 0.7])
         0.6198...
         """
         y_type, y_true, y_pred, multioutput = _check_reg_targets(

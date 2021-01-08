@@ -19,5 +19,6 @@ alibi[ray]
 
 # pygam things:
 pygam
-scikit-sparse
-nose
+# currently broken...
+# scikit-sparse
+# nose

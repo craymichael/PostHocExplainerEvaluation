@@ -28,6 +28,15 @@ Explanation = Dict[Tuple[sp.Symbol], np.ndarray]
 
 # reserved name for true contributions
 TRUE_CONTRIBS_NAME = '__true__'
+# TODO: best way to do this?
+# known explainers that give mean-centered contributions in explanation
+KNOWN_MEAN_CENTERED = [
+    'SHAP',
+]
+
+
+def is_mean_centered(explainer):
+    return any(explainer.startswith(e) for e in KNOWN_MEAN_CENTERED)
 
 
 class CustomJSONEncoder(json.JSONEncoder):
@@ -42,7 +51,7 @@ class CustomJSONEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-def compute_metrics(true_expl, pred_expl, n_explained):
+def compute_metrics(true_expl, pred_expl, n_explained, true_means):
     # per-effect metrics
     per_match_metrics = []
 
@@ -69,6 +78,11 @@ def compute_metrics(true_expl, pred_expl, n_explained):
             if match_pred:
                 contribs_pred = sum(
                     [pred_expl[effect] for effect in match_pred])
+                if true_means is not None:
+                    # add the mean back for these effects (this will be the
+                    #  same sample mean that the explainer saw before)
+                    contribs_pred += sum(
+                        [true_means[effect] for effect in match_true])
             else:
                 contribs_pred = np.zeros(n_explained)
 
@@ -217,7 +231,7 @@ def clean_explanations(
 
         total_nan = nan_idxs.sum()
         tqdm.write(f'Removed {total_nan} rows from explanations '
-                   f'({total_nan / n_pred:.2}%)')
+                   f'({100 * total_nan / n_pred:.2}%)')
         n_pred -= total_nan
 
     return true_expl, pred_expl, n_pred
@@ -227,7 +241,7 @@ def standardize_contributions(contribs_dict):
     """standardize each effect tuple and remove effects that are 0-effects"""
     return {metrics.standardize_effect(k): v
             for k, v in contribs_dict.items()
-            if not np.allclose(v, 0.)}
+            if not np.allclose(v, 0., atol=1e-5)}
 
 
 def load_explanation(expl_file: str, true_model: AdditiveModel):
@@ -319,15 +333,24 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False):
             pred_expl_file = os.path.join(explainer_path, f'{expl_id}.npz')
             pred_expl = load_explanation(pred_expl_file, true_model)
 
+            # check if explanation should be uncentered
+            true_means = None
+            if is_mean_centered(explainer):
+                true_means = {
+                    k: np.nanmean(v)
+                    for k, v in true_expl.items()
+                }
+
             true_expl, pred_expl, n_explained = (
                 clean_explanations(true_expl, pred_expl))
 
             if n_explained == 0:
                 tqdm.write(f'Skipping {expl_id} as all instance explanations '
-                           f'by {explainer} contains nans')
+                           f'by {explainer} contain nans')
                 continue
 
-            results = compute_metrics(true_expl, pred_expl, n_explained)
+            results = compute_metrics(true_expl, pred_expl, n_explained,
+                                      true_means)
             results['model_kwargs'] = expr_result.kwargs
             results['effects'] = [
                 {'symbols': effect_symbols,
