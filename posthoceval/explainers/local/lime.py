@@ -35,6 +35,9 @@ class LIMEExplainer(BaseExplainer):
         # will be initialized in fit
         self._explainer = None
 
+        self._mean = None
+        self._scale = None
+
     def fit(self, X, y=None):
         if self.verbose > 0:
             logger.info('Fitting LIME')
@@ -50,11 +53,18 @@ class LIMEExplainer(BaseExplainer):
                             'num_samples': 5000}
         )
 
+        # used in un-normalizing contributions
+        self._mean = self._explainer.lime.scaler.mean_
+        self._scale = self._explainer.lime.scaler.scale_
+
     def predict(self, X):
         pass  # TODO: n/a
 
     @profile
-    def feature_contributions(self, X, as_dict=False):
+    def feature_contributions(self, X: np.ndarray, as_dict=False):
+        # Note that LIME must have sample_around_instance=False otherwise
+        #  the inverse normalization is invalid
+
         if self._explainer is None:
             raise RuntimeError('Must call fit() before obtaining feature '
                                'contributions')
@@ -69,10 +79,17 @@ class LIMEExplainer(BaseExplainer):
 
         for i, xi in enumerate(X):
             expl_i = explanation.data(i)
+
             # sort explanation values...
             coefs_i = itemgetter(*sorted(expl_i['names']))(expl_i['scores'])
-            contribs_i = [coef_ij * xij
-                          for coef_ij, xij in zip(coefs_i, xi)]
+            # LIME scales only (StandardScale with `with_mean=False`)
+            coefs_i = np.asarray(coefs_i) / self._scale
+
+            # if desired, intercept can be fetched and adjusted via:
+            # intercept = (expl_i['extra']['scores'][0] -
+            #              np.sum(coefs_i * self._mean))
+
+            contribs_i = coefs_i * xi
             contribs_lime.append(contribs_i)
 
         contribs_lime = np.asarray(contribs_lime)
