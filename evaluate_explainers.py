@@ -29,6 +29,7 @@ from posthoceval.model_generation import AdditiveModel
 from posthoceval.utils import assert_same_size
 from posthoceval.explainers.local.shap import KernelSHAPExplainer
 from posthoceval.explainers.local.lime import LIMEExplainer
+from posthoceval.explainers.local.maple import MAPLEExplainer
 from posthoceval.utils import tqdm_parallel
 # Needed for pickle loading of this result type
 from posthoceval.results import ExprResult  # noqa
@@ -89,6 +90,8 @@ def run(expr_filename, out_dir, data_dir, max_explain, seed, n_jobs,
         explainer_cls = KernelSHAPExplainer
     elif explainer == 'LIME':
         explainer_cls = LIMEExplainer
+    elif explainer == 'MAPLE':
+        explainer_cls = MAPLEExplainer
     else:
         raise ValueError(f'{explainer} is not a valid explainer name')
 
