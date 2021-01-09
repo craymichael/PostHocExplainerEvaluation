@@ -39,6 +39,20 @@ def is_mean_centered(explainer):
     return any(explainer.startswith(e) for e in KNOWN_MEAN_CENTERED)
 
 
+def mean_center(true_expl):
+    true_means = {}
+    for k, v in true_expl.items():
+        if np.isinf(v).any():
+            raise ValueError(str(k) + ' WAT')
+        mean_v = np.nanmean(v)
+        if np.isinf(mean_v).any():
+            mean_v = np.nanmean(v.astype(np.float128)).astype(v.dtype)
+            if np.isinf(mean_v).any():
+                raise ValueError(str(k) + ' mean is still inf...')
+        true_means[k] = mean_v
+    return true_means
+
+
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, sp.Symbol):
@@ -235,7 +249,7 @@ def clean_explanations(
     nan_idxs_pred_only = nan_idxs_pred & (~nan_idxs_true)
     if nan_idxs_pred_only.any():
         tqdm.write(f'Pred explanations has {nan_idxs_pred_only.sum()} nans '
-                   f'and infs that true explanations do not.')
+                   f'and/or infs that true explanations do not.')
 
     nan_idxs = nan_idxs_pred | nan_idxs_true
     if nan_idxs.any():
@@ -353,10 +367,7 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False):
             # check if explanation should be uncentered
             true_means = None
             if is_mean_centered(explainer):
-                true_means = {
-                    k: np.nanmean(v)
-                    for k, v in true_expl.items()
-                }
+                true_means = mean_center(true_expl)
 
             true_expl, pred_expl, n_explained = (
                 clean_explanations(true_expl, pred_expl))
