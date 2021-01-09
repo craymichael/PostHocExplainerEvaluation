@@ -95,7 +95,12 @@ def compute_metrics(true_expl, pred_expl, n_explained, true_means):
             ):
                 try:
                     err = err_metric(contribs_true, contribs_pred)
-                except FloatingPointError:
+                except (FloatingPointError, ValueError):
+                    print('               isnan isinf')
+                    print(f'contribs_true: {np.isnan(contribs_true).any()} '
+                          f'{np.isinf(contribs_true).any()}')
+                    print(f'contribs_pred: {np.isnan(contribs_pred).any()} '
+                          f'{np.isinf(contribs_pred).any()}')
                     # overflow, probably
                     dtype_orig = contribs_true.dtype
                     err = err_metric(contribs_true.astype(np.float128),
