@@ -17,7 +17,7 @@ __all__ = ['GAM', 'InvGaussGAM', 'PoissonGAM', 'ExpectileGAM', 'GammaGAM',
 
 
 class LogisticGAM(_LogisticGAM):
-    __slots__ = 'gridsearch',
+    __slots__ = '_fit_with_gridsearch',
 
     def __init__(self, *args, **kwargs):
         self._fit_with_gridsearch = kwargs.pop('gridsearch', True)
