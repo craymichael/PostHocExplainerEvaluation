@@ -14,7 +14,6 @@ from itertools import combinations
 from itertools import product
 from itertools import cycle
 from collections import OrderedDict
-from collections import defaultdict
 from functools import wraps
 
 import multiprocessing as mp
