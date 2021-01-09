@@ -20,12 +20,16 @@ class LogisticGAM(_LogisticGAM):
     __slots__ = '_fit_with_gridsearch',
 
     def __init__(self, *args, **kwargs):
-        self._fit_with_gridsearch = kwargs.pop('gridsearch', True)
+        self._fit_with_gridsearch = kwargs.pop('fit_with_gridsearch', True)
         super().__init__(*args, **kwargs)
 
     def fit(self, X, y, weights=None):
         if self._fit_with_gridsearch:
-            return self.gridsearch(X, y, weights=weights, progress=False)
+            # TODO: uglyaf
+            self._fit_with_gridsearch = False
+            ret = self.gridsearch(X, y, weights=weights, progress=False)
+            self._fit_with_gridsearch = True
+            return ret
         else:
             return super().fit(X, y, weights=weights)
 
