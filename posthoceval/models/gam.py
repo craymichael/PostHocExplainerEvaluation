@@ -17,7 +17,17 @@ __all__ = ['GAM', 'InvGaussGAM', 'PoissonGAM', 'ExpectileGAM', 'GammaGAM',
 
 
 class LogisticGAM(_LogisticGAM):
-    __slots__ = ()
+    __slots__ = 'gridsearch',
+
+    def __init__(self, *args, **kwargs):
+        self._fit_with_gridsearch = kwargs.pop('gridsearch', True)
+        super().__init__(*args, **kwargs)
+
+    def fit(self, X, y, weights=None):
+        if self._fit_with_gridsearch:
+            return self.gridsearch(X, y, weights=weights, progress=False)
+        else:
+            return super().fit(X, y, weights=weights)
 
     def predict_proba(self, *args, **kwargs):
         probas = super().predict_proba(*args, **kwargs)
