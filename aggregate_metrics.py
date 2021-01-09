@@ -43,7 +43,11 @@ def compute_true_means(true_expl):
     true_means = {}
     for k, v in true_expl.items():
         # no nans or infs
-        true_means[k] = np.ma.masked_invalid(v).mean()
+        try:
+            true_means[k] = np.ma.masked_invalid(v).mean()
+        except (FloatingPointError, ValueError):
+            true_means[k] = np.ma.masked_invalid(
+                v.astype(np.float128)).mean().astype(v.dtype)
     return true_means
 
 
