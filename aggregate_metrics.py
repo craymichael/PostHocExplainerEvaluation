@@ -96,11 +96,13 @@ def compute_metrics(true_expl, pred_expl, n_explained, true_means):
                 try:
                     err = err_metric(contribs_true, contribs_pred)
                 except (FloatingPointError, ValueError):
-                    print('               isnan isinf')
-                    print(f'contribs_true: {np.isnan(contribs_true).any()} '
-                          f'{np.isinf(contribs_true).any()}')
-                    print(f'contribs_pred: {np.isnan(contribs_pred).any()} '
-                          f'{np.isinf(contribs_pred).any()}')
+                    tqdm.write('               isnan isinf')
+                    tqdm.write(
+                        f'contribs_true: {np.isnan(contribs_true).any()} '
+                        f'{np.isinf(contribs_true).any()}')
+                    tqdm.write(
+                        f'contribs_pred: {np.isnan(contribs_pred).any()} '
+                        f'{np.isinf(contribs_pred).any()}')
                     # overflow, probably
                     dtype_orig = contribs_true.dtype
                     err = err_metric(contribs_true.astype(np.float128),
@@ -219,13 +221,23 @@ def clean_explanations(
         for k, v in true_expl.items():
             true_expl[k] = v[:n_pred]
 
-    nan_idxs = np.zeros(n_pred, dtype=np.bool)
+    nan_idxs_pred = np.zeros(n_pred, dtype=np.bool)
     for v in pred_expl.values():
-        nan_idxs |= np.isnan(v)
+        nan_idxs_pred |= np.isnan(v) | np.isinf(v)
+
+    nan_idxs_true = np.zeros(n_pred, dtype=np.bool)
     for v in true_expl.values():
         # yep, guess what - this can also happen...
-        nan_idxs |= np.isnan(v)
+        nan_idxs_true |= np.isnan(v) | np.isinf(v)
 
+    # isnan or isinf in pred_expl but not true_expl is likely artifact of bad
+    # perturbation
+    nan_idxs_pred_only = nan_idxs_pred & (~nan_idxs_true)
+    if nan_idxs_pred_only.any():
+        tqdm.write(f'Pred explanations has {nan_idxs_pred_only.sum()} nans '
+                   f'and infs that true explanations do not.')
+
+    nan_idxs = nan_idxs_pred | nan_idxs_true
     if nan_idxs.any():
         not_nan = ~nan_idxs
         for k, v in true_expl.items():
