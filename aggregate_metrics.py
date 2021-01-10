@@ -183,18 +183,24 @@ def compute_true_contributions(expr_result, data_file, explainer_dir, expl_id):
 
     cached_path = os.path.join(cached_dir, str(expl_id) + '.npz')
     if os.path.exists(cached_path):
+        tqdm.write('Loading pre-computed explanations from disk...')
         contribs = load_explanation(cached_path, model)
+        tqdm.write('Loaded.')
     else:
+        tqdm.write(f'Generating explanations for {expl_id}')
         tqdm.write(f'Loading data from {data_file}')
         data = np.load(data_file)['data']
+        tqdm.write('Done loading.')
 
         contribs = model.feature_contributions(data)
+        tqdm.write('Done explaining.')
 
         # cache contribs
         save_kwargs = {
             str(effect_symbols): contribution
             for effect_symbols, contribution in contribs.items()
         }
+        tqdm.write('Saving to disk.')
         np.savez_compressed(cached_path, **save_kwargs)
 
         # might not be necessary, but `load_explanation` does this (so do it
@@ -211,6 +217,8 @@ def clean_explanations(
         pred_expl: Explanation,
 ) -> Tuple[Explanation, Explanation, int]:
     """"""
+    tqdm.write('Start cleaning explanations.')
+
     true_expl = true_expl.copy()
     pred_expl = pred_expl.copy()
 
@@ -228,15 +236,17 @@ def clean_explanations(
     assert n_pred <= n_true, f'n_pred ({n_pred}) > n_true ({n_true})'
 
     if n_pred < n_true:
-        # tqdm.write(f'Truncating true_expl from {n_true} to {n_pred}')
+        tqdm.write(f'Truncating true_expl from {n_true} to {n_pred}')
         # truncate latter explanations to save length
         for k, v in true_expl.items():
             true_expl[k] = v[:n_pred]
 
+    tqdm.write('Discovering pred_expl invalids')
     nan_idxs_pred = np.zeros(n_pred, dtype=np.bool)
     for v in pred_expl.values():
         nan_idxs_pred |= np.isnan(v) | np.isinf(v)
 
+    tqdm.write('Discovering true_expl invalids')
     nan_idxs_true = np.zeros(n_pred, dtype=np.bool)
     for v in true_expl.values():
         # yep, guess what - this can also happen...
@@ -249,6 +259,7 @@ def clean_explanations(
         tqdm.write(f'Pred explanations has {nan_idxs_pred_only.sum()} nans '
                    f'and/or infs that true explanations do not.')
 
+    tqdm.write('Start removing invalids.')
     nan_idxs = nan_idxs_pred | nan_idxs_true
     if nan_idxs.any():
         not_nan = ~nan_idxs
@@ -262,6 +273,8 @@ def clean_explanations(
         tqdm.write(f'Removed {total_nan} rows from explanations '
                    f'({100 * total_nan / n_pred:.2}%)')
         n_pred -= total_nan
+
+    tqdm.write('Done cleaning.')
 
     return true_expl, pred_expl, n_pred
 
@@ -339,6 +352,8 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False):
 
         # now compute metrics for each model
         for expl_id in tqdm(explained, desc=explainer):
+            tqdm.write(f'\nBegin {expl_id}.')
+
             expr_result: ExprResult = expr_data[expl_id]
 
             true_expl = true_explanations.get(expl_id)
@@ -359,6 +374,7 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False):
 
                 true_models[expl_id] = true_model
 
+            tqdm.write('Loading predicted explanation')
             pred_expl_file = os.path.join(explainer_path, f'{expl_id}.npz')
             pred_expl = load_explanation(pred_expl_file, true_model)
 
@@ -375,6 +391,7 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False):
                            f'by {explainer} contain nans')
                 continue
 
+            tqdm.write('Begin computing metrics.')
             results = compute_metrics(true_expl, pred_expl, n_explained,
                                       true_means)
             results['model_kwargs'] = expr_result.kwargs
@@ -387,6 +404,7 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False):
             results['expl_id'] = expl_id
 
             results_explainer.append(results)
+            tqdm.write('Done.')
 
             if debug:  # run once for one explainer
                 break
