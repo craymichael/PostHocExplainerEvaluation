@@ -17,6 +17,10 @@ from tqdm.auto import tqdm
 import numpy as np
 import sympy as sp
 
+from joblib import Parallel
+from joblib import delayed
+
+from posthoceval.utils import tqdm_parallel
 from posthoceval import metrics
 from posthoceval.model_generation import AdditiveModel
 from posthoceval.utils import safe_parse_tuple
@@ -105,6 +109,10 @@ def compute_metrics(true_expl, pred_expl, n_explained, true_means):
                     ('rmse', metrics.rmse),
                     ('mape', metrics.mape),
                     ('mse', metrics.mse),
+                    ('nrmse_std', metrics.nrmse_std),
+                    ('nrmse_range', metrics.nrmse_range),
+                    ('nrmse_interquartile', metrics.nrmse_interquartile),
+                    ('nrmse_mean', metrics.nrmse_mean),
             ):
                 try:
                     err = err_metric(contribs_true, contribs_pred)
@@ -320,7 +328,8 @@ def load_explanation(expl_file: str, true_model: AdditiveModel):
     return expl
 
 
-def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False):
+def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False,
+        n_jobs=1):
     """"""
     np.seterr('raise')  # never trust silent fp in metrics
 
@@ -349,17 +358,8 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False):
         explained = [*map(lambda x: int(x.rsplit('.', 1)[0]), explanations)]
         assert len(explained) == len({*explained})
 
-        results_explainer = []
-
-        # now compute metrics for each model
-        for expl_id in tqdm(explained, desc=explainer):
+        def run_one(expl_id, expr_result, true_expl, true_effects, true_model):
             tqdm.write(f'\nBegin {expl_id}.')
-
-            expr_result: ExprResult = expr_data[expl_id]
-
-            true_expl = true_explanations.get(expl_id)
-            true_effects = true_effects_all.get(expl_id)
-            true_model = true_models.get(expl_id)
 
             if true_expl is None:
                 # compute true contributions
@@ -385,12 +385,7 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False):
                     for line in exc_lines:
                         tqdm.write(str(line), file=sys.stderr, end='')
 
-                    continue
-
-                true_explanations[expl_id] = true_expl
-                true_effects_all[expl_id] = true_effects
-
-                true_models[expl_id] = true_model
+                    return None
 
             tqdm.write('Loading predicted explanation')
             pred_expl_file = os.path.join(explainer_path, f'{expl_id}.npz')
@@ -407,7 +402,7 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False):
             if n_explained == 0:
                 tqdm.write(f'Skipping {expl_id} as all instance explanations '
                            f'by {explainer} contain nans')
-                continue
+                return None
 
             tqdm.write('Begin computing metrics.')
             results = compute_metrics(true_expl, pred_expl, n_explained,
@@ -421,15 +416,51 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False):
             results['all_symbols'] = expr_result.symbols
             results['expl_id'] = expl_id
 
-            results_explainer.append(results)
             tqdm.write('Done.')
 
-            if debug:  # run once for one explainer
-                break
+            return results, expl_id, true_expl, true_effects, true_model
+
+        if debug:  # debug --> limit to processing of 1 explanation
+            explained = explained[:1]
+
+        jobs = (
+            delayed(run_one)(
+                expl_id=expl_id,
+                expr_result=expr_data[expl_id],
+                true_expl=true_explanations.get(expl_id),
+                true_effects=true_effects_all.get(expl_id),
+                true_model=true_models.get(expl_id))
+            for expl_id in explained
+        )
+
+        with tqdm_parallel(tqdm(desc=explainer, total=len(explained))):
+            if n_jobs == 1 or debug:
+                # TODO: this doesn't update tqdm
+                packed_results = [f(*a, **kw) for f, a, kw in jobs]
+            else:
+                packed_results = Parallel(n_jobs=n_jobs)(jobs)
+
+        # now compute metrics for each model
+        explainer_results = []
+        for packed_result in packed_results:
+            if packed_result is None:
+                continue
+
+            # otherwise unpack
+            (results, expl_id, true_expl,
+             true_effects, true_model) = packed_result
+
+            # update cache for other explainers
+            true_explanations[expl_id] = true_expl
+            true_effects_all[expl_id] = true_effects
+
+            true_models[expl_id] = true_model
+
+            explainer_results.append(results)
 
         all_results.append({
             'explainer': explainer,
-            'results': results_explainer,
+            'results': explainer_results,
         })
 
         if debug:  # run once for one explainer
@@ -477,6 +508,10 @@ if __name__ == '__main__':
             '--out-dir', '-O',
             help='Output directory to save metrics'
         )
+        parser.add_argument(
+            '--n-jobs', '-j', default=-1, type=int,
+            help='Number of jobs to use in generation'
+        )
         parser.add_argument(  # hidden debug argument
             '--debug', action='store_true',
             help=argparse.SUPPRESS
@@ -514,6 +549,7 @@ if __name__ == '__main__':
             expr_filename=args.expr_filename,
             explainer_dir=explainer_dir,
             data_dir=data_dir,
+            n_jobs=args.n_jobs,
             debug=args.debug)
 
 

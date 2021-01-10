@@ -212,7 +212,7 @@ if __name__ == '__main__':
         )
         parser.add_argument(
             '--debug', action='store_true',
-            help='Single process, ensure things work. Run for one model.'
+            help=argparse.SUPPRESS
         )
 
         args = parser.parse_args()

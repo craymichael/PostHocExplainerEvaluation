@@ -22,6 +22,8 @@ __all__ = [
     'mean_squared_error', 'mse',
     'root_mean_squared_error', 'rmse',
     'mean_absolute_percentage_error', 'mape',
+    'normalized_root_mean_squared_error', 'nrmse', 'nrmse_range', 'nrmse_std',
+    'nrmse_interquartile', 'nrmse_mean',
     'accuracy', 'balanced_accuracy',
     'cosine_distances', 'euclidean_distances',
     'standardize_effect',
@@ -250,6 +252,39 @@ mse = mean_squared_error
 
 root_mean_squared_error = partial(metrics.mean_squared_error, squared=False)
 rmse = root_mean_squared_error
+
+
+def normalized_root_mean_squared_error(y_true, y_pred, sample_weight=None,
+                                       multioutput='uniform_average',
+                                       normalize='range'):
+    rmse_ = root_mean_squared_error(y_true, y_pred,
+                                    sample_weight=sample_weight,
+                                    multioutput=multioutput)
+    epsilon = np.finfo(np.float64).eps
+
+    if normalize == 'mean':
+        divisor = np.mean(y_true)
+    elif normalize == 'range':
+        divisor = np.max(y_true) - np.min(y_true)
+    elif normalize == 'interquartile':
+        q25, q75 = np.percentile(y_true, [25, 75])
+        divisor = q75 - q25
+    elif normalize == 'std':
+        divisor = np.std(y_true)
+    else:
+        raise ValueError('`normalize` must be "mean", "range", '
+                         '"interquartile", or "std", but received '
+                         f'"{normalize}"')
+
+    return rmse_ / np.max(divisor, epsilon)
+
+
+nrmse = normalized_root_mean_squared_error
+nrmse_mean = partial(normalized_root_mean_squared_error, normalize='mean')
+nrmse_range = partial(normalized_root_mean_squared_error, normalize='range')
+nrmse_interquartile = partial(normalized_root_mean_squared_error,
+                              normalize='interquartile')
+nrmse_std = partial(normalized_root_mean_squared_error, normalize='std')
 
 if hasattr(metrics, 'mean_absolute_percentage_error'):
     mean_absolute_percentage_error = metrics.mean_absolute_percentage_error
