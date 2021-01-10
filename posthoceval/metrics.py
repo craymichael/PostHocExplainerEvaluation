@@ -275,8 +275,7 @@ def normalized_root_mean_squared_error(y_true, y_pred, sample_weight=None,
         raise ValueError('`normalize` must be "mean", "range", '
                          '"interquartile", or "std", but received '
                          f'"{normalize}"')
-
-    return rmse_ / np.max(divisor, epsilon)
+    return rmse_ / np.maximum(divisor, epsilon)
 
 
 nrmse = normalized_root_mean_squared_error
