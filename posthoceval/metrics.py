@@ -8,7 +8,7 @@ from typing import Iterable
 from typing import List
 from typing import Tuple
 
-from sklearn import metrics
+from sklearn import metrics as sk_metrics
 from sklearn.metrics import pairwise
 
 import numpy as np
@@ -244,13 +244,13 @@ def effect_detection_recall(y_true, y_pred, effects='all'):
 cosine_distances = partial(pairwise.paired_distances, metric='cosine')
 euclidean_distances = partial(pairwise.paired_distances, metric='euclidean')
 
-accuracy = metrics.accuracy_score
-balanced_accuracy = metrics.balanced_accuracy_score
+accuracy = sk_metrics.accuracy_score
+balanced_accuracy = sk_metrics.balanced_accuracy_score
 
-mean_squared_error = metrics.mean_squared_error
+mean_squared_error = sk_metrics.mean_squared_error
 mse = mean_squared_error
 
-root_mean_squared_error = partial(metrics.mean_squared_error, squared=False)
+root_mean_squared_error = partial(sk_metrics.mean_squared_error, squared=False)
 rmse = root_mean_squared_error
 
 
@@ -286,9 +286,8 @@ nrmse_interquartile = partial(normalized_root_mean_squared_error,
                               normalize='interquartile')
 nrmse_std = partial(normalized_root_mean_squared_error, normalize='std')
 
-if hasattr(metrics, 'mean_absolute_percentage_error'):
-    mean_absolute_percentage_error = metrics.mean_absolute_percentage_error
-    mape = mean_absolute_percentage_error
+if hasattr(sk_metrics, 'mean_absolute_percentage_error'):
+    mean_absolute_percentage_error = sk_metrics.mean_absolute_percentage_error
 else:
     # copy pasta from 0.24 (unreleased at time of copy)
     from sklearn.utils.validation import check_consistent_length
@@ -361,3 +360,5 @@ else:
                 multioutput = None
 
         return np.average(output_errors, weights=multioutput)
+
+mape = mean_absolute_percentage_error
