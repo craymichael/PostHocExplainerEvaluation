@@ -6,6 +6,7 @@ import os
 import sys
 import json
 import pickle
+import traceback
 import warnings
 from typing import Dict
 from typing import Tuple
@@ -365,10 +366,27 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False):
                 data_file = os.path.join(data_dir, f'{expl_id}.npz')
 
                 # cache result for later use (by other explainers)
-                true_model, true_expl, true_effects = (
-                    compute_true_contributions(expr_result, data_file,
-                                               explainer_dir, expl_id)
-                )
+                try:
+                    true_model, true_expl, true_effects = (
+                        compute_true_contributions(expr_result, data_file,
+                                                   explainer_dir, expl_id)
+                    )
+                except Exception as e:
+                    e_module = str(getattr(e, '__module__', ''))
+                    if e_module.split('.', 1)[0] != 'sympy':
+                        # raise non-sympy exceptions...
+                        raise
+
+                    tqdm.write(f'Failed to compute feature contribs for '
+                               f'{expl_id}!')
+
+                    exc_lines = traceback.format_exception(
+                        *sys.exc_info(), limit=None, chain=True)
+                    for line in exc_lines:
+                        tqdm.write(str(line), file=sys.stderr, end='')
+
+                    continue
+
                 true_explanations[expl_id] = true_expl
                 true_effects_all[expl_id] = true_effects
 
