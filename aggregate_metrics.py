@@ -268,7 +268,7 @@ def clean_explanations(
 
         total_nan = nan_idxs.sum()
         tqdm.write(f'Removed {total_nan} rows from explanations '
-                   f'({100 * total_nan / n_pred:.2}%)')
+                   f'({100 * total_nan / n_pred:.2f}%)')
         n_pred -= total_nan
 
     tqdm.write('Done cleaning.')

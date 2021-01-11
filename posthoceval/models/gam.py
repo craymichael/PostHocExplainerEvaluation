@@ -38,8 +38,8 @@ class LogisticGAM(_LogisticGAM):
     #     else:
     #         return super().fit(X, y, weights=weights)
 
-    def predict_proba(self, *args, **kwargs):
-        probas = super().predict_proba(*args, **kwargs)
+    def predict_proba(self, X):
+        probas = super().predict_proba(X)
         return np.stack([1 - probas, probas], axis=1)
 
 

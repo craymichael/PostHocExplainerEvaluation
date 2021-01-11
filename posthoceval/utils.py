@@ -181,6 +181,7 @@ def at_high_precision(func, *args, **kwargs):
             else:
                 ret_cast = float(ret)
 
+            # TODO: only consider infs here?
             if not (np.isinf(ret_cast).any() or np.isnan(ret_cast).any()):
                 ret = ret_cast
 
@@ -232,7 +233,7 @@ def get_precision(dtype):
 
 def is_int(v):
     v = _as_dtype_or_cls(v)
-    return np.issubdtype(type(v), np.integer)
+    return np.issubdtype(v, np.integer)
 
 
 def is_float(v):
