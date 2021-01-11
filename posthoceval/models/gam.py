@@ -100,5 +100,13 @@ class MultiClassLogisticGAM:
         # y : np.array of shape (n_samples,)
         assert self._is_fitted
 
+        if self._n_classes == 1:
+            return self._estimators[0].predict_proba(X)
+
+        probas = []
         for i, estimator in enumerate(self._estimators):
-            pass
+            # get probability at 1 (not 0)
+            p_i = estimator.predict_proba(X)[:, 1]
+            probas.append(p_i)
+
+        return np.stack(probas, axis=1)

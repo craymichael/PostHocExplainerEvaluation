@@ -22,3 +22,6 @@ pygam
 # currently broken...
 # scikit-sparse
 # nose
+
+mpmath
+gmpy

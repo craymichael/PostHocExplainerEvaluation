@@ -7,6 +7,8 @@ from typing import Optional
 from typing import Any
 from typing import Dict
 
+from inspect import isclass
+
 from contextlib import contextmanager
 
 import math
@@ -18,6 +20,7 @@ from collections import defaultdict
 import joblib
 
 import numpy as np
+import mpmath
 
 if hasattr(math, 'prod'):  # available in 3.8+
     prod = math.prod
@@ -149,48 +152,101 @@ def dict_product(d: Dict[Any, Iterable]) -> Dict:
 
 
 def at_high_precision(func, *args, **kwargs):
-    all_dtypes = set()
+    # raise errors for {over,under}flow and save current settings
+    old_err = np.seterr(over='raise', under='raise')
 
-    args_cast = []
-    kwargs_cast = {}
+    args_cast, kwargs_cast, highest_prec_dtype = (
+        _cast_args(args, kwargs, np.float128))
 
-    for arg in args:
-        if is_float(arg):
-            all_dtypes.add(arg.dtype if hasattr(arg, 'dtype') else float)
-            arg = np.float128(arg)
-        args_cast.append(arg)
+    try:
+        rets = func(*args_cast, **kwargs_cast)
+    except FloatingPointError:
+        args_cast, kwargs_cast, highest_prec_dtype = (
+            _cast_args(args, kwargs, _cast_mpf))
 
-    for k, v in kwargs.items():
-        if is_float(v):
-            all_dtypes.add(v.dtype if hasattr(v, 'dtype') else float)
-            v = np.float128(v)
-        kwargs_cast[k] = v
+        rets = func(*args_cast, **kwargs_cast)
 
-    rets = func(*args_cast, **kwargs_cast)
-    is_tuple = type(rets, tuple)
+    is_tuple = type(rets) is tuple
     if not is_tuple:
         rets = (rets,)
 
     rets_cast = []
     for ret in rets:
-        if is_float(ret) and len(all_dtypes) == 1:
-            # naively cast back
-            ret_cast = next(iter(all_dtypes))(ret)
+        ret_is_float = is_float(ret)
+        if highest_prec_dtype is not None and (
+                ret_is_float or isinstance(ret, mpmath.mpf)):
+            if ret_is_float:
+                # cast back
+                ret_cast = highest_prec_dtype(ret)
+            else:
+                ret_cast = float(ret)
 
             if not (np.isinf(ret_cast).any() or np.isnan(ret_cast).any()):
                 ret = ret_cast
 
         rets_cast.append(ret)
 
+    # restore current settings
+    np.seterr(**old_err)
+
     return tuple(rets_cast) if is_tuple else rets_cast[0]
 
 
+def _cast_mpf(val):
+    if isinstance(val, np.ndarray):
+        return np.asarray(
+            [*map(mpmath.mpf, val.astype(str).flat)]
+        ).reshape(val.shape)
+    else:
+        return mpmath.mpf(str(val))
+
+
+def _cast_args(args, kwargs, dtype):
+    highest_prec_dtype = None
+    args_cast = []
+    kwargs_cast = {}
+
+    for arg in args:
+        if is_float(arg):
+            highest_prec_dtype = max(highest_prec_dtype, _as_dtype_or_cls(arg),
+                                     key=lambda x: get_precision(x))
+            arg = dtype(arg)
+        args_cast.append(arg)
+
+    for k, v in kwargs.items():
+        if is_float(v):
+            highest_prec_dtype = max(highest_prec_dtype, _as_dtype_or_cls(v),
+                                     key=lambda x: get_precision(x))
+            v = dtype(v)
+        kwargs_cast[k] = v
+
+    return args_cast, kwargs_cast, highest_prec_dtype
+
+
+def get_precision(dtype):
+    dtype = np.dtype(dtype)
+    if dtype.name == 'object':
+        return -1
+    return np.finfo(dtype).precision
+
+
 def is_int(v):
+    v = _as_dtype_or_cls(v)
     return np.issubdtype(type(v), np.integer)
 
 
 def is_float(v):
-    return np.issubdtype(type(v), np.floating)
+    v = _as_dtype_or_cls(v)
+    return np.issubdtype(v, np.floating)
+
+
+def _as_dtype_or_cls(v):
+    if not isclass(v):
+        if hasattr(v, 'dtype'):
+            v = v.dtype
+        else:
+            v = type(v)
+    return v
 
 
 @contextmanager

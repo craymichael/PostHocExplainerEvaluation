@@ -112,8 +112,9 @@ def compute_metrics(true_expl, pred_expl, n_explained, true_means):
                     ('nrmse_mean', metrics.nrmse_mean),
             ):
                 try:
-                    err = err_metric(contribs_true, contribs_pred)
-                except (FloatingPointError, ValueError):
+                    err = at_high_precision(err_metric,
+                                            contribs_true, contribs_pred)
+                except ValueError:
                     tqdm.write('               isnan isinf')
                     tqdm.write(
                         f'contribs_true: {np.isnan(contribs_true).any()} '
@@ -121,13 +122,7 @@ def compute_metrics(true_expl, pred_expl, n_explained, true_means):
                     tqdm.write(
                         f'contribs_pred: {np.isnan(contribs_pred).any()} '
                         f'{np.isinf(contribs_pred).any()}')
-                    # overflow, probably
-                    # dtype_orig = contribs_true.dtype
-                    # err = err_metric(contribs_true.astype(np.float128),
-                    #                  contribs_pred.astype(np.float128))
-                    # err_low_prec = err.astype(dtype_orig)
-                    err = at_high_precision(err_metric,
-                                            contribs_true, contribs_pred)
+                    raise
 
                 err_dict[err_name] = err
 
