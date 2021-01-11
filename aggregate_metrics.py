@@ -26,6 +26,7 @@ from posthoceval.model_generation import AdditiveModel
 from posthoceval.utils import safe_parse_tuple
 from posthoceval.utils import is_int
 from posthoceval.utils import is_float
+from posthoceval.utils import at_high_precision
 # Needed for pickle loading of this result type
 from posthoceval.results import ExprResult
 
@@ -48,11 +49,7 @@ def compute_true_means(true_expl):
     true_means = {}
     for k, v in true_expl.items():
         # no nans or infs
-        try:
-            true_means[k] = np.ma.masked_invalid(v).mean()
-        except (FloatingPointError, ValueError):
-            true_means[k] = np.ma.masked_invalid(
-                v.astype(np.float128)).mean().astype(v.dtype)
+        true_means[k] = at_high_precision(np.mean, np.ma.masked_invalid(v))
     return true_means
 
 
@@ -125,16 +122,12 @@ def compute_metrics(true_expl, pred_expl, n_explained, true_means):
                         f'contribs_pred: {np.isnan(contribs_pred).any()} '
                         f'{np.isinf(contribs_pred).any()}')
                     # overflow, probably
-                    dtype_orig = contribs_true.dtype
-                    err = err_metric(contribs_true.astype(np.float128),
-                                     contribs_pred.astype(np.float128))
-                    err_low_prec = err.astype(dtype_orig)
-                    if np.isinf(err_low_prec):
-                        warnings.warn(f'Necessary cast from {dtype_orig} to '
-                                      f'{err.dtype} to avoid '
-                                      f'FloatingPointError in {err_name}')
-                    else:
-                        err = err_low_prec
+                    # dtype_orig = contribs_true.dtype
+                    # err = err_metric(contribs_true.astype(np.float128),
+                    #                  contribs_pred.astype(np.float128))
+                    # err_low_prec = err.astype(dtype_orig)
+                    err = at_high_precision(err_metric,
+                                            contribs_true, contribs_pred)
 
                 err_dict[err_name] = err
 
@@ -358,7 +351,8 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False,
         explained = [*map(lambda x: int(x.rsplit('.', 1)[0]), explanations)]
         assert len(explained) == len({*explained})
 
-        def run_one(expl_id, expr_result, true_expl, true_effects, true_model):
+        def run_one(expl_id, expr_result: ExprResult, true_expl, true_effects,
+                    true_model):
             tqdm.write(f'\nBegin {expl_id}.')
 
             if true_expl is None:

@@ -9,6 +9,8 @@ from typing import Dict
 
 from contextlib import contextmanager
 
+import math
+
 from itertools import repeat
 from itertools import product
 from collections import defaultdict
@@ -16,8 +18,6 @@ from collections import defaultdict
 import joblib
 
 import numpy as np
-
-import math
 
 if hasattr(math, 'prod'):  # available in 3.8+
     prod = math.prod
@@ -146,6 +146,43 @@ def dict_product(d: Dict[Any, Iterable]) -> Dict:
     iterables = d.values()
     for comb in product(*iterables):
         yield dict(zip(keys, comb))
+
+
+def at_high_precision(func, *args, **kwargs):
+    all_dtypes = set()
+
+    args_cast = []
+    kwargs_cast = {}
+
+    for arg in args:
+        if is_float(arg):
+            all_dtypes.add(arg.dtype if hasattr(arg, 'dtype') else float)
+            arg = np.float128(arg)
+        args_cast.append(arg)
+
+    for k, v in kwargs.items():
+        if is_float(v):
+            all_dtypes.add(v.dtype if hasattr(v, 'dtype') else float)
+            v = np.float128(v)
+        kwargs_cast[k] = v
+
+    rets = func(*args_cast, **kwargs_cast)
+    is_tuple = type(rets, tuple)
+    if not is_tuple:
+        rets = (rets,)
+
+    rets_cast = []
+    for ret in rets:
+        if is_float(ret) and len(all_dtypes) == 1:
+            # naively cast back
+            ret_cast = next(iter(all_dtypes))(ret)
+
+            if not (np.isinf(ret_cast).any() or np.isnan(ret_cast).any()):
+                ret = ret_cast
+
+        rets_cast.append(ret)
+
+    return tuple(rets_cast) if is_tuple else rets_cast[0]
 
 
 def is_int(v):
