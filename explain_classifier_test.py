@@ -116,7 +116,7 @@ if model == 'dnn':
         for layer in branch:
             xl = layer(xl)
         outputs.append(xl)
-        output_map[feats] = xl.output
+        output_map[feats] = xl
 
     output = Add()(outputs)
     tf_model = Model(x, output)
