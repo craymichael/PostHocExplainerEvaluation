@@ -33,12 +33,14 @@ from posthoceval.metrics import standardize_contributions
 sns.set()
 
 if 1:
+    task = 'regression'
     data_df = pd.read_csv('data/boston', delimiter=' ')
     label_col = 'MEDV'
 
     X = data_df.drop(columns=label_col).values
     y = data_df[label_col].values
 else:
+    task = 'classification'
     # dataset = datasets.load_iris()
     # dataset = datasets.load_breast_cancer()
     dataset = datasets.load_wine()
@@ -141,7 +143,7 @@ X_trunc = X[:explain_only_this_many]
 
 contribs = model.feature_contributions(X_trunc)
 
-explainer = KernelSHAPExplainer(model, task='classification',
+explainer = KernelSHAPExplainer(model, task=task,
                                 n_cpus=1 if model_type == 'dnn' else -1)
 explainer.fit(X)  # fit full X
 explanation = explainer.feature_contributions(X_trunc, as_dict=True)
