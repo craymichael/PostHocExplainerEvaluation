@@ -142,7 +142,7 @@ X_trunc = X[:explain_only_this_many]
 contribs = model.feature_contributions(X_trunc)
 
 explainer = KernelSHAPExplainer(model, task='classification',
-                                n_cpus=1)
+                                n_cpus=1 if model_type == 'dnn' else -1)
 explainer.fit(X)  # fit full X
 explanation = explainer.feature_contributions(X_trunc, as_dict=True)
 

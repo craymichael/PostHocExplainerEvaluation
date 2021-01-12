@@ -33,7 +33,7 @@ class DNNRegressor(AdditiveModel):
         if backend is not None:
             warnings.warn(f'{self.__class__} ignores kwarg "backend" '
                           f'({backend}) - this is N/A here')
-        return self._dnn(X)
+        return self._dnn(X).numpy()
 
     def fit(self, X, y, optimizer='rmsprop', loss='mean_squared_error',
             **kwargs):
@@ -56,7 +56,7 @@ class DNNRegressor(AdditiveModel):
         packed_contribs = intermediate_model(X)
 
         contribs = {
-            feats: contrib
+            feats: contrib.numpy()
             for feats, contrib in zip(all_feats, packed_contribs)
         }
 
