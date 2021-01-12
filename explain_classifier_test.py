@@ -58,11 +58,11 @@ start_interact_order = 0
 n_main = X.shape[1]
 n_interact_max = 0
 
-model = 'dnn'
+model_type = 'dnn'
 n_units = 16
 activation = 'relu'
 
-if model == 'dnn':
+if model_type == 'dnn':
     fit_kwargs = {'epochs': 1}
 
 else:
@@ -77,13 +77,13 @@ if not terms:
     for order in range(1, max_order + 1):
         if order == 1:
             for i in random.sample(range(X.shape[1]), k=n_main):
-                if model == 'dnn':
+                if model_type == 'dnn':
                     terms.append([
                         Lambda(lambda x: x[:, i:(i + 1)], output_shape=[1]),
                         Dense(n_units, activation=activation),
                         Dense(1, activation=activation),
                     ])
-                elif model == 'gam':
+                elif model_type == 'gam':
                     terms.append(T.s(i, n_splines=25))
                 features.append((i,))
         elif order >= start_interact_order:
@@ -92,7 +92,7 @@ if not terms:
             selected_interact = random.sample(
                 [*combinations(range(X.shape[1]), order)], k=n_interact)
             for feats in selected_interact:
-                if model == 'dnn':
+                if model_type == 'dnn':
                     terms.append([
                         Lambda(lambda x: tf.gather(x, feats, axis=1),
                                output_shape=[len(feats)]),
@@ -100,12 +100,12 @@ if not terms:
                         Dense(n_units, activation=activation),
                         Dense(1, activation=activation),
                     ])
-                elif model == 'gam':
+                elif model_type == 'gam':
                     terms.append(T.te(*feats, n_splines=10))
 
                 features.append(tuple(feats))
 
-if model == 'dnn':
+if model_type == 'dnn':
 
     x = Input([X.shape[1]])
 
@@ -124,7 +124,7 @@ if model == 'dnn':
         tf_model, output_map, symbols=[*range(X.shape[1])],
     )
 
-elif model == 'gam':
+elif model_type == 'gam':
 
     terms = sum(terms[1:], terms[0])
     model = MultiClassLogisticGAM(
@@ -142,7 +142,7 @@ X_trunc = X[:explain_only_this_many]
 contribs = model.feature_contributions(X_trunc)
 
 explainer = KernelSHAPExplainer(model, task='classification',
-                                n_cpus=-1)
+                                n_cpus=1)
 explainer.fit(X)  # fit full X
 explanation = explainer.feature_contributions(X_trunc, as_dict=True)
 
@@ -231,4 +231,7 @@ sns.relplot(
     # x_jitter=.05,
 )
 
-plt.show()
+if plt.get_backend() == 'agg':
+    plt.savefig(f'contributions_grid_{model_type}.pdf')
+else:
+    plt.show()
