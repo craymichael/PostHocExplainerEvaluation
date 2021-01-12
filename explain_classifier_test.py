@@ -148,8 +148,6 @@ explainer = KernelSHAPExplainer(model, task=task,
 explainer.fit(X)  # fit full X
 explanation = explainer.feature_contributions(X_trunc, as_dict=True)
 
-assert len(explanation) == len(contribs)
-
 
 # TODO: make this func else where?
 def apply_matching(matching, true_expl, pred_expl, n_explained):
@@ -178,6 +176,13 @@ def apply_matching(matching, true_expl, pred_expl, n_explained):
 
 
 rows = []
+
+if task == 'regression':
+    contribs = [contribs]
+    explanation = [explanation]
+else:
+    assert len(explanation) == len(contribs)
+
 for i, (e_true_i, e_pred_i) in enumerate(zip(contribs, explanation)):
     # shed zero-elements
     e_pred_i = standardize_contributions(e_pred_i)
