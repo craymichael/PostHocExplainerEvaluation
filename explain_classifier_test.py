@@ -107,7 +107,7 @@ if not terms:
 
 if model == 'dnn':
 
-    x = Input([None, X.shape[1]])
+    x = Input([X.shape[1]])
 
     outputs = []
     output_map = {}
