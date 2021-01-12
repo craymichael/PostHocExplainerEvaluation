@@ -35,8 +35,10 @@ class DNNRegressor(AdditiveModel):
                           f'({backend}) - this is N/A here')
         return self._dnn(X)
 
-    def fit(self, X, y, **kwargs):
+    def fit(self, X, y, optimizer='rmsprop', loss='mean_squared_error',
+            **kwargs):
         # kwargs: epochs, batch_size, shuffle, etc...
+        self._dnn.compile(optimizer=optimizer, loss=loss)
         self._dnn.fit(X, y, **kwargs)
 
         return self
