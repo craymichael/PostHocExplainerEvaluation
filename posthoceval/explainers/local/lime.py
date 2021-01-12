@@ -26,11 +26,13 @@ class LIMEExplainer(BaseExplainer):
     def __init__(self,
                  model: AdditiveModel,
                  seed: Optional[int] = None,
+                 task: str = 'regression',
                  verbose: Union[int, bool] = 1):
         """"""
         self.model = model
         self.verbose = verbose
         self.seed = seed
+        self.task = task
 
         # will be initialized in fit
         self._explainer = None
@@ -46,7 +48,7 @@ class LIMEExplainer(BaseExplainer):
             predict_fn=self.model,
             data=X,
             feature_names=range(self.model.n_features),
-            mode='regression',  # TODO: add classification to API
+            mode=self.task,
             random_state=self.seed,
             discretize_continuous=False,
             explain_kwargs={'num_features': X.shape[1],

@@ -26,13 +26,13 @@ __all__ = [
     'nrmse_interquartile', 'nrmse_mean',
     'accuracy', 'balanced_accuracy',
     'cosine_distances', 'euclidean_distances',
-    'standardize_effect',
+    'standardize_effect', 'standardize_contributions',
 ]
 
 
 def standardize_effect(e):
     """sorted by str for consistency"""
-    e = tuple(sorted({*e}, key=str)) if isinstance(e, tuple) else (e,)
+    e = tuple(sorted({*e}, key=str)) if isinstance(e, (tuple, list)) else (e,)
     assert e, 'received empty effect'
     return e
 
@@ -65,6 +65,7 @@ def generous_eval(y_true: Iterable, y_pred: Iterable, maybe_exact=False):
     :return: components: effect pairs for direct comparison
     :return: goodness: average-Jaccard index of each effect pair
     """
+    # TODO: add "needs_match" meta node wrapper to avoid unnecessary edges...
     y_true = {*map(standardize_effect, y_true)}
     y_pred = {*map(standardize_effect, y_pred)}
 
@@ -361,3 +362,10 @@ else:
         return np.average(output_errors, weights=multioutput)
 
 mape = mean_absolute_percentage_error
+
+
+def standardize_contributions(contribs_dict):
+    """standardize each effect tuple and remove effects that are 0-effects"""
+    return {standardize_effect(k): v
+            for k, v in contribs_dict.items()
+            if not np.allclose(v, 0., atol=1e-5)}

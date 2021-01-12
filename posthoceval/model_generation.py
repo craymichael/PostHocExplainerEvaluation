@@ -969,22 +969,9 @@ class AdditiveModel(object):
     def independent_terms(self) -> Tuple[sp.Expr]:
         return independent_terms(self.expr)
 
-    # TODO: yeah kill this crap, refactor init, integrate random stuff...
-    def _generate_model(self, coefficients) -> sp.Expr:
-        n_coefs_expect = self.n_features + 1
-        coefs = as_iterator_of_size(
-            coefficients, n_coefs_expect, 'coefficients')
-        bias = next(coefs)
-        total = bias() if isinstance(bias, Callable) else bias
-        for xi, ci in zip(self.symbols, coefs):
-            total += xi * (ci() if isinstance(ci, Callable) else ci)
-        return total
-
-    @property
-    def valid_variable_domains(self):
+    def valid_variable_domains(self, **kwargs):
         """See documentation of `valid_variable_domains` function"""
-        # TODO: prolly get rid of this property or turn into function...
-        return valid_variable_domains(self.independent_terms)
+        return valid_variable_domains(self.independent_terms, **kwargs)
 
     def __call__(
             self,

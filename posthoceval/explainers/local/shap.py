@@ -11,6 +11,7 @@ from posthoceval.profile import profile
 from posthoceval.model_generation import AdditiveModel
 from posthoceval.explainers._base import BaseExplainer
 from posthoceval.explainers.global_.global_shap import GlobalKernelSHAP
+from posthoceval.metrics import standardize_effect
 
 _RAY_INIT = False
 
@@ -26,7 +27,7 @@ def init_ray():
     try:
         import ray
     except ImportError:
-        pass
+        logger.warning('Could not import ray for multiprocessing.')
     else:
         # tell ray to shut up and not launch the dashboard...
         ray.init(
@@ -36,20 +37,32 @@ def init_ray():
 
 
 class KernelSHAPExplainer(BaseExplainer):
-    """"""
+    """
+    https://github.com/slundberg/shap/issues/624
+    https://github.com/slundberg/shap/blob/e1d0314e5eed0825fb99d8ef01e8cab5b3d45d54/notebooks/kernel_explainer/Squashing%20Effect.ipynb
+    """
 
     def __init__(self,
                  model: AdditiveModel,
                  n_background_samples: int = 100,
                  n_cpus: int = 1,
+                 task: str = 'regression',
+                 link: Optional[str] = None,
                  seed: Optional[int] = None,
                  verbose: Union[int, bool] = 1):
         """"""
         self.model = model
         self.n_background_samples = n_background_samples
         self.verbose = verbose
+        self.task = task.lower()
+        if link is None:
+            link = 'identity' if self.task == 'regression' else 'logit'
+        self.link = link
+
         if n_cpus < 0:
             n_cpus = cpu_count() + n_cpus + 1
+
+        self.n_cpus = n_cpus
 
         use_ray = n_cpus > 1
 
@@ -59,7 +72,8 @@ class KernelSHAPExplainer(BaseExplainer):
         self._explainer = KernelShap(
             self.model,
             feature_names=self.model.symbol_names,
-            task='regression',  # TODO: add classification to API
+            task=self.task,
+            link=self.link,
             distributed_opts={
                 # https://www.seldon.io/how-seldons-alibi-and-ray-make-model-explainability-easy-and-scalable/
                 'n_cpus': n_cpus,
@@ -101,23 +115,35 @@ class KernelSHAPExplainer(BaseExplainer):
         # Explain with n_cpus > 1 and silent=False gives awful output
         # unfortunately (multiple processes using tqdm in parallel)
         # l1_reg=False --> explain all features, not a subset
-        explanation = self._explainer.explain(X, silent=True, l1_reg=False)
+        explanation = self._explainer.explain(X, silent=self.n_cpus != 1,
+                                              l1_reg=False)
 
         # Note: explanation.raw['importances'] has aggregated scores per output
         # with corresponding keys, e.g., '0' & '1' for two outputs. Also has
         # 'aggregated' for the aggregated scores over all outputs. Same applies
         # to e.g. `explanation.shap_values[0]`
         # TODO: multi-class SHAP values (non-regression)
-        shap_values = explanation.shap_values[0]
-        y = explanation.raw['raw_prediction']
+        if self.task == 'regression':
+            shap_values = explanation.shap_values[0]
+        else:
+            shap_values = explanation.shap_values
+
         # shap_values_g = explanation.raw['importances']['0']
 
         # TODO: move this logic to super? likely redundant between explainers
         if as_dict:
-            contribs_shap = dict(zip(self.model.symbols, shap_values.T))
+            symbols = [*map(standardize_effect, self.model.symbols)]
+            if self.task == 'regression':
+                contribs_shap = dict(zip(symbols, shap_values.T))
+            else:
+                contribs_shap = [dict(zip(symbols, vals_i.T))
+                                 for vals_i in shap_values]
         else:
             contribs_shap = shap_values
+
         if return_y:
+            y = explanation.raw['raw_prediction']
+
             return contribs_shap, y
         return contribs_shap
 

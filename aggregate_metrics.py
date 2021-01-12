@@ -7,7 +7,6 @@ import sys
 import json
 import pickle
 import traceback
-import warnings
 from typing import Dict
 from typing import Tuple
 from functools import partial
@@ -20,6 +19,7 @@ import sympy as sp
 from joblib import Parallel
 from joblib import delayed
 
+from posthoceval.metrics import standardize_contributions
 from posthoceval.utils import tqdm_parallel
 from posthoceval import metrics
 from posthoceval.model_generation import AdditiveModel
@@ -274,13 +274,6 @@ def clean_explanations(
     tqdm.write('Done cleaning.')
 
     return true_expl, pred_expl, n_pred
-
-
-def standardize_contributions(contribs_dict):
-    """standardize each effect tuple and remove effects that are 0-effects"""
-    return {metrics.standardize_effect(k): v
-            for k, v in contribs_dict.items()
-            if not np.allclose(v, 0., atol=1e-5)}
 
 
 def load_explanation(expl_file: str, true_model: AdditiveModel):
