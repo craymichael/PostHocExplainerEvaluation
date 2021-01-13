@@ -110,7 +110,8 @@ else:
     fit_kwargs = {}
 
 # desired_interactions = None
-desired_interactions = [(1, 2), (4, 9), (8, 10)]
+# desired_interactions = [(1, 2), (4, 9), (8, 10)]
+desired_interactions = [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9), (10, 11, 12)]
 
 terms = []
 features = []
@@ -397,8 +398,9 @@ for i, (e_true_i, e_pred_i) in enumerate(zip(contribs, explanation)):
 
 df = pd.DataFrame(rows)
 
+col_wrap = 4
+
 if not df.empty:
-    col_wrap = 4
 
     g = sns.relplot(
         data=df,
@@ -445,7 +447,7 @@ if not df_3d.empty:
                 hue_df[plt_y],
                 hue_df[plt_z],
                 label=hue_name,
-                alpha=.65,
+                alpha=.5,
             )
         ax.set_xlabel(plt_x)
         ax.set_ylabel(plt_y)
