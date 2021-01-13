@@ -51,7 +51,10 @@ class DNNRegressor(AdditiveModel):
         if backend is not None:
             warnings.warn(f'{self.__class__} ignores kwarg "backend" '
                           f'({backend}) - this is N/A here')
-        return self._dnn(X).numpy()
+        ret = self._dnn(X).numpy()
+        if ret.ndim == 2 and ret.shape[1] == 1:
+            ret = ret.squeeze(axis=1)
+        return ret
 
     def fit(self, X, y, optimizer='rmsprop', loss='mean_squared_error',
             **kwargs):
