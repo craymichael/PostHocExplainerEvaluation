@@ -230,7 +230,7 @@ for i, (e_true_i, e_pred_i) in enumerate(zip(contribs, explanation)):
             true_row_i = true_row.copy()
             true_row_i['contribution'] = true_contrib_ik
             true_row_i['feature value'] = xik
-            rows.append(true_r50ow_i)
+            rows.append(true_row_i)
 
             pred_row_i = pred_row.copy()
             pred_row_i['contribution'] = pred_contrib_ik
