@@ -50,6 +50,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
 
 from posthoceval.explainers.local.shap import KernelSHAPExplainer
+from posthoceval.explainers.local.lime import LIMEExplainer
 from posthoceval.models.gam import MultiClassLogisticGAM
 from posthoceval.models.gam import T
 from posthoceval.models.dnn import DNNRegressor
@@ -229,8 +230,14 @@ X_trunc = X[sample_idxs]
 
 contribs = model.feature_contributions(X_trunc)
 
-explainer = KernelSHAPExplainer(model, task=task,
-                                n_cpus=1 if model_type == 'dnn' else -1)
+if 0:
+    explainer_name = 'SHAP'
+    explainer = KernelSHAPExplainer(model, task=task, seed=seed,
+                                    n_cpus=1 if model_type == 'dnn' else -1)
+else:
+    explainer_name = 'LIME'
+    explainer = LIMEExplainer(model, seed=seed, task=task)
+
 explainer.fit(X)  # fit full X
 explanation = explainer.feature_contributions(X_trunc, as_dict=True)
 
@@ -344,13 +351,9 @@ for i, (e_true_i, e_pred_i) in enumerate(zip(contribs, explanation)):
         all_feats = [*{*chain(chain.from_iterable(true_feats),
                               chain.from_iterable(pred_feats))}]
 
-        if len(all_feats) > 2:
-            print(f'skipping match with {all_feats} for now as is interaction '
-                  f'with order > 2 true_feats {true_feats} | pred_feats '
-                  f'{pred_feats}')
-            continue
-        f_idxs = [model.symbols.index(fi) for fi in all_feats]
-        xi = X_trunc[:, f_idxs]
+        # TODO non-logit...
+        contribution = pred_contrib_i + true_contrib_i.mean()
+
         match_str = (
                 'True: ' +
                 make_tex_str(true_feats, true_func_idx, False) +
@@ -359,6 +362,19 @@ for i, (e_true_i, e_pred_i) in enumerate(zip(contribs, explanation)):
         )
         true_func_idx += len(true_feats)
         pred_func_idx += len(pred_feats)
+
+        print(match_str, ' RMSE', metrics.rmse(true_contrib_i, pred_contrib_i))
+        print(match_str, 'NRMSE', metrics.nrmse_interquartile(
+            true_contrib_i, pred_contrib_i))
+        print()
+
+        if len(all_feats) > 2:
+            print(f'skipping match with {all_feats} for now as is interaction '
+                  f'with order > 2 true_feats {true_feats} | pred_feats '
+                  f'{pred_feats}')
+            continue
+        f_idxs = [model.symbols.index(fi) for fi in all_feats]
+        xi = X_trunc[:, f_idxs]
         base = {
             'class': i,
             'true_effect': true_feats,
@@ -369,9 +385,8 @@ for i, (e_true_i, e_pred_i) in enumerate(zip(contribs, explanation)):
         true_row['explainer'] = 'True'
 
         pred_row = base
-        # TODO non-logit...
-        pred_row['contribution'] = pred_contrib_i + true_contrib_i.mean()
-        pred_row['explainer'] = 'SHAP'
+        pred_row['contribution'] = contribution
+        pred_row['explainer'] = explainer_name
 
         for true_contrib_ik, pred_contrib_ik, xik in zip(
                 true_contrib_i, pred_contrib_i, xi):
