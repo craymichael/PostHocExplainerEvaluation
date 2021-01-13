@@ -436,10 +436,10 @@ if not df_3d.empty:
     figsize = (figsize[0] * n_cols, figsize[1] * n_rows)
     fig = plt.figure(figsize=figsize)
 
-    for i, group_3d in enumerate(df_3d_grouped):
+    for i, (_, group_3d) in enumerate(df_3d_grouped):
         ax = fig.add_subplot(n_rows, n_cols, i + 1, projection='3d')
 
-        for _, row in group_3d:
+        for _, row in group_3d.iterrows():
             ax.scatter(
                 row[plt_x],
                 row[plt_y],
