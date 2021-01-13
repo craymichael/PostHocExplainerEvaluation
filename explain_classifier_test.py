@@ -232,10 +232,12 @@ sns.relplot(
     x='feature value',
     y='contribution',
     hue='explainer',
-    col='class',
+    col='class' if task == 'classification' else None,
+    col_wrap=None if task == 'classification' else 4,
     row='true_effect',
     kind='scatter',
     # x_jitter=.05,
+    facet_kws=dict(sharex=False, sharey=False),
 )
 
 if plt.get_backend() == 'agg':
