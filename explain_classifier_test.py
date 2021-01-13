@@ -111,8 +111,8 @@ else:
     fit_kwargs = {}
 
 # desired_interactions = None
-# desired_interactions = [(1, 2), (4, 9), (8, 10)]
-desired_interactions = [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9), (10, 11, 12)]
+desired_interactions = [(1, 2), (4, 9), (8, 10)]
+# desired_interactions = [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9), (10, 11, 12)]
 
 terms = []
 features = []
@@ -355,18 +355,22 @@ for i, (e_true_i, e_pred_i) in enumerate(zip(contribs, explanation)):
         contribution = pred_contrib_i + true_contrib_i.mean()
 
         match_str = (
-                'True: ' +
+                # 'True: ' +
                 make_tex_str(true_feats, true_func_idx, False) +
-                ' | Predicted: ' +
+                # ' | Predicted: ' +
+                ' vs. ' +
                 make_tex_str(pred_feats, pred_func_idx, True)
         )
         true_func_idx += len(true_feats)
         pred_func_idx += len(pred_feats)
 
         print(match_str, ' RMSE', metrics.rmse(true_contrib_i, pred_contrib_i))
-        print(match_str, 'NRMSE', metrics.nrmse_interquartile(
-            true_contrib_i, pred_contrib_i))
+        nrmse_score = metrics.nrmse_interquartile(
+            true_contrib_i, pred_contrib_i)
+        print(match_str, 'NRMSE', nrmse_score)
         print()
+
+        match_str += f'\nNRMSE={nrmse_score:.3f}'
 
         if len(all_feats) > 2:
             print(f'skipping match with {all_feats} for now as is interaction '
