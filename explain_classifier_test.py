@@ -60,7 +60,14 @@ from posthoceval.utils import atomic_write_exclusive
 from posthoceval.utils import nonexistent_filename
 from posthoceval import metrics
 
-sns.set()
+sns.set_theme(
+    context='paper',
+    # context='notebook',
+    style='ticks',
+    font_scale=1.5,
+    color_codes=True,
+    # palette=sns.color_palette('pastel'),
+)
 
 if 1:
     task = 'regression'
@@ -91,12 +98,20 @@ if task == 'regression':
         y = y[:, np.newaxis]
     y = y_scaler.fit_transform(y)
 
+desired_interactions = []
+# desired_interactions = [(1, 2), (4, 9), (8, 10)]
+
+# THIS ONE IS GOOD FOR SHOWING LIME BEING BAD
+# desired_interactions = [(1, 2), (4, 9), (8, 10)]
+
+# desired_interactions = [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9), (10, 11, 12)]
+
 max_order = 2
 start_interact_order = 0
 # start_interact_order = 3
 # n_main = 4
 n_main = X.shape[1]
-n_interact_max = 2
+n_interact_max = 0 or len(desired_interactions)
 
 model_type = 'dnn'
 n_units = 64
@@ -109,10 +124,6 @@ if model_type == 'dnn':
                   'callbacks': [callback], 'optimizer': optimizer}
 else:
     fit_kwargs = {}
-
-# desired_interactions = None
-desired_interactions = [(1, 2), (4, 9), (8, 10)]
-# desired_interactions = [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9), (10, 11, 12)]
 
 terms = []
 features = []
@@ -365,7 +376,7 @@ for i, (e_true_i, e_pred_i) in enumerate(zip(contribs, explanation)):
         contribution = pred_contrib_i + true_contrib_i.mean()
 
         match_str = (
-                # 'True: ' +
+            # 'True: ' +
                 make_tex_str(true_feats, true_func_idx, False) +
                 # ' | Predicted: ' +
                 ' vs. ' +
@@ -429,7 +440,6 @@ df = pd.DataFrame(rows)
 col_wrap = 4
 
 if not df.empty:
-
     g = sns.relplot(
         data=df,
         x='feature value',
@@ -484,7 +494,7 @@ if not df_3d.empty:
         ax.set_title(ax_title)
 
         if i == 0:
-            fig.legend()
+            fig.legend(loc='center right')
 
     # fig.legend()
 
