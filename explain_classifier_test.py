@@ -94,7 +94,7 @@ start_interact_order = 0
 # start_interact_order = 3
 # n_main = 4
 n_main = X.shape[1]
-n_interact_max = 0
+n_interact_max = 4
 
 model_type = 'dnn'
 n_units = 64
