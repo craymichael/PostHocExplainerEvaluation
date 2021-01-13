@@ -427,7 +427,7 @@ if not df_3d.empty:
     plt_hue = 'explainer'
     plt_col = 'Match'
 
-    df_3d_grouped = df_3d.groupby(['class', 'Match'])
+    df_3d_grouped = df_3d.groupby(['class', plt_col])
 
     n_plots = len(df_3d_grouped)
     n_rows = int(np.ceil(n_plots / col_wrap))
@@ -436,24 +436,27 @@ if not df_3d.empty:
     figsize = (figsize[0] * n_cols, figsize[1] * n_rows)
     fig = plt.figure(figsize=figsize)
 
-    for i, (_, group_3d) in enumerate(df_3d_grouped):
+    for i, ((class_i, ax_title), group_3d) in enumerate(df_3d_grouped):
         ax = fig.add_subplot(n_rows, n_cols, i + 1, projection='3d')
 
-        for _, row in group_3d.iterrows():
+        for hue_name, hue_df in group_3d.groupby(plt_hue):
             ax.scatter(
-                row[plt_x],
-                row[plt_y],
-                row[plt_z],
-                label=row[plt_hue],
+                hue_df[plt_x],
+                hue_df[plt_y],
+                hue_df[plt_z],
+                label=hue_name,
                 alpha=.65,
             )
         ax.set_xlabel(plt_x)
         ax.set_ylabel(plt_y)
         ax.set_zlabel(plt_z)
 
-        ax.set_title(row[plt_col])
+        ax.set_title(ax_title)
 
-    fig.legend()
+        if i == 0:
+            fig.legend()
+
+    # fig.legend()
 
 if plt.get_backend() == 'agg':
     if not df.empty:
