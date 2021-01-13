@@ -29,6 +29,7 @@ from posthoceval.models.gam import T
 from posthoceval.models.dnn import DNNRegressor
 from posthoceval.metrics import generous_eval
 from posthoceval.metrics import standardize_contributions
+from posthoceval import metrics
 
 sns.set()
 
@@ -51,7 +52,8 @@ else:
 scaler = StandardScaler()
 X = scaler.fit_transform(X)
 
-random.seed(5318008)
+seed = 5318008
+random.seed(seed)
 
 max_order = 2
 start_interact_order = 0
@@ -135,11 +137,10 @@ elif model_type == 'gam':
 
 model.fit(X, y, **fit_kwargs)
 
-# assert all((len(terms) + 1) == len(e.terms)
-#            for e in model._estimators)
-
-explain_only_this_many = 50
-X_trunc = X[:explain_only_this_many]
+explain_only_this_many = 100
+# explain_only_this_many = len(X)
+rs = np.random.default_rng(seed)
+X_trunc = rs.choice(X, size=explain_only_this_many, replace=False)
 
 contribs = model.feature_contributions(X_trunc)
 
@@ -147,6 +148,16 @@ explainer = KernelSHAPExplainer(model, task=task,
                                 n_cpus=1 if model_type == 'dnn' else -1)
 explainer.fit(X)  # fit full X
 explanation = explainer.feature_contributions(X_trunc, as_dict=True)
+
+y_pred = model(X)
+if task == 'regression':
+    print('True vs. NN')
+    print(f' RMSE={metrics.rmse(y, y_pred)}')
+    print(f'NRMSE={metrics.nrmse_mean(y, y_pred)}')
+    print('NN vs. Explainer')
+    y_expl = np.asarray([*explanation.values()]).sum(axis=0)
+    print(f' RMSE={metrics.rmse(y_pred, y_expl)}')
+    print(f'NRMSE={metrics.nrmse_mean(y_pred, y_expl)}')
 
 
 # TODO: make this func else where?
@@ -218,7 +229,7 @@ for i, (e_true_i, e_pred_i) in enumerate(zip(contribs, explanation)):
             true_row_i = true_row.copy()
             true_row_i['contribution'] = true_contrib_ik
             true_row_i['feature value'] = xik
-            rows.append(true_row_i)
+            rows.append(true_r50ow_i)
 
             pred_row_i = pred_row.copy()
             pred_row_i['contribution'] = pred_contrib_ik
@@ -237,6 +248,7 @@ sns.relplot(
     row='true_effect' if task == 'classification' else None,
     kind='scatter',
     # x_jitter=.05,
+    alpha=.7,
     facet_kws=dict(sharex=False, sharey=False),
 )
 
