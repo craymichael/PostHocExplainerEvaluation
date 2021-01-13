@@ -117,11 +117,13 @@ if not terms:
     for order in range(1, max_order + 1):
         if order == 1:
             for i in rng_r.sample(range(X.shape[1]), k=n_main):
+
                 if model_type == 'dnn':
+
                     base_name = f'branch_main/feature_{i}_'
                     terms.append([
-                        Lambda(lambda x: x[:, i:(i + 1)], output_shape=[1],
-                               name=base_name + 'split'),
+                        # Lambda(lambda x: x[:, i:(i + 1)], output_shape=[1],
+                        #        name=base_name + 'split'),
                         Dense(n_units, activation=activation,
                               name=base_name + f'l1_d{n_units}'),
                         Dense(n_units, activation=activation,
@@ -131,22 +133,30 @@ if not terms:
                         Dense(1, activation=None,
                               name=base_name + 'linear_d1'),
                     ])
+
                 elif model_type == 'gam':
+
                     terms.append(T.s(i, n_splines=25))
+
                 features.append((i,))
+
         elif order >= start_interact_order:
+
             n_interact = min(n_interact_max - len(terms) + n_main,
                              comb(X.shape[1], order))
             selected_interact = rng_r.sample(
                 [*combinations(range(X.shape[1]), order)], k=n_interact)
+
             for feats in selected_interact:
+
                 if model_type == 'dnn':
+
                     feats_str = '_'.join(map(str, feats))
                     base_name = f'branch_interact/features_{feats_str}_'
                     terms.append([
-                        Lambda(lambda x: tf.gather(x, feats, axis=1),
-                               output_shape=[len(feats)],
-                               name=base_name + 'split'),
+                        # Lambda(lambda x: tf.gather(x, feats, axis=1),
+                        #        output_shape=[len(feats)],
+                        #        name=base_name + 'split'),
                         # TODO: 2 * units? meh
                         Dense(n_units, activation=activation,
                               name=base_name + f'l1_d{n_units}'),
@@ -157,7 +167,9 @@ if not terms:
                         Dense(1, activation=None,
                               name=base_name + 'linear_d1'),
                     ])
+
                 elif model_type == 'gam':
+
                     terms.append(T.te(*feats, n_splines=10))
 
                 features.append(tuple(feats))
@@ -170,7 +182,8 @@ if model_type == 'dnn':
     outputs = []
     output_map = {}
     for branch, feats in zip(terms, features):
-        xl = x
+        xl = tf.gather(x, feats, axis=1)
+        # xl = K.print_tensor(xl, message=f'branch {bi} input=')
         for layer in branch:
             xl = layer(xl)
         outputs.append(xl)
@@ -322,7 +335,7 @@ for i, (e_true_i, e_pred_i) in enumerate(zip(contribs, explanation)):
             print(f'skipping match with {all_feats} for now as is interaction '
                   f'true_feats {true_feats} | pred_feats {pred_feats}')
             continue
-        xi = X_trunc[:, all_feats[0]]  # TODO(interactions)
+        xi = X_trunc[:, model.symbols.index(all_feats[0])]  # TODO(interactions)
         match_str = (
                 'True: ' +
                 make_tex_str(true_feats, true_func_idx, False) +

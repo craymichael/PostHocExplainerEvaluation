@@ -57,7 +57,7 @@ class MultiClassLogisticGAM(AdditiveModel):
 
         # TODO: re-abstract AdditiveModel...this is quite sloppy
         # for compatibility
-        self.symbols = symbols
+        self.symbols = tuple(symbols)
         if symbol_names is None:
             symbol_names = tuple(s.name if hasattr(s, 'name') else str(s)
                                  for s in symbols)
