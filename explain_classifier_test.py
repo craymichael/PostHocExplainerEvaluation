@@ -239,7 +239,15 @@ else:
     explainer = LIMEExplainer(model, seed=seed, task=task)
 
 explainer.fit(X)  # fit full X
-explanation = explainer.feature_contributions(X_trunc, as_dict=True)
+intercepts = None
+if explainer_name == 'LIME':
+    explanation, intercepts = explainer.feature_contributions(
+        X_trunc, as_dict=True, return_intercepts=True)
+else:
+    explanation = explainer.feature_contributions(X_trunc, as_dict=True)
+
+# nrmse_func = metrics.nrmse_interquartile
+nrmse_func = metrics.nrmse_range
 
 if task == 'regression':
     y_pred = model(X)
@@ -247,18 +255,20 @@ if task == 'regression':
 
     print('GT vs. NN')
     print(f' RMSE={metrics.rmse(y, y_pred)}')
-    print(f'NRMSE={metrics.nrmse_interquartile(y, y_pred)}')
+    print(f'NRMSE={nrmse_func(y, y_pred)}')
 
     print('NN Out vs. NN Contribs')
     y_contrib_pred = np.asarray([*contribs_full.values()]).sum(axis=0)
     print(f' RMSE={metrics.rmse(y_pred, y_contrib_pred)}')
-    print(f'NRMSE={metrics.nrmse_interquartile(y_pred, y_contrib_pred)}')
+    print(f'NRMSE={nrmse_func(y_pred, y_contrib_pred)}')
 
     print('NN vs. Explainer')
     y_pred_trunc = model(X_trunc)
     y_expl = np.asarray([*explanation.values()]).sum(axis=0)
+    if intercepts is not None:
+        y_expl += np.asarray(intercepts)
     print(f' RMSE={metrics.rmse(y_pred_trunc, y_expl)}')
-    print(f'NRMSE={metrics.nrmse_interquartile(y_pred_trunc, y_expl)}')
+    print(f'NRMSE={nrmse_func(y_pred_trunc, y_expl)}')
 
     fig, ax = plt.subplots()
     ax.scatter(sample_idxs_all,
@@ -365,8 +375,7 @@ for i, (e_true_i, e_pred_i) in enumerate(zip(contribs, explanation)):
         pred_func_idx += len(pred_feats)
 
         print(match_str, ' RMSE', metrics.rmse(true_contrib_i, pred_contrib_i))
-        nrmse_score = metrics.nrmse_interquartile(
-            true_contrib_i, pred_contrib_i)
+        nrmse_score = nrmse_func(true_contrib_i, pred_contrib_i)
         print(match_str, 'NRMSE', nrmse_score)
         print()
 

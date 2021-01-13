@@ -63,7 +63,8 @@ class LIMEExplainer(BaseExplainer):
         pass  # TODO: n/a
 
     @profile
-    def feature_contributions(self, X: np.ndarray, as_dict=False):
+    def feature_contributions(self, X: np.ndarray, as_dict=False,
+                              return_intercepts=False):
         # Note that LIME must have sample_around_instance=False otherwise
         #  the inverse normalization is invalid
 
@@ -78,6 +79,7 @@ class LIMEExplainer(BaseExplainer):
         explanation = self._explainer.explain_local(X)
 
         contribs_lime = []
+        intercepts = []
 
         for i, xi in enumerate(X):
             expl_i = explanation.data(i)
@@ -88,8 +90,10 @@ class LIMEExplainer(BaseExplainer):
             coefs_i = np.asarray(coefs_i) / self._scale
 
             # if desired, intercept can be fetched and adjusted via:
-            # intercept = (expl_i['extra']['scores'][0] -
-            #              np.sum(coefs_i * self._mean))
+            if return_intercepts:
+                intercept = (expl_i['extra']['scores'][0] -
+                             np.sum(coefs_i * self._mean))
+                intercepts.append(intercept)
 
             contribs_i = coefs_i * xi
             contribs_lime.append(contribs_i)
@@ -98,5 +102,8 @@ class LIMEExplainer(BaseExplainer):
         # TODO: move this logic to super? likely redundant between explainers
         if as_dict:
             contribs_lime = dict(zip(self.model.symbols, contribs_lime.T))
+
+        if return_intercepts:
+            return contribs_lime, intercepts
 
         return contribs_lime
