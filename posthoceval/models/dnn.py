@@ -5,6 +5,7 @@ Copyright (C) 2021  Zach Carmichael
 import warnings
 
 from tensorflow.keras.models import Model
+from tensorflow.keras.utils import plot_model
 
 from posthoceval.model_generation import AdditiveModel
 
@@ -28,6 +29,23 @@ class DNNRegressor(AdditiveModel):
         self.n_features = len(symbols)
         self._symbol_map = None
         self.expr = self.backend = None
+
+    def plot_model(self,
+                   to_file='model.png',
+                   show_shapes=False,
+                   show_dtype=False,
+                   show_layer_names=True,
+                   rankdir='TB',
+                   expand_nested=False,
+                   dpi=96):
+        return plot_model(self._dnn,
+                          to_file=to_file,
+                          show_shapes=show_shapes,
+                          show_dtype=show_dtype,
+                          show_layer_names=show_layer_names,
+                          rankdir=rankdir,
+                          expand_nested=expand_nested,
+                          dpi=dpi)
 
     def __call__(self, X, backend=None):
         if backend is not None:

@@ -2,12 +2,36 @@
 explain_classifier_test.py - A PostHocExplainerEvaluation file
 Copyright (C) 2021  Zach Carmichael
 """
+# maximize reproducibility: set seed with minimal imports
+# just a seed
+seed = 431136
+import os
+
+# verbosity
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+# reproducibility
+# https://github.com/NVIDIA/framework-determinism
+os.environ['TF_DETERMINISTIC_OPS'] = '1'
+os.environ['TF_CUDNN_DETERMINISTIC'] = '1'
+
 import random
+
+random.seed(seed)
+rng_r = random.Random(seed)
+
+import numpy as np
+
+np.random.seed(seed)
+rng_np = np.random.default_rng(seed)
+
+import tensorflow as tf
+
+tf.random.set_seed(seed)
+
 from itertools import combinations
 from itertools import chain
 
 import pandas as pd
-import numpy as np
 from scipy.special import comb
 
 import matplotlib.pyplot as plt
@@ -16,7 +40,6 @@ import seaborn as sns
 from sklearn import datasets
 from sklearn.preprocessing import StandardScaler
 
-import tensorflow as tf
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Add
 from tensorflow.keras.layers import Input
@@ -29,6 +52,8 @@ from posthoceval.models.gam import T
 from posthoceval.models.dnn import DNNRegressor
 from posthoceval.metrics import generous_eval
 from posthoceval.metrics import standardize_contributions
+from posthoceval.utils import atomic_write_exclusive
+from posthoceval.utils import nonexistent_filename
 from posthoceval import metrics
 
 sns.set()
@@ -51,9 +76,6 @@ else:
 
 scaler = StandardScaler()
 X = scaler.fit_transform(X)
-
-seed = 5318008
-random.seed(seed)
 
 max_order = 2
 start_interact_order = 0
@@ -80,10 +102,11 @@ features = []
 if not terms:
     for order in range(1, max_order + 1):
         if order == 1:
-            for i in random.sample(range(X.shape[1]), k=n_main):
+            for i in rng_r.sample(range(X.shape[1]), k=n_main):
                 if model_type == 'dnn':
                     terms.append([
-                        Lambda(lambda x: x[:, i:(i + 1)], output_shape=[1]),
+                        Lambda(lambda x: x[:, i:(i + 1)], output_shape=[1],
+                               name=f'scalar_branch_feature_{i}'),
                         Dense(n_units, activation=activation),
                         Dense(1, activation=activation),
                     ])
@@ -93,7 +116,7 @@ if not terms:
         elif order >= start_interact_order:
             n_interact = min(n_interact_max - len(terms) + n_main,
                              comb(X.shape[1], order))
-            selected_interact = random.sample(
+            selected_interact = rng_r.sample(
                 [*combinations(range(X.shape[1]), order)], k=n_interact)
             for feats in selected_interact:
                 if model_type == 'dnn':
@@ -137,10 +160,12 @@ elif model_type == 'gam':
 
 model.fit(X, y, **fit_kwargs)
 
+if model_type == 'dnn':
+    model.plot_model(nonexistent_filename('dnn.png'))
+
 explain_only_this_many = 100
 # explain_only_this_many = len(X)
-rs = np.random.default_rng(seed)
-X_trunc = rs.choice(X, size=explain_only_this_many, replace=False)
+X_trunc = rng_np.choice(X, size=explain_only_this_many, replace=False)
 
 contribs = model.feature_contributions(X_trunc)
 
@@ -149,14 +174,22 @@ explainer = KernelSHAPExplainer(model, task=task,
 explainer.fit(X)  # fit full X
 explanation = explainer.feature_contributions(X_trunc, as_dict=True)
 
-y_pred = model(X)
 if task == 'regression':
-    print('True vs. NN')
+    y_pred = model(X)
+    contribs_full = model.feature_contributions(X)
+
+    print('GT vs. NN')
     print(f' RMSE={metrics.rmse(y, y_pred)}')
     print(f'NRMSE={metrics.nrmse_mean(y, y_pred)}')
+
+    print('NN Out vs. NN Contribs')
+    y_contrib_pred = np.asarray([*contribs_full.values()]).sum(axis=0)
+    print(f' RMSE={metrics.rmse(y_pred, y_contrib_pred)}')
+    print(f'NRMSE={metrics.nrmse_mean(y_pred, y_contrib_pred)}')
+
     print('NN vs. Explainer')
-    y_expl = np.asarray([*explanation.values()]).sum(axis=0)
     y_pred_trunc = model(X_trunc)
+    y_expl = np.asarray([*explanation.values()]).sum(axis=0)
     print(f' RMSE={metrics.rmse(y_pred_trunc, y_expl)}')
     print(f'NRMSE={metrics.nrmse_mean(y_pred_trunc, y_expl)}')
 
@@ -197,6 +230,7 @@ else:
 
 for i, (e_true_i, e_pred_i) in enumerate(zip(contribs, explanation)):
     # shed zero-elements
+    e_true_i = standardize_contributions(e_true_i)
     e_pred_i = standardize_contributions(e_pred_i)
     components, goodness = generous_eval(e_true_i, e_pred_i)
     matches = apply_matching(components, e_true_i, e_pred_i, len(X_trunc))
@@ -239,7 +273,7 @@ for i, (e_true_i, e_pred_i) in enumerate(zip(contribs, explanation)):
 
 df = pd.DataFrame(rows)
 
-sns.relplot(
+g = sns.relplot(
     data=df,
     x='feature value',
     y='contribution',
@@ -254,6 +288,6 @@ sns.relplot(
 )
 
 if plt.get_backend() == 'agg':
-    plt.savefig(f'contributions_grid_{model_type}.pdf')
+    g.savefig(nonexistent_filename(f'contributions_grid_{model_type}.pdf'))
 else:
     plt.show()

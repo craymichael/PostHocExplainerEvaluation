@@ -7,9 +7,15 @@ from typing import Optional
 from typing import Any
 from typing import Dict
 
+import os
+
 from inspect import isclass
 
 from contextlib import contextmanager
+
+from io import RawIOBase
+from io import TextIOBase
+from io import BufferedIOBase
 
 import math
 
@@ -248,6 +254,46 @@ def _as_dtype_or_cls(v):
         else:
             v = type(v)
     return v
+
+
+def atomic_write_exclusive(
+        preferred_filename,
+        data,
+        binary=False,
+):
+    # fp: Union[RawIOBase, TextIOBase, BufferedIOBase]
+    mode = 'x'
+    if binary:
+        mode += 'b'
+
+    while True:
+        filename = nonexistent_filename(preferred_filename)
+        try:
+            with open(filename, mode) as fp:
+                fp.write(data)
+        except FileExistsError:
+            continue  # try again - race condition must've happened
+        break
+
+
+def nonexistent_filename(filename):
+    if not os.path.exists(filename):
+        return filename
+
+    dirname = os.path.dirname(filename)
+    basename = os.path.basename(filename)
+    basename_split = basename.rsplit('.', 1)
+    basename, ext = (basename_split if len(basename_split) == 2 else
+                     (basename_split[0], None))
+    i = 1
+    while True:
+        basename_full = basename + f'_{i}'
+        if ext:
+            basename_full += '.' + ext
+        filename = os.path.join(dirname, basename_full)
+        if not os.path.exists(filename):
+            return filename
+        i += 1
 
 
 @contextmanager

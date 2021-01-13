@@ -12,7 +12,10 @@ interpret
 scikit-learn
 fastcache
 tqdm
-tensorflow-gpu
+# https://github.com/NVIDIA/framework-determinism
+tensorflow-gpu >= 2.3.0
+graphviz
+pydot
 memory_profiler
 alibi
 alibi[ray]
