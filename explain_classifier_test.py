@@ -198,18 +198,18 @@ if task == 'regression':
 
     print('GT vs. NN')
     print(f' RMSE={metrics.rmse(y, y_pred)}')
-    print(f'NRMSE={metrics.nrmse_mean(y, y_pred)}')
+    print(f'NRMSE={metrics.nrmse_interquartile(y, y_pred)}')
 
     print('NN Out vs. NN Contribs')
     y_contrib_pred = np.asarray([*contribs_full.values()]).sum(axis=0)
     print(f' RMSE={metrics.rmse(y_pred, y_contrib_pred)}')
-    print(f'NRMSE={metrics.nrmse_mean(y_pred, y_contrib_pred)}')
+    print(f'NRMSE={metrics.nrmse_interquartile(y_pred, y_contrib_pred)}')
 
     print('NN vs. Explainer')
     y_pred_trunc = model(X_trunc)
     y_expl = np.asarray([*explanation.values()]).sum(axis=0)
     print(f' RMSE={metrics.rmse(y_pred_trunc, y_expl)}')
-    print(f'NRMSE={metrics.nrmse_mean(y_pred_trunc, y_expl)}')
+    print(f'NRMSE={metrics.nrmse_interquartile(y_pred_trunc, y_expl)}')
 
     fig, ax = plt.subplots()
     sample_idxs = np.arange(explain_only_this_many)
