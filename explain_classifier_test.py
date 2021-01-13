@@ -95,7 +95,7 @@ start_interact_order = 0
 # start_interact_order = 3
 # n_main = 4
 n_main = X.shape[1]
-n_interact_max = 4
+n_interact_max = 2
 
 model_type = 'dnn'
 n_units = 64
@@ -372,80 +372,85 @@ for i, (e_true_i, e_pred_i) in enumerate(zip(contribs, explanation)):
             pred_row_i['contribution'] = pred_contrib_ik
 
             if len(all_feats) == 1:
-                true_row_i['feature value'] = xik.squeeze()
+                true_row_i['feature value'] = xik[0]
                 rows.append(true_row_i)
 
-                pred_row_i['feature value'] = xik.squeeze()
+                pred_row_i['feature value'] = xik[0]
                 rows.append(pred_row_i)
             else:  # interaction == 2
-                true_row_i['feature value x'] = xik[:, 0]
-                true_row_i['feature value y'] = xik[:, 1]
+                true_row_i['feature value x'] = xik[0]
+                true_row_i['feature value y'] = xik[1]
                 rows_3d.append(true_row_i)
 
-                pred_row_i['feature value x'] = xik[:, 0]
-                pred_row_i['feature value y'] = xik[:, 1]
+                pred_row_i['feature value x'] = xik[0]
+                pred_row_i['feature value y'] = xik[1]
                 rows_3d.append(pred_row_i)
 
 df = pd.DataFrame(rows)
 
-col_wrap = 4
+if df:
+    col_wrap = 4
 
-g = sns.relplot(
-    data=df,
-    x='feature value',
-    y='contribution',
-    hue='explainer',
-    # col='class' if task == 'classification' else 'true_effect',
-    col='class' if task == 'classification' else 'Match',
-    col_wrap=None if task == 'classification' else col_wrap,
-    # row='true_effect' if task == 'classification' else None,
-    row='Match' if task == 'classification' else None,
-    kind='scatter',
-    x_jitter=.08,  # for visualization purposes of nearby points
-    alpha=.65,
-    facet_kws=dict(sharex=False, sharey=False),
-)
+    g = sns.relplot(
+        data=df,
+        x='feature value',
+        y='contribution',
+        hue='explainer',
+        # col='class' if task == 'classification' else 'true_effect',
+        col='class' if task == 'classification' else 'Match',
+        col_wrap=None if task == 'classification' else col_wrap,
+        # row='true_effect' if task == 'classification' else None,
+        row='Match' if task == 'classification' else None,
+        kind='scatter',
+        x_jitter=.08,  # for visualization purposes of nearby points
+        alpha=.65,
+        facet_kws=dict(sharex=False, sharey=False),
+    )
 
 # 3d interaction plot time TODO this is regression-only atm...
 df_3d = pd.DataFrame(rows_3d)
 
-plt_x = 'feature value x'
-plt_y = 'feature value y'
-plt_z = 'contribution'
-plt_hue = 'explainer'
-plt_col = 'Match'
+if df_3d:
 
-df_3d_grouped = df_3d.groupby(['class', 'Match'])
+    plt_x = 'feature value x'
+    plt_y = 'feature value y'
+    plt_z = 'contribution'
+    plt_hue = 'explainer'
+    plt_col = 'Match'
 
-n_plots = len(df_3d_grouped)
-n_rows = int(np.ceil(n_plots / col_wrap))
-n_cols = min(col_wrap, n_plots)
-figsize = plt.rcParams['figure.figsize']
-figsize = (figsize[0] * n_cols, figsize[1] * n_rows)
-fig = plt.figure(figsize=figsize)
+    df_3d_grouped = df_3d.groupby(['class', 'Match'])
 
-for i, group_3d in enumerate(df_3d_grouped):
-    ax = fig.add_subplot(n_rows, n_cols, i, projection='3d')
+    n_plots = len(df_3d_grouped)
+    n_rows = int(np.ceil(n_plots / col_wrap))
+    n_cols = min(col_wrap, n_plots)
+    figsize = plt.rcParams['figure.figsize']
+    figsize = (figsize[0] * n_cols, figsize[1] * n_rows)
+    fig = plt.figure(figsize=figsize)
 
-    for row in group_3d:
-        ax.scatter(
-            row[plt_x],
-            row[plt_y],
-            row[plt_z],
-            label=row[plt_hue],
-            alpha=.65,
-        )
-    ax.set_xlabel(plt_x)
-    ax.set_ylabel(plt_y)
-    ax.set_zlabel(plt_z)
+    for i, group_3d in enumerate(df_3d_grouped):
+        ax = fig.add_subplot(n_rows, n_cols, i, projection='3d')
 
-    ax.set_title(row[plt_col])
+        for row in group_3d:
+            ax.scatter(
+                row[plt_x],
+                row[plt_y],
+                row[plt_z],
+                label=row[plt_hue],
+                alpha=.65,
+            )
+        ax.set_xlabel(plt_x)
+        ax.set_ylabel(plt_y)
+        ax.set_zlabel(plt_z)
 
-fig.legend()
+        ax.set_title(row[plt_col])
+
+    fig.legend()
 
 if plt.get_backend() == 'agg':
-    g.savefig(nonexistent_filename(f'contributions_grid_{model_type}.pdf'))
-    fig.savefig(nonexistent_filename(
-        f'contributions_grid_interact_{model_type}.pdf'))
+    if df:
+        g.savefig(nonexistent_filename(f'contributions_grid_{model_type}.pdf'))
+    if df_3d:
+        fig.savefig(nonexistent_filename(
+            f'contributions_grid_interact_{model_type}.pdf'))
 else:
     plt.show()
