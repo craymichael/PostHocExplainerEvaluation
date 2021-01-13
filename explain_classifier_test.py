@@ -45,6 +45,7 @@ from tensorflow.keras.layers import Add
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Lambda
 from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
 
 from posthoceval.explainers.local.shap import KernelSHAPExplainer
@@ -101,8 +102,9 @@ activation = 'relu'
 
 if model_type == 'dnn':
     callback = EarlyStopping(monitor='loss', mode='min')
-    fit_kwargs = {'epochs': 100, 'batch_size': len(X),
-                  'callbacks': [callback]}
+    optimizer = Adam(learning_rate=1e-3)
+    fit_kwargs = {'epochs': 1000, 'batch_size': len(X),
+                  'callbacks': [callback], 'optimizer': optimizer}
 else:
     fit_kwargs = {}
 
@@ -122,7 +124,11 @@ if not terms:
                                name=base_name + 'split'),
                         Dense(n_units, activation=activation,
                               name=base_name + f'd{n_units}'),
-                        Dense(1, activation=activation,
+                        Dense(n_units, activation=activation,
+                              name=base_name + f'd{n_units}'),
+                        Dense(n_units // 2, activation=activation,
+                              name=base_name + f'd{n_units // 2}'),
+                        Dense(1, activation=None,
                               name=base_name + 'd1'),
                     ])
                 elif model_type == 'gam':
@@ -144,7 +150,11 @@ if not terms:
                         # TODO: 2 * units? meh
                         Dense(n_units, activation=activation,
                               name=base_name + f'd{n_units}'),
-                        Dense(1, activation=activation,
+                        Dense(n_units, activation=activation,
+                              name=base_name + f'd{n_units}'),
+                        Dense(n_units // 2, activation=activation,
+                              name=base_name + f'd{n_units // 2}'),
+                        Dense(1, activation=None,
                               name=base_name + 'd1'),
                     ])
                 elif model_type == 'gam':
