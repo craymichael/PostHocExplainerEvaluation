@@ -13,27 +13,28 @@ from posthoceval.explainers._base import BaseExplainer
 from posthoceval.explainers.global_.global_shap import GlobalKernelSHAP
 from posthoceval.metrics import standardize_effect
 
-_RAY_INIT = False
+_HAS_RAY = None
 
 logger = logging.getLogger(__name__)
 
 
 def init_ray():
-    global _RAY_INIT
+    global _HAS_RAY
 
-    if _RAY_INIT:
-        return
-    _RAY_INIT = True
-    try:
-        import ray
-    except ImportError:
-        logger.warning('Could not import ray for multiprocessing.')
-    else:
-        # tell ray to shut up and not launch the dashboard...
-        ray.init(
-            include_dashboard=False,
-            logging_level=logging.WARNING,
-        )
+    if _HAS_RAY is not None:
+        try:
+            import ray
+        except ImportError:
+            logger.warning('Could not import ray for multiprocessing.')
+            _HAS_RAY = False
+        else:
+            # tell ray to shut up and not launch the dashboard...
+            ray.init(
+                include_dashboard=False,
+                logging_level=logging.WARNING,
+            )
+            _HAS_RAY = True
+    return _HAS_RAY
 
 
 class KernelSHAPExplainer(BaseExplainer):
@@ -57,6 +58,7 @@ class KernelSHAPExplainer(BaseExplainer):
         self.task = task.lower()
         if link is None:
             link = 'identity' if self.task == 'regression' else 'logit'
+            logger.info(f'Inferred link as "{link}"')
         self.link = link
 
         if n_cpus < 0:
@@ -67,7 +69,7 @@ class KernelSHAPExplainer(BaseExplainer):
         use_ray = n_cpus > 1
 
         if use_ray:
-            init_ray()
+            use_ray = init_ray()
 
         self._explainer = KernelShap(
             self.model,
@@ -124,6 +126,7 @@ class KernelSHAPExplainer(BaseExplainer):
         # to e.g. `explanation.shap_values[0]`
         # TODO: multi-class SHAP values (non-regression)
         if self.task == 'regression':
+            assert len(explanation.shap_values) == 1
             shap_values = explanation.shap_values[0]
         else:
             shap_values = explanation.shap_values
@@ -150,8 +153,6 @@ class KernelSHAPExplainer(BaseExplainer):
 
 @profile
 def gshap_explain(model, data_train, data_test, n_background_samples=100):
-    # TODO n_background_samples=300 ??
-
     explainer = KernelShap(
         model,
         feature_names=model.symbol_names,

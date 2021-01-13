@@ -74,8 +74,18 @@ else:
     X = dataset.data
     y = dataset.target
 
+X = np.asarray(X)
+y = np.asarray(y)
+
 scaler = StandardScaler()
 X = scaler.fit_transform(X)
+
+y_scaler = None
+if task == 'regression':
+    y_scaler = StandardScaler()
+    if y.ndim < 2:
+        y = y[:, np.newaxis]
+    y = y_scaler.fit_transform(y)
 
 max_order = 2
 start_interact_order = 0
@@ -85,11 +95,11 @@ n_main = X.shape[1]
 n_interact_max = 0
 
 model_type = 'dnn'
-n_units = 16
+n_units = 32
 activation = 'relu'
 
 if model_type == 'dnn':
-    fit_kwargs = {'epochs': 1}
+    fit_kwargs = {'epochs': 10}
 
 else:
     fit_kwargs = {}
@@ -104,11 +114,14 @@ if not terms:
         if order == 1:
             for i in rng_r.sample(range(X.shape[1]), k=n_main):
                 if model_type == 'dnn':
+                    base_name = f'branch_main/feature_{i}_'
                     terms.append([
                         Lambda(lambda x: x[:, i:(i + 1)], output_shape=[1],
-                               name=f'scalar_branch_feature_{i}'),
-                        Dense(n_units, activation=activation),
-                        Dense(1, activation=activation),
+                               name=base_name + 'split'),
+                        Dense(n_units, activation=activation,
+                              name=base_name + f'd{n_units}'),
+                        Dense(1, activation=activation,
+                              name=base_name + 'd1'),
                     ])
                 elif model_type == 'gam':
                     terms.append(T.s(i, n_splines=25))
@@ -120,12 +133,17 @@ if not terms:
                 [*combinations(range(X.shape[1]), order)], k=n_interact)
             for feats in selected_interact:
                 if model_type == 'dnn':
+                    feats_str = '_'.join(map(str, feats))
+                    base_name = f'branch_interact/features_{feats_str}_'
                     terms.append([
                         Lambda(lambda x: tf.gather(x, feats, axis=1),
-                               output_shape=[len(feats)]),
+                               output_shape=[len(feats)],
+                               name=base_name + 'split'),
                         # TODO: 2 * units? meh
-                        Dense(n_units, activation=activation),
-                        Dense(1, activation=activation),
+                        Dense(n_units, activation=activation,
+                              name=base_name + f'd{n_units}'),
+                        Dense(1, activation=activation,
+                              name=base_name + 'd1'),
                     ])
                 elif model_type == 'gam':
                     terms.append(T.te(*feats, n_splines=10))
@@ -163,7 +181,7 @@ model.fit(X, y, **fit_kwargs)
 if model_type == 'dnn':
     model.plot_model(nonexistent_filename('dnn.png'))
 
-explain_only_this_many = 100
+explain_only_this_many = 101
 # explain_only_this_many = len(X)
 X_trunc = rng_np.choice(X, size=explain_only_this_many, replace=False)
 
@@ -193,6 +211,33 @@ if task == 'regression':
     print(f' RMSE={metrics.rmse(y_pred_trunc, y_expl)}')
     print(f'NRMSE={metrics.nrmse_mean(y_pred_trunc, y_expl)}')
 
+    fig, ax = plt.subplots()
+    sample_idxs = np.arange(explain_only_this_many)
+    sample_idxs_all = np.arange(len(X))
+    ax.scatter(sample_idxs_all,
+               y,
+               alpha=.65,
+               label='GT')
+    ax.scatter(sample_idxs_all,
+               # sample_idxs,
+               y_pred,
+               # y_pred_trunc,
+               alpha=.65,
+               label='NN')
+    ax.scatter(sample_idxs,
+               y_expl,
+               alpha=.65,
+               label='Explainer')
+    ax.set_xlabel('Sample idx')
+    ax.set_ylabel('Predicted value')
+    fig.legend()
+
+    if plt.get_backend() == 'agg':
+        fig.savefig(
+            nonexistent_filename(f'contributions_grid_{model_type}.pdf'))
+    else:
+        plt.show()
+
 
 # TODO: make this func else where?
 def apply_matching(matching, true_expl, pred_expl, n_explained):
@@ -220,6 +265,22 @@ def apply_matching(matching, true_expl, pred_expl, n_explained):
     return matches
 
 
+def make_tex_str(features, start_i, explained=False):
+    out_strs = []
+    for feats in features:
+        feats_str = ','.join(
+            f'x_{{{feat}}}' if isinstance(feat, int) else str(feat)
+            for feat in feats
+        )
+        if explained:
+            out_str = fr'\hat{{f}}_{{{start_i}}}({feats_str})'
+        else:
+            out_str = f'f_{{{start_i}}}({feats_str})'
+        out_strs.append(out_str)
+        start_i += 1
+    return '$' + ('+'.join(out_strs) or '0') + '$'
+
+
 rows = []
 
 if task == 'regression':
@@ -235,6 +296,7 @@ for i, (e_true_i, e_pred_i) in enumerate(zip(contribs, explanation)):
     components, goodness = generous_eval(e_true_i, e_pred_i)
     matches = apply_matching(components, e_true_i, e_pred_i, len(X_trunc))
 
+    true_func_idx = pred_func_idx = 1
     for ((true_feats, pred_feats),
          (true_contrib_i, pred_contrib_i)) in matches.items():
 
@@ -246,10 +308,19 @@ for i, (e_true_i, e_pred_i) in enumerate(zip(contribs, explanation)):
                   f'true_feats {true_feats} | pred_feats {pred_feats}')
             continue
         xi = X_trunc[:, all_feats[0]]  # TODO(interactions)
+        match_str = (
+                'True: ' +
+                make_tex_str(true_feats, true_func_idx, False) +
+                ' | Predicted: ' +
+                make_tex_str(pred_feats, pred_func_idx, True)
+        )
+        true_func_idx += len(true_feats)
+        pred_func_idx += len(pred_feats)
         base = {
             'class': i,
             'true_effect': true_feats,
             'pred_effect': pred_feats,
+            'Match': match_str,
         }
         true_row = base.copy()
         true_row['explainer'] = 'True'
@@ -278,12 +349,14 @@ g = sns.relplot(
     x='feature value',
     y='contribution',
     hue='explainer',
-    col='class' if task == 'classification' else 'true_effect',
+    # col='class' if task == 'classification' else 'true_effect',
+    col='class' if task == 'classification' else 'Match',
     col_wrap=None if task == 'classification' else 4,
-    row='true_effect' if task == 'classification' else None,
+    # row='true_effect' if task == 'classification' else None,
+    row='Match' if task == 'classification' else None,
     kind='scatter',
-    # x_jitter=.05,
-    alpha=.7,
+    # x_jitter=.05,  # for visualization purposes of nearby points
+    alpha=.65,
     facet_kws=dict(sharex=False, sharey=False),
 )
 
