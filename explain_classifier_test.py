@@ -45,6 +45,7 @@ from tensorflow.keras.layers import Add
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Lambda
 from tensorflow.keras.models import Model
+from tensorflow.keras.callbacks import EarlyStopping
 
 from posthoceval.explainers.local.shap import KernelSHAPExplainer
 from posthoceval.models.gam import MultiClassLogisticGAM
@@ -95,12 +96,13 @@ n_main = X.shape[1]
 n_interact_max = 0
 
 model_type = 'dnn'
-n_units = 32
+n_units = 64
 activation = 'relu'
 
 if model_type == 'dnn':
-    fit_kwargs = {'epochs': 10}
-
+    callback = EarlyStopping(monitor='loss', mode='min')
+    fit_kwargs = {'epochs': 100, 'batch_size': len(X),
+                  'callbacks': [callback]}
 else:
     fit_kwargs = {}
 
@@ -150,6 +152,7 @@ if not terms:
 
                 features.append(tuple(feats))
 
+symbols = [*range(1, X.shape[1] + 1)]
 if model_type == 'dnn':
 
     x = Input([X.shape[1]])
@@ -166,24 +169,28 @@ if model_type == 'dnn':
     output = Add()(outputs)
     tf_model = Model(x, output)
     model = DNNRegressor(
-        tf_model, output_map, symbols=[*range(X.shape[1])],
+        tf_model, output_map, symbols=symbols,
     )
 
 elif model_type == 'gam':
 
     terms = sum(terms[1:], terms[0])
     model = MultiClassLogisticGAM(
-        symbols=[*range(X.shape[1])], terms=terms, max_iter=100, verbose=True
+        symbols=symbols, terms=terms, max_iter=100, verbose=True
     )
 
 model.fit(X, y, **fit_kwargs)
 
 if model_type == 'dnn':
-    model.plot_model(nonexistent_filename('dnn.png'))
+    model.plot_model(nonexistent_filename('dnn.png'),
+                     show_shapes=True)
 
 explain_only_this_many = 101
 # explain_only_this_many = len(X)
-X_trunc = rng_np.choice(X, size=explain_only_this_many, replace=False)
+sample_idxs_all = np.arange(len(X))
+sample_idxs = rng_np.choice(sample_idxs_all,
+                            size=explain_only_this_many, replace=False)
+X_trunc = X[sample_idxs]
 
 contribs = model.feature_contributions(X_trunc)
 
@@ -212,8 +219,6 @@ if task == 'regression':
     print(f'NRMSE={metrics.nrmse_interquartile(y_pred_trunc, y_expl)}')
 
     fig, ax = plt.subplots()
-    sample_idxs = np.arange(explain_only_this_many)
-    sample_idxs_all = np.arange(len(X))
     ax.scatter(sample_idxs_all,
                y,
                alpha=.65,
@@ -234,7 +239,7 @@ if task == 'regression':
 
     if plt.get_backend() == 'agg':
         fig.savefig(
-            nonexistent_filename(f'contributions_grid_{model_type}.pdf'))
+            nonexistent_filename(f'prediction_comparison_{model_type}.pdf'))
     else:
         plt.show()
 
@@ -355,7 +360,7 @@ g = sns.relplot(
     # row='true_effect' if task == 'classification' else None,
     row='Match' if task == 'classification' else None,
     kind='scatter',
-    # x_jitter=.05,  # for visualization purposes of nearby points
+    x_jitter=.08,  # for visualization purposes of nearby points
     alpha=.65,
     facet_kws=dict(sharex=False, sharey=False),
 )
