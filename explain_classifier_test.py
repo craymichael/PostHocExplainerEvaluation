@@ -35,6 +35,7 @@ import pandas as pd
 from scipy.special import comb
 
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D  # noqa
 import seaborn as sns
 
 from sklearn import datasets
@@ -311,6 +312,7 @@ def make_tex_str(features, start_i, explained=False):
 
 
 rows = []
+rows_3d = []
 
 if task == 'regression':
     contribs = [contribs]
@@ -332,11 +334,13 @@ for i, (e_true_i, e_pred_i) in enumerate(zip(contribs, explanation)):
         all_feats = [*{*chain(chain.from_iterable(true_feats),
                               chain.from_iterable(pred_feats))}]
 
-        if len(all_feats) > 1:
+        if len(all_feats) > 2:
             print(f'skipping match with {all_feats} for now as is interaction '
-                  f'true_feats {true_feats} | pred_feats {pred_feats}')
+                  f'with order > 2 true_feats {true_feats} | pred_feats '
+                  f'{pred_feats}')
             continue
-        xi = X_trunc[:, model.symbols.index(all_feats[0])]  # TODO(interactions)
+        f_idxs = [model.symbols.index(fi) for fi in all_feats]
+        xi = X_trunc[:, f_idxs]
         match_str = (
                 'True: ' +
                 make_tex_str(true_feats, true_func_idx, False) +
@@ -363,15 +367,28 @@ for i, (e_true_i, e_pred_i) in enumerate(zip(contribs, explanation)):
                 true_contrib_i, pred_contrib_i, xi):
             true_row_i = true_row.copy()
             true_row_i['contribution'] = true_contrib_ik
-            true_row_i['feature value'] = xik
-            rows.append(true_row_i)
 
             pred_row_i = pred_row.copy()
             pred_row_i['contribution'] = pred_contrib_ik
-            pred_row_i['feature value'] = xik
-            rows.append(pred_row_i)
+
+            if len(all_feats) == 1:
+                true_row_i['feature value'] = xik.squeeze(axis=1)
+                rows.append(true_row_i)
+
+                pred_row_i['feature value'] = xik.squeeze(axis=1)
+                rows.append(pred_row_i)
+            else:  # interaction == 2
+                true_row_i['feature value x'] = xik[:, 0]
+                true_row_i['feature value y'] = xik[:, 1]
+                rows_3d.append(true_row_i)
+
+                pred_row_i['feature value x'] = xik[:, 0]
+                pred_row_i['feature value y'] = xik[:, 1]
+                rows_3d.append(pred_row_i)
 
 df = pd.DataFrame(rows)
+
+col_wrap = 4
 
 g = sns.relplot(
     data=df,
@@ -380,7 +397,7 @@ g = sns.relplot(
     hue='explainer',
     # col='class' if task == 'classification' else 'true_effect',
     col='class' if task == 'classification' else 'Match',
-    col_wrap=None if task == 'classification' else 4,
+    col_wrap=None if task == 'classification' else col_wrap,
     # row='true_effect' if task == 'classification' else None,
     row='Match' if task == 'classification' else None,
     kind='scatter',
@@ -389,7 +406,46 @@ g = sns.relplot(
     facet_kws=dict(sharex=False, sharey=False),
 )
 
+# 3d interaction plot time TODO this is regression-only atm...
+df_3d = pd.DataFrame(rows_3d)
+
+plt_x = 'feature value x'
+plt_y = 'feature value y'
+plt_z = 'contribution'
+plt_hue = 'explainer'
+plt_col = 'Match'
+
+df_3d_grouped = df_3d.groupby(['class', 'Match'])
+
+n_plots = len(df_3d_grouped)
+n_rows = int(np.ceil(n_plots / col_wrap))
+n_cols = min(col_wrap, n_plots)
+figsize = plt.rcParams['figure.figsize']
+figsize = (figsize[0] * n_cols, figsize[1] * n_rows)
+fig = plt.figure(figsize=figsize)
+
+for i, group_3d in enumerate(df_3d_grouped):
+    ax = fig.add_subplot(n_rows, n_cols, i, projection='3d')
+
+    for row in group_3d:
+        ax.scatter(
+            row[plt_x],
+            row[plt_y],
+            row[plt_z],
+            label=row[plt_hue],
+            alpha=.65,
+        )
+    ax.set_xlabel(plt_x)
+    ax.set_ylabel(plt_y)
+    ax.set_zlabel(plt_z)
+
+    ax.set_title(row[plt_col])
+
+fig.legend()
+
 if plt.get_backend() == 'agg':
     g.savefig(nonexistent_filename(f'contributions_grid_{model_type}.pdf'))
+    fig.savefig(nonexistent_filename(
+        f'contributions_grid_interact_{model_type}.pdf'))
 else:
     plt.show()
