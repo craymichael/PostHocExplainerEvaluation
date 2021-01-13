@@ -187,7 +187,8 @@ if model_type == 'dnn':
         for layer in branch:
             xl = layer(xl)
         outputs.append(xl)
-        output_map[feats] = xl
+        feat_symbols = tuple(symbols[fi] for fi in feats)
+        output_map[feat_symbols] = xl
 
     output = Add()(outputs)
     tf_model = Model(x, output)
