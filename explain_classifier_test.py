@@ -388,7 +388,7 @@ for i, (e_true_i, e_pred_i) in enumerate(zip(contribs, explanation)):
 
 df = pd.DataFrame(rows)
 
-if df:
+if not df.empty:
     col_wrap = 4
 
     g = sns.relplot(
@@ -410,7 +410,7 @@ if df:
 # 3d interaction plot time TODO this is regression-only atm...
 df_3d = pd.DataFrame(rows_3d)
 
-if df_3d:
+if not df_3d.empty:
 
     plt_x = 'feature value x'
     plt_y = 'feature value y'
@@ -447,9 +447,9 @@ if df_3d:
     fig.legend()
 
 if plt.get_backend() == 'agg':
-    if df:
+    if not df.empty:
         g.savefig(nonexistent_filename(f'contributions_grid_{model_type}.pdf'))
-    if df_3d:
+    if not df_3d.empty:
         fig.savefig(nonexistent_filename(
             f'contributions_grid_interact_{model_type}.pdf'))
 else:
