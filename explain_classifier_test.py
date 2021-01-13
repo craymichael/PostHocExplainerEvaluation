@@ -123,13 +123,13 @@ if not terms:
                         Lambda(lambda x: x[:, i:(i + 1)], output_shape=[1],
                                name=base_name + 'split'),
                         Dense(n_units, activation=activation,
-                              name=base_name + f'd{n_units}'),
+                              name=base_name + f'l1_d{n_units}'),
                         Dense(n_units, activation=activation,
-                              name=base_name + f'd{n_units}'),
+                              name=base_name + f'l2_d{n_units}'),
                         Dense(n_units // 2, activation=activation,
-                              name=base_name + f'd{n_units // 2}'),
+                              name=base_name + f'l3_d{n_units // 2}'),
                         Dense(1, activation=None,
-                              name=base_name + 'd1'),
+                              name=base_name + 'linear_d1'),
                     ])
                 elif model_type == 'gam':
                     terms.append(T.s(i, n_splines=25))
@@ -149,13 +149,13 @@ if not terms:
                                name=base_name + 'split'),
                         # TODO: 2 * units? meh
                         Dense(n_units, activation=activation,
-                              name=base_name + f'd{n_units}'),
+                              name=base_name + f'l1_d{n_units}'),
                         Dense(n_units, activation=activation,
-                              name=base_name + f'd{n_units}'),
+                              name=base_name + f'l2_d{n_units}'),
                         Dense(n_units // 2, activation=activation,
-                              name=base_name + f'd{n_units // 2}'),
+                              name=base_name + f'l3_d{n_units // 2}'),
                         Dense(1, activation=None,
-                              name=base_name + 'd1'),
+                              name=base_name + 'linear_d1'),
                     ])
                 elif model_type == 'gam':
                     terms.append(T.te(*feats, n_splines=10))
