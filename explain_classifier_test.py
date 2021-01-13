@@ -156,8 +156,9 @@ if task == 'regression':
     print(f'NRMSE={metrics.nrmse_mean(y, y_pred)}')
     print('NN vs. Explainer')
     y_expl = np.asarray([*explanation.values()]).sum(axis=0)
-    print(f' RMSE={metrics.rmse(y_pred, y_expl)}')
-    print(f'NRMSE={metrics.nrmse_mean(y_pred, y_expl)}')
+    y_pred_trunc = model(X_trunc)
+    print(f' RMSE={metrics.rmse(y_pred_trunc, y_expl)}')
+    print(f'NRMSE={metrics.nrmse_mean(y_pred_trunc, y_expl)}')
 
 
 # TODO: make this func else where?
