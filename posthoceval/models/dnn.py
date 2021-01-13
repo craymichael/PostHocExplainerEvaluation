@@ -56,7 +56,7 @@ class DNNRegressor(AdditiveModel):
         packed_contribs = intermediate_model(X)
 
         contribs = {
-            feats: contrib.numpy()
+            feats: contrib.numpy().squeeze(axis=1)
             for feats, contrib in zip(all_feats, packed_contribs)
         }
 
