@@ -109,6 +109,9 @@ if model_type == 'dnn':
 else:
     fit_kwargs = {}
 
+# desired_interactions = None
+desired_interactions = [(1, 2), (4, 9), (8, 10)]
+
 terms = []
 features = []
 # terms = [T.te(0, 1), T.te(2, 3), T.s(0, n_splines=50)]
@@ -145,8 +148,11 @@ if not terms:
 
             n_interact = min(n_interact_max - len(terms) + n_main,
                              comb(X.shape[1], order))
-            selected_interact = rng_r.sample(
-                [*combinations(range(X.shape[1]), order)], k=n_interact)
+            if desired_interactions is None:
+                selected_interact = rng_r.sample(
+                    [*combinations(range(X.shape[1]), order)], k=n_interact)
+            else:
+                selected_interact = desired_interactions
 
             for feats in selected_interact:
 
@@ -174,6 +180,9 @@ if not terms:
                     terms.append(T.te(*feats, n_splines=10))
 
                 features.append(tuple(feats))
+
+            if desired_interactions is not None:
+                break
 
 symbols = [*range(1, X.shape[1] + 1)]
 if model_type == 'dnn':
