@@ -372,10 +372,10 @@ for i, (e_true_i, e_pred_i) in enumerate(zip(contribs, explanation)):
             pred_row_i['contribution'] = pred_contrib_ik
 
             if len(all_feats) == 1:
-                true_row_i['feature value'] = xik.squeeze(axis=1)
+                true_row_i['feature value'] = xik.squeeze()
                 rows.append(true_row_i)
 
-                pred_row_i['feature value'] = xik.squeeze(axis=1)
+                pred_row_i['feature value'] = xik.squeeze()
                 rows.append(pred_row_i)
             else:  # interaction == 2
                 true_row_i['feature value x'] = xik[:, 0]
