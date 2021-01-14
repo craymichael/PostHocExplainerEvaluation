@@ -98,10 +98,9 @@ if task == 'regression':
         y = y[:, np.newaxis]
     y = y_scaler.fit_transform(y)
 
-desired_interactions = []
-# desired_interactions = [(1, 2), (4, 9), (8, 10)]
+# desired_interactions = []
+desired_interactions = [(1, 2)]
 
-# THIS ONE IS GOOD FOR SHOWING LIME BEING BAD
 # desired_interactions = [(1, 2), (4, 9), (8, 10)]
 
 # desired_interactions = [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9), (10, 11, 12)]
