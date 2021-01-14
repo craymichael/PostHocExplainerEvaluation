@@ -85,7 +85,12 @@ class LIMEExplainer(BaseExplainer):
             expl_i = explanation.data(i)
 
             # sort explanation values...
-            coefs_i = itemgetter(*sorted(expl_i['names']))(expl_i['scores'])
+            # coefs_i = itemgetter(*sorted(expl_i['names']))(expl_i['scores'])
+            expl_names = expl_i['names']  # feature indices
+            expl_scores = expl_i['scores']  # unsorted coefficients
+            # get all items and sort them to match order of features
+            coefs_i, _ = zip(*sorted(zip(expl_scores, range(len(expl_names))),
+                                     key=lambda x: expl_names[x[1]]))
             # LIME scales only (StandardScale with `with_mean=False`)
             coefs_i = np.asarray(coefs_i) / self._scale
 
