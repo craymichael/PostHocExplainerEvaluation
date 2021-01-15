@@ -98,6 +98,7 @@ if task == 'regression':
     if y.ndim < 2:
         y = y[:, np.newaxis]
     y = y_scaler.fit_transform(y)
+    y = y.squeeze(axis=1)
 
 # desired_interactions = []
 desired_interactions = [(1, 2)]
@@ -118,7 +119,8 @@ n_units = 64
 activation = 'relu'
 
 if model_type == 'dnn':
-    callback = EarlyStopping(monitor='loss', mode='min')
+    callback = EarlyStopping(monitor='loss', mode='min', patience=10,
+                             restore_best_weights=True)
     optimizer = Adam(learning_rate=1e-3)
     fit_kwargs = {'epochs': 1000, 'batch_size': len(X),
                   'callbacks': [callback], 'optimizer': optimizer}
@@ -398,7 +400,10 @@ for i, (e_true_i, e_pred_i) in enumerate(zip(contribs, explanation)):
         print(match_str, 'NRMSE', nrmse_score)
         print()
 
-        match_str += f'\nNRMSE={nrmse_score:.3f}'
+        # pretty format score
+        match_str += ('\nNRMSE = ' + (f'{nrmse_score:.3f}'
+                                      if (1e-3 < nrmse_score < 1e3) else
+                                      f'{nrmse_score:.3}'))
 
         if len(all_feats) > 2:
             print(f'skipping match with {all_feats} for now as is interaction '
