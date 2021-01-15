@@ -50,6 +50,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
 
 from posthoceval.explainers.local.shap import KernelSHAPExplainer
+from posthoceval.explainers.local.maple import MAPLEExplainer
 from posthoceval.explainers.local.lime import LIMEExplainer
 from posthoceval.models.gam import MultiClassLogisticGAM
 from posthoceval.models.gam import T
@@ -244,20 +245,27 @@ if 0:
     explainer_name = 'SHAP'
     explainer = KernelSHAPExplainer(model, task=task, seed=seed,
                                     n_cpus=1 if model_type == 'dnn' else -1)
-else:
+elif 0:
     explainer_name = 'LIME'
     explainer = LIMEExplainer(model, seed=seed, task=task)
+else:
+    explainer_name = 'MAPLE'
+    explainer = MAPLEExplainer(model, seed=seed, task=task)
 
 explainer.fit(X)  # fit full X
 intercepts = None
-if explainer_name == 'LIME':
+y_expl = None
+if explainer_name == 'LIME' or explainer_name == 'MAPLE':
     explanation, intercepts = explainer.feature_contributions(
         X_trunc, as_dict=True, return_intercepts=True)
+elif explainer_name == 'MAPLE':
+    explanation, y_expl = explainer.feature_contributions(
+        X_trunc, as_dict=True, return_y=True)
 else:
     explanation = explainer.feature_contributions(X_trunc, as_dict=True)
 
-# nrmse_func = metrics.nrmse_interquartile
-nrmse_func = metrics.nrmse_range
+nrmse_func = metrics.nrmse_interquartile
+# nrmse_func = metrics.nrmse_range
 
 if task == 'regression':
     y_pred = model(X)
@@ -274,9 +282,10 @@ if task == 'regression':
 
     print('NN vs. Explainer')
     y_pred_trunc = model(X_trunc)
-    y_expl = np.asarray([*explanation.values()]).sum(axis=0)
-    if intercepts is not None:
-        y_expl += np.asarray(intercepts)
+    if y_expl is None:
+        y_expl = np.asarray([*explanation.values()]).sum(axis=0)
+        if intercepts is not None:
+            y_expl += np.asarray(intercepts)
     print(f' RMSE={metrics.rmse(y_pred_trunc, y_expl)}')
     print(f'NRMSE={nrmse_func(y_pred_trunc, y_expl)}')
 

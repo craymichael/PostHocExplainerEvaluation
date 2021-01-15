@@ -28,6 +28,7 @@ class MAPLEExplainer(BaseExplainer):
                  model: AdditiveModel,
                  train_size: float = 2 / 3,
                  seed: Optional[int] = None,
+                 task: str = 'regression',
                  **kwargs):
         # at 7cecf35621859a9ce915da1947a5fb90ee313f08, MAPLE uses 2/3
         # train/val split in Code/Misc.py
@@ -35,6 +36,7 @@ class MAPLEExplainer(BaseExplainer):
         self.model = model
 
         self.seed = seed
+        self.task = task
 
         self.explainer_kwargs = kwargs
         self._explainer: Optional[_MAPLE] = None
@@ -42,6 +44,11 @@ class MAPLEExplainer(BaseExplainer):
     def fit(self, X, y=None):
         if y is None:
             y = self.model(X)
+
+        if self.task == 'regression':
+            y = np.squeeze(y, axis=1)
+        else:
+            y = np.reshape(y, (len(y), -1))
 
         # split data
         X_train, X_val, y_train, y_val = train_test_split(
@@ -62,20 +69,42 @@ class MAPLEExplainer(BaseExplainer):
 
         return self._explainer.predict(X)
 
-    def feature_contributions(self, X, return_y=False):
+    def feature_contributions(self, X, return_intercepts=False,
+                              return_y=False, as_dict=False):
         if self._explainer is None:
             raise RuntimeError('Must call fit() before obtaining feature '
                                'contributions')
 
         contribs_maple = []
+        intercepts = []
+        y_maple = []
         for xi in X:
-            coefs = self._explainer.explain(xi)['coefs']
+            explanation = self._explainer.explain(xi)
+            coefs = explanation['coefs']
             # coefs[0] is the intercept, throw it in the trash
             contribs_maple.append(
                 coefs[1:] * xi
             )
+            if return_intercepts:
+                intercepts.append(coefs[0])
+            if return_y:
+                y_maple.append(explanation['pred'])
 
         contribs_maple = np.asarray(contribs_maple)
+        if as_dict:
+            contribs_maple = dict(zip(self.model.symbols, contribs_maple.T))
+
+        if return_y:
+            y_maple = np.concatenate(y_maple, axis=0)
+            if self.task == 'regression':
+                y_maple = y_maple.squeeze(axis=1)
+
+        if return_intercepts:
+            if return_y:
+                return contribs_maple, intercepts, y_maple
+            return contribs_maple, intercepts
+        elif return_y:
+            return contribs_maple, y_maple
         return contribs_maple
 
 
@@ -199,7 +228,7 @@ class _MAPLE:
         # Get the model coefficients
         coefs = np.zeros(self.num_features + 1)
         coefs[0] = lr_model.intercept_
-        coefs[np.sort(mostImpFeats[0:self.retain]) + 1] = lr_model.coef_
+        coefs[np.sort(mostImpFeats[:self.retain]) + 1] = lr_model.coef_
 
         # Get the prediction at this point
         prediction = lr_model.predict(x_p.reshape(1, -1))

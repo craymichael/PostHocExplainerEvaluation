@@ -7,8 +7,6 @@ import logging
 from typing import Optional
 from typing import Union
 
-from operator import itemgetter
-
 import numpy as np
 
 from interpret.blackbox import LimeTabular
@@ -32,6 +30,9 @@ class LIMEExplainer(BaseExplainer):
         self.model = model
         self.verbose = verbose
         self.seed = seed
+        if task != 'regression':
+            raise NotImplementedError('Backend `interpret` does not have '
+                                      'proper classification support....')
         self.task = task
 
         # will be initialized in fit
@@ -85,7 +86,6 @@ class LIMEExplainer(BaseExplainer):
             expl_i = explanation.data(i)
 
             # sort explanation values...
-            # coefs_i = itemgetter(*sorted(expl_i['names']))(expl_i['scores'])
             expl_names = expl_i['names']  # feature indices
             expl_scores = expl_i['scores']  # unsorted coefficients
             # get all items and sort them to match order of features
