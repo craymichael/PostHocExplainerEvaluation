@@ -31,7 +31,7 @@ class MAPLEExplainer(BaseExplainer):
                  task: str = 'regression',
                  **kwargs):
         # at 7cecf35621859a9ce915da1947a5fb90ee313f08, MAPLE uses 2/3
-        # train/val split in Code/Misc.py
+        #  train/val split in Code/Misc.py
         self.train_size = train_size
         self.model = model
 
@@ -45,7 +45,7 @@ class MAPLEExplainer(BaseExplainer):
         if y is None:
             y = self.model(X)
 
-        if self.task == 'regression':
+        if self.task == 'regression' and y.ndim == 2:
             y = np.squeeze(y, axis=1)
         else:
             y = np.reshape(y, (len(y), -1))
@@ -81,7 +81,6 @@ class MAPLEExplainer(BaseExplainer):
         for xi in X:
             explanation = self._explainer.explain(xi)
             coefs = explanation['coefs']
-            # coefs[0] is the intercept, throw it in the trash
             contribs_maple.append(
                 coefs[1:] * xi
             )
