@@ -72,6 +72,10 @@ sns.set_theme(
 
 if 1:
     task = 'regression'
+    X = np.random.randn(1000, 4)
+    y = np.sin(X[:, 0] ** 3) + np.maximum(X[:, 1], 0) - np.sin(X[:, 2]) / X[:, 3]
+elif 1:
+    task = 'regression'
     data_df = pd.read_csv('data/boston', delimiter=' ')
     label_col = 'MEDV'
 
@@ -100,12 +104,20 @@ if task == 'regression':
     y = y_scaler.fit_transform(y)
     y = y.squeeze(axis=1)
 
-# desired_interactions = []
-desired_interactions = [(1, 2)]
+desired_interactions = []
+
+# current interact plots use this: LIME, MAPLE
+# desired_interactions = [(1, 2)]
+
+# features 8 & 9 correlate in Boston dataset
+# desired_interactions = [(8, 0, 1), (2, 8), (2, 9)]
+# desired_interactions = [(5, 8), (5, 9)]
+# desired_interactions = [(2, 8), (5, 9)]
 
 # desired_interactions = [(1, 2), (4, 9), (8, 10)]
 
 # desired_interactions = [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9), (10, 11, 12)]
+# desired_interactions = [(0, 1, 2, 3), (4, 5), (6, 7), (8, 9), (10, 11, 12)]
 
 max_order = 2
 start_interact_order = 0
@@ -243,7 +255,7 @@ X_trunc = X[sample_idxs]
 
 contribs = model.feature_contributions(X_trunc)
 
-if 0:
+if 1:
     explainer_name = 'SHAP'
     explainer = KernelSHAPExplainer(model, task=task, seed=seed,
                                     n_cpus=1 if model_type == 'dnn' else -1)
