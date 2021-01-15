@@ -73,7 +73,9 @@ sns.set_theme(
 if 1:
     task = 'regression'
     X = np.random.randn(1000, 4)
-    y = np.sin(X[:, 0] ** 3) + np.maximum(X[:, 1], 0) - np.sin(X[:, 2]) / X[:, 3]
+    X[:, 3] = X[:, 2] * 2 - .5
+    y = (np.sin(X[:, 0] ** 3) + np.maximum(X[:, 1], 0)
+         - np.sin(X[:, 2]) / X[:, 2] + 2 * X[:, 3])
 elif 1:
     task = 'regression'
     data_df = pd.read_csv('data/boston', delimiter=' ')
