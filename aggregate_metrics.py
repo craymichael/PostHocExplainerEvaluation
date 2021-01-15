@@ -27,6 +27,7 @@ from posthoceval.utils import safe_parse_tuple
 from posthoceval.utils import is_int
 from posthoceval.utils import is_float
 from posthoceval.utils import at_high_precision
+from posthoceval.utils import atomic_write_exclusive
 # Needed for pickle loading of this result type
 from posthoceval.results import ExprResult
 
@@ -452,17 +453,10 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False,
     out_filename = os.path.join(out_dir, expr_basename + '.json')
     print('Writing results to', out_filename)
 
-    exists_count = 0
-    while os.path.isfile(out_filename):
-        exists_count += 1
-        new_out_filename = os.path.join(
-            out_dir, expr_basename + f'_{exists_count}.json')
-        print(f'{out_filename} exists, will write to '
-              f'{new_out_filename} instead')
-        out_filename = new_out_filename
-
-    with open(out_filename, 'w') as f:
-        json.dump(all_results, f, cls=CustomJSONEncoder)
+    atomic_write_exclusive(
+        preferred_filename=out_filename,
+        data=json.dumps(all_results, cls=CustomJSONEncoder),
+    )
 
 
 if __name__ == '__main__':
