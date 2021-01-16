@@ -31,6 +31,7 @@ class LIMEExplainer(BaseExplainer):
         self.verbose = verbose
         self.seed = seed
         if task != 'regression':
+            # you'd think that this wrapper would make things easier...
             raise NotImplementedError('Backend `interpret` does not have '
                                       'proper classification support....')
         self.task = task

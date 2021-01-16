@@ -80,6 +80,9 @@ def compute_metrics(true_expl, pred_expl, n_explained, true_means):
         matching_results = []
         agg_results = {}
 
+        contribs_true_all = []
+        contribs_pred_all = []
+
         for match_goodness, (match_true, match_pred) in zip(
                 goodness, matching):
             # for each pair in the match
@@ -90,6 +93,8 @@ def compute_metrics(true_expl, pred_expl, n_explained, true_means):
                     [true_expl[effect] for effect in match_true])
             else:
                 contribs_true = np.zeros(n_explained)
+            contribs_true_all.append(contribs_true)
+
             if match_pred:
                 contribs_pred = sum(
                     [pred_expl[effect] for effect in match_pred])
@@ -100,6 +105,7 @@ def compute_metrics(true_expl, pred_expl, n_explained, true_means):
                         [true_means[effect] for effect in match_true])
             else:
                 contribs_pred = np.zeros(n_explained)
+            contribs_pred_all.append(contribs_pred)
 
             # now we evaluate the fidelity with various error metrics!
             err_dict = {}
@@ -141,8 +147,20 @@ def compute_metrics(true_expl, pred_expl, n_explained, true_means):
             agg_results['goodness_mean'] = (
                     agg_results.get('goodness_mean', 0.) + match_goodness)
 
+        # compute means over all metrics
         for err_name_agg, err in agg_results.items():
             agg_results[err_name_agg] = err / len(matching)
+
+        # vector-wise metrics
+        contribs_true_all = np.stack(contribs_true_all, axis=1)
+        contribs_pred_all = np.stack(contribs_pred_all, axis=1)
+
+        for err_name, err_metric in (
+                ('cosine_distances', metrics.cosine_distances),
+                ('euclidean_distances', metrics.euclidean_distances),
+        ):
+            distances = err_metric(contribs_true_all, contribs_pred_all)
+            agg_results[err_name + '_mean'] = distances.mean()
 
         per_match_metrics.append({
             'matching_algorithm': name,
