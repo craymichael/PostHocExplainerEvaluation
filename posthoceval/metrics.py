@@ -159,8 +159,16 @@ def generous_eval(y_true: Iterable, y_pred: Iterable, maybe_exact=False):
             stack = new_stack
             stack_t = not stack_t  # swap sides of graph
 
-        components.append((component_t, component_p))
-        goodness.append(np.mean(goodness_edges) if goodness_edges else 0.)
+        component_t = sorted(component_t)
+        component_p = sorted(component_p)
+        if component_t == component_p:
+            components.extend(
+                ([ct], [cp]) for ct, cp in zip(component_t, component_p)
+            )
+            goodness.extend([1.] * len(component_t))
+        else:
+            components.append((component_t, component_p))
+            goodness.append(np.mean(goodness_edges) if goodness_edges else 0.)
 
     # discover nodes on pred that haven't been visited (guaranteed all true
     #  nodes/effects have been visited by this point)

@@ -92,7 +92,7 @@ class LIMEExplainer(BaseExplainer):
             # get all items and sort them to match order of features
             coefs_i, _ = zip(*sorted(zip(expl_scores, range(len(expl_names))),
                                      key=lambda x: expl_names[x[1]]))
-            # LIME scales only (StandardScale with `with_mean=False`)
+            # LIME scales with z-score (StandardScaler)
             coefs_i = np.asarray(coefs_i) / self._scale
 
             # if desired, intercept can be fetched and adjusted via:
