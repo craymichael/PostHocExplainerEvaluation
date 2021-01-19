@@ -282,7 +282,8 @@ if model_type == 'dnn':
     model.plot_model(nonexistent_filename('dnn.png'),
                      show_shapes=True)
 
-explain_only_this_many = 512
+# explain_only_this_many = 512
+explain_only_this_many = 101
 # explain_only_this_many = 12
 # explain_only_this_many = len(X)
 explain_only_this_many = min(explain_only_this_many, len(X))
@@ -310,7 +311,7 @@ if task == 'regression':
 rows = []
 rows_3d = []
 
-for explainer_name, explainer in (
+for expl_i, (explainer_name, explainer) in enumerate((
         ('SHAP',
          KernelSHAPExplainer(model, task=task, seed=seed,
                              n_cpus=1 if model_type == 'dnn' else -1)),
@@ -318,7 +319,9 @@ for explainer_name, explainer in (
          LIMEExplainer(model, seed=seed, task=task)),
         ('MAPLE',
          MAPLEExplainer(model, seed=seed, task=task)),
-):
+)):
+    print('Start explainer', explainer_name)
+
     explainer.fit(X)  # fit full X
     intercepts = None
     y_expl = None
@@ -470,9 +473,10 @@ for explainer_name, explainer in (
             print()
 
             # pretty format score
-            match_str += ('\nNRMSE = ' + (f'{nrmse_score:.3f}'
-                                          if (1e-3 < nrmse_score < 1e3) else
-                                          f'{nrmse_score:.3}'))
+            # TODO: sad times we have here
+            # match_str += ('\nNRMSE = ' + (f'{nrmse_score:.3f}'
+            #                               if (1e-3 < nrmse_score < 1e3) else
+            #                               f'{nrmse_score:.3}'))
 
             if len(all_feats) > 2:
                 print(
@@ -487,7 +491,7 @@ for explainer_name, explainer in (
                 'pred_effect': pred_feats,
                 'Match': match_str,
             }
-            true_row = base.copy()
+            true_row = base.copy()  # TODO: true last...
             true_row['explainer'] = 'True'
 
             pred_row = base
@@ -503,19 +507,23 @@ for explainer_name, explainer in (
                 pred_row_i['contribution'] = pred_contrib_ik
 
                 if len(all_feats) == 1:
-                    true_row_i['feature value'] = xik[0]
-                    rows.append(true_row_i)
-
                     pred_row_i['feature value'] = xik[0]
                     rows.append(pred_row_i)
-                else:  # interaction == 2
-                    true_row_i['feature value x'] = xik[0]
-                    true_row_i['feature value y'] = xik[1]
-                    rows_3d.append(true_row_i)
 
+                    # TODO: wow...(3 explainers total...)
+                    if (expl_i + 1) == 3:
+                        true_row_i['feature value'] = xik[0]
+                        rows.append(true_row_i)
+                else:  # interaction == 2
                     pred_row_i['feature value x'] = xik[0]
                     pred_row_i['feature value y'] = xik[1]
                     rows_3d.append(pred_row_i)
+
+                    # TODO: wow...(3 explainers total...)
+                    if (expl_i + 1) == 3:
+                        true_row_i['feature value x'] = xik[0]
+                        true_row_i['feature value y'] = xik[1]
+                        rows_3d.append(true_row_i)
 
 df = pd.DataFrame(rows)
 
