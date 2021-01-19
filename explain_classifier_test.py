@@ -70,12 +70,31 @@ sns.set_theme(
     # palette=sns.color_palette('pastel'),
 )
 
-if 1:
+if 0:
     task = 'regression'
-    X = np.random.randn(1000, 4)
-    X[:, 3] = X[:, 2] * 2 - .5
-    y = (np.sin(X[:, 0] ** 3) + np.maximum(X[:, 1], 0)
-         - np.sin(X[:, 2]) / X[:, 2] + 2 * X[:, 3])
+
+    # import numpy
+    # X = np.random.rand(1000, 8) / 4
+    # x1, x2, x3, x4, x5, x6, x7, x8 = X.T
+    # y = x1**2 + x5**2 + x5*numpy.log(x1 + x2) + x7*numpy.select([numpy.greater(x2, numpy.sinc(x1/numpy.pi)),True], [numpy.asarray(x2**(-1.0)).astype(numpy.bool),numpy.asarray(numpy.sinc(x1/numpy.pi)**(-1.0)).astype(numpy.bool)], default=numpy.nan) + (x1*abs(x7) + x5)**3 + numpy.exp(x7) + numpy.exp((x1 + x2)/x5) + numpy.sin(numpy.log(x2))
+
+    # X = np.random.randn(1000, 4)
+    # x1, x2, x3, x4 = X.T
+    # x1 = np.abs(x1)
+    # x2 = np.abs(x2)
+    # y = x1 ** (1 / 4) + np.sqrt(x2) + np.exp(x3 / 2) + np.abs(x4) + np.tan(x4) / x1 ** 2
+
+    # X = np.random.randn(1000, 2)
+    # y = X[:, 0] ** 9 + np.tan(X[:, 1]) + np.abs(X[:, 0] / X[:, 1] ** 2)
+
+    #X = np.random.randn(1000, 400)
+    #y = np.exp(np.random.randn(len(X)))
+
+    #X[:, 1] = X[:, 0] / 2
+    #X[:, 2] = X[:, 1] + 1
+    #X[:, 3] = X[:, 2] * 2.6
+    #y = (np.sin(X[:, 0] ** 3) + np.maximum(X[:, 1], 0)
+    #     - np.sin(X[:, 2]) / X[:, 2] + 2 * X[:, 3])
 elif 1:
     task = 'regression'
     data_df = pd.read_csv('data/boston', delimiter=' ')
@@ -120,6 +139,8 @@ desired_interactions = []
 
 # desired_interactions = [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9), (10, 11, 12)]
 # desired_interactions = [(0, 1, 2, 3), (4, 5), (6, 7), (8, 9), (10, 11, 12)]
+# desired_interactions = [(0, 1, 2, 3), (4, 5), (6, 7), (8, 9), (10, 11, 12),
+#                         (220, 101)]
 
 max_order = 2
 start_interact_order = 0
@@ -133,7 +154,7 @@ n_units = 64
 activation = 'relu'
 
 if model_type == 'dnn':
-    callback = EarlyStopping(monitor='loss', mode='min', patience=10,
+    callback = EarlyStopping(monitor='loss', mode='min', patience=100,
                              restore_best_weights=True)
     optimizer = Adam(learning_rate=1e-3)
     fit_kwargs = {'epochs': 1000, 'batch_size': len(X),
@@ -248,8 +269,10 @@ if model_type == 'dnn':
     model.plot_model(nonexistent_filename('dnn.png'),
                      show_shapes=True)
 
-explain_only_this_many = 101
+explain_only_this_many = 512
+# explain_only_this_many = 12
 # explain_only_this_many = len(X)
+explain_only_this_many = min(explain_only_this_many, len(X))
 sample_idxs_all = np.arange(len(X))
 sample_idxs = rng_np.choice(sample_idxs_all,
                             size=explain_only_this_many, replace=False)
@@ -268,7 +291,7 @@ else:
     explainer_name = 'MAPLE'
     explainer = MAPLEExplainer(model, seed=seed, task=task)
 
-explainer.fit(X)  # fit full X
+explainer.fit(X[:50])  # fit full X
 intercepts = None
 y_expl = None
 if explainer_name == 'LIME' or explainer_name == 'MAPLE':
