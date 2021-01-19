@@ -312,13 +312,13 @@ rows = []
 rows_3d = []
 
 for expl_i, (explainer_name, explainer) in enumerate((
-        ('SHAP',
-         KernelSHAPExplainer(model, task=task, seed=seed,
-                             n_cpus=1 if model_type == 'dnn' else -1)),
         ('LIME',
          LIMEExplainer(model, seed=seed, task=task)),
         ('MAPLE',
          MAPLEExplainer(model, seed=seed, task=task)),
+        ('SHAP',
+         KernelSHAPExplainer(model, task=task, seed=seed,
+                             n_cpus=1 if model_type == 'dnn' else -1)),
 )):
     print('Start explainer', explainer_name)
 
