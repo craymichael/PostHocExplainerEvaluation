@@ -95,13 +95,18 @@ if 0:
     # X[:, 3] = X[:, 2] * 2.6
     # y = (np.sin(X[:, 0] ** 3) + np.maximum(X[:, 1], 0)
     #     - np.sin(X[:, 2]) / X[:, 2] + 2 * X[:, 3])
+
+    headers = [*range(X.shape[1])]
 elif 1:
     task = 'regression'
     data_df = pd.read_csv('data/boston', delimiter=' ')
     label_col = 'MEDV'
 
-    X = data_df.drop(columns=label_col).values
+    X_df = data_df.drop(columns=label_col)
+    X = X_df.values
     y = data_df[label_col].values
+
+    headers = [*X_df.keys()]
 else:
     task = 'classification'
     # dataset = datasets.load_iris()
@@ -149,7 +154,9 @@ start_interact_order = 0
 n_main = X.shape[1]
 n_interact_max = 0 or len(desired_interactions)
 
+# model_type = 'gam'
 model_type = 'dnn'
+
 n_units = 64
 activation = 'relu'
 
@@ -237,6 +244,9 @@ if not terms:
 symbols = [*range(1, X.shape[1] + 1)]
 if model_type == 'dnn':
 
+    # TODO..
+    assert task == 'regression'
+
     x = Input([X.shape[1]])
 
     outputs = []
@@ -258,10 +268,13 @@ if model_type == 'dnn':
 
 elif model_type == 'gam':
 
-    terms = sum(terms[1:], terms[0])
-    model = MultiClassLogisticGAM(
-        symbols=symbols, terms=terms, max_iter=100, verbose=True
-    )
+    if task == 'classification':
+        terms = sum(terms[1:], terms[0])
+        model = MultiClassLogisticGAM(
+            symbols=symbols, terms=terms, max_iter=100, verbose=True
+        )
+    else:
+        raise NotImplementedError(task)
 
 model.fit(X, y, **fit_kwargs)
 
@@ -433,8 +446,13 @@ for explainer_name, explainer in (
             # TODO non-logit...
             contribution = pred_contrib_i + true_contrib_i.mean()
 
+            f_idxs = [model.symbols.index(fi) for fi in all_feats]
+
+            feature_str = ' & '.join(map(str, (headers[fi] for fi in f_idxs)))
+
             match_str = (
-                # 'True: ' +
+                    feature_str + '\n' +
+                    # 'True: ' +
                     make_tex_str(true_feats, true_func_idx, False) +
                     # ' | Predicted: ' +
                     ' vs. ' +
@@ -460,7 +478,6 @@ for explainer_name, explainer in (
                     f'with order > 2 true_feats {true_feats} | pred_feats '
                     f'{pred_feats}')
                 continue
-            f_idxs = [model.symbols.index(fi) for fi in all_feats]
             xi = X_trunc[:, f_idxs]
             base = {
                 'class': i,
