@@ -440,6 +440,7 @@ for expl_i, (explainer_name, explainer) in enumerate((
         e_pred_i = standardize_contributions(e_pred_i)
         components, goodness = generous_eval(e_true_i, e_pred_i)
         matches = apply_matching(components, e_true_i, e_pred_i, len(X_trunc))
+        print(matches)
 
         true_func_idx = pred_func_idx = 1
         for ((true_feats, pred_feats),
@@ -456,12 +457,13 @@ for expl_i, (explainer_name, explainer) in enumerate((
             feature_str = ' & '.join(map(str, (headers[fi] for fi in f_idxs)))
 
             match_str = (
-                    feature_str + '\n' +
+                    feature_str  # + '\n' +
+                    # TODO: depression
                     # 'True: ' +
-                    make_tex_str(true_feats, true_func_idx, False) +
+                    # make_tex_str(true_feats, true_func_idx, False) +
                     # ' | Predicted: ' +
-                    ' vs. ' +
-                    make_tex_str(pred_feats, pred_func_idx, True)
+                    # ' vs. ' +
+                    # make_tex_str(pred_feats, pred_func_idx, True)
             )
             true_func_idx += len(true_feats)
             pred_func_idx += len(pred_feats)
