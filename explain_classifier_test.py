@@ -119,16 +119,17 @@ else:
 X = np.asarray(X)
 y = np.asarray(y)
 
-scaler = StandardScaler()
-X = scaler.fit_transform(X)
+if 0:  # TODO:
+    scaler = StandardScaler()
+    X = scaler.fit_transform(X)
 
-y_scaler = None
-if task == 'regression':
-    y_scaler = StandardScaler()
-    if y.ndim < 2:
-        y = y[:, np.newaxis]
-    y = y_scaler.fit_transform(y)
-    y = y.squeeze(axis=1)
+    y_scaler = None
+    if task == 'regression':
+        y_scaler = StandardScaler()
+        if y.ndim < 2:
+            y = y[:, np.newaxis]
+        y = y_scaler.fit_transform(y)
+        y = y.squeeze(axis=1)
 
 desired_interactions = []
 
@@ -282,8 +283,8 @@ if model_type == 'dnn':
     model.plot_model(nonexistent_filename('dnn.png'),
                      show_shapes=True)
 
-# explain_only_this_many = 512
-explain_only_this_many = 101
+explain_only_this_many = 512
+# explain_only_this_many = 101
 # explain_only_this_many = 12
 # explain_only_this_many = len(X)
 explain_only_this_many = min(explain_only_this_many, len(X))
