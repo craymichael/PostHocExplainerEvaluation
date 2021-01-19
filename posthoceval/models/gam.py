@@ -141,7 +141,7 @@ class MultiClassLogisticGAM(AdditiveModel):
             # invert log odds
             contribs_1 = contribs[0]
             contribs_0 = {
-                effect: at_high_precision(opposite_log_odd, pd)
+                effect: at_high_precision(inverse_log_odd, pd)
                 for effect, pd in contribs_1.items()
             }
             contribs = [contribs_0, contribs_1]
@@ -169,7 +169,7 @@ class MultiClassLogisticGAM(AdditiveModel):
         return np.stack(probas, axis=1)
 
 
-def opposite_log_odd(values):
+def inverse_log_odd(values):
     exp_vals = np.exp(values)
     # logistic
     log_odds = 1 - (exp_vals / (1 + exp_vals))  # val --> p
