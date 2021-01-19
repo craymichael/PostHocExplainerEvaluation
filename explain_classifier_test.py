@@ -293,6 +293,9 @@ X_trunc = X[sample_idxs]
 
 contribs = model.feature_contributions(X_trunc)
 
+if task == 'regression':
+    contribs = [contribs]
+
 # if 1:
 #     explainer_name = 'SHAP'
 #     explainer = KernelSHAPExplainer(model, task=task, seed=seed,
@@ -424,7 +427,6 @@ for explainer_name, explainer in (
 
 
     if task == 'regression':
-        contribs = [contribs]
         explanation = [explanation]
     else:
         assert len(explanation) == len(contribs)
