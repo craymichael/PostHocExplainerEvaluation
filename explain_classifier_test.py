@@ -523,6 +523,7 @@ for expl_i, (explainer_name, explainer) in enumerate(explainer_array):
 
             for true_contrib_ik, pred_contrib_ik, xik in zip(
                     true_contrib_i, pred_contrib_i, xi):
+                print(pred_contrib_ik, true_contrib_ik)
                 true_row_i = true_row.copy()
                 if scale_y is not None and y.ndim == 1:
                     true_contrib_ik = scale_y(
@@ -534,6 +535,9 @@ for expl_i, (explainer_name, explainer) in enumerate(explainer_array):
                     pred_contrib_ik = scale_y(
                         y_scaler.inverse_transform, pred_contrib_ik)
                 pred_row_i['contribution'] = pred_contrib_ik
+
+                print(pred_contrib_ik, true_contrib_ik)
+                print()
 
                 if len(all_feats) == 1:
                     pred_row_i['feature value'] = xik[0]
