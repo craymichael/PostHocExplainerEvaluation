@@ -468,6 +468,10 @@ for expl_i, (explainer_name, explainer) in enumerate(explainer_array):
         for ((true_feats, pred_feats),
              (true_contrib_i, pred_contrib_i)) in matches.items():
 
+            # TODO: blegh
+            true_contrib_is_zero = (true_contrib_i == 0.).all()
+            pred_contrib_is_zero = (pred_contrib_i == 0.).all()
+
             all_feats = [*{*chain(chain.from_iterable(true_feats),
                                   chain.from_iterable(pred_feats))}]
 
@@ -536,18 +540,22 @@ for expl_i, (explainer_name, explainer) in enumerate(explainer_array):
                 pred_row_i['contribution'] = pred_contrib_ik
 
                 if len(all_feats) == 1:
-                    pred_row_i['feature value'] = xik[0]
-                    rows.append(pred_row_i)
+                    if not pred_contrib_is_zero:
+                        pred_row_i['feature value'] = xik[0]
+                        rows.append(pred_row_i)
 
-                    if (expl_i + 1) == len(explainer_array):
+                    if (not true_contrib_is_zero and
+                            (expl_i + 1) == len(explainer_array)):
                         true_row_i['feature value'] = xik[0]
                         rows.append(true_row_i)
                 else:  # interaction == 2
-                    pred_row_i['feature value x'] = xik[0]
-                    pred_row_i['feature value y'] = xik[1]
-                    rows_3d.append(pred_row_i)
+                    if not pred_contrib_is_zero:
+                        pred_row_i['feature value x'] = xik[0]
+                        pred_row_i['feature value y'] = xik[1]
+                        rows_3d.append(pred_row_i)
 
-                    if (expl_i + 1) == len(explainer_array):
+                    if (not true_contrib_is_zero and
+                            (expl_i + 1) == len(explainer_array)):
                         true_row_i['feature value x'] = xik[0]
                         true_row_i['feature value y'] = xik[1]
                         rows_3d.append(true_row_i)
