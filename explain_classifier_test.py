@@ -122,10 +122,13 @@ y = np.asarray(y)
 
 
 def scale_y(y_scaler_func, y):
-    if y.ndim < 2:
+    shape_orig = y.shape
+    if y.ndim == 1:
         y = y[:, np.newaxis]
+    elif y.ndim == 0:
+        y = y[np.newaxis, np.newaxis]
     y = y_scaler_func(y)
-    y = y.squeeze(axis=1)
+    y = y.reshape(shape_orig)
     return y
 
 
