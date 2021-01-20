@@ -125,7 +125,12 @@ class BaseGAM(AdditiveModel):
 
                     intercepts.append(e_i.coef_[-1])
                 else:
-                    effect_symbols = [self.symbols[i] for i in term.feature]
+                    if isinstance(term.feature, list):
+                        effect_symbols = [self.symbols[i]
+                                          for i in term.feature]
+                    else:
+                        effect_symbols = [self.symbols[term.feature]]
+
                     effect = standardize_effect(effect_symbols)
                     contribs_i[effect] = e_i.partial_dependence(i, X)
 
