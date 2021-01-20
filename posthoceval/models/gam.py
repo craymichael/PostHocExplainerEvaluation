@@ -49,7 +49,7 @@ class BaseGAM(AdditiveModel):
         self.fit_with_gridsearch = kwargs.pop('fit_with_gridsearch', False)
 
         self._estimator_kwargs = kwargs
-        self.__estimator = None
+        self._estimator_ = None
 
         # TODO: re-abstract AdditiveModel...this is quite sloppy
         # for compatibility
@@ -72,9 +72,9 @@ class BaseGAM(AdditiveModel):
 
     @property
     def _estimator(self):
-        return (self.__estimator
-                if isinstance(self.__estimator, (list, tuple)) else
-                (self.__estimator,))
+        return (self._estimator_
+                if isinstance(self._estimator_, (list, tuple)) else
+                (self._estimator_,))
 
     def __call__(self, X, backend=None):
         if backend is not None:
@@ -187,7 +187,7 @@ class MultiClassLogisticGAM(BaseGAM):
 
     def fit(self, X, y, weights=None):
         y = self._standardize_y(y)
-        self.__estimator = [LogisticGAM(**self._estimator_kwargs)
+        self._estimator_ = [LogisticGAM(**self._estimator_kwargs)
                             for _ in range(self._n_classes)]
 
         return super().fit(X, y, weights=weights)
@@ -202,10 +202,10 @@ class MultiClassLogisticGAM(BaseGAM):
         assert self._is_fitted
 
         if self._n_classes == 1:
-            return self.__estimator[0].predict_proba(X)
+            return self._estimator_[0].predict_proba(X)
 
         probas = []
-        for i, estimator in enumerate(self.__estimator):
+        for i, estimator in enumerate(self._estimator_):
             # get probability at 1 (not 0)
             p_i = estimator.predict_proba(X)[:, 1]
             probas.append(p_i)
@@ -229,9 +229,9 @@ class LinearGAM(BaseGAM):
         return False
 
     def call(self, X):
-        return self.__estimator.predict(X)
+        return self._estimator_.predict(X)
 
     def fit(self, X, y, weights=None):
-        self.__estimator = _LinearGAM(**self._estimator_kwargs)
+        self._estimator_ = _LinearGAM(**self._estimator_kwargs)
 
         return super().fit(X, y, weights=weights)
