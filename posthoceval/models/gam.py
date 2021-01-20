@@ -224,6 +224,9 @@ def inverse_log_odd(values):
 
 class LinearGAM(BaseGAM):
 
+    def __init__(self, symbols, symbol_names=None, **kwargs):
+        super().__init__(symbols, symbol_names=symbol_names, **kwargs)
+
     @property
     def is_classifier(self):
         return False
