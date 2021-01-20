@@ -333,6 +333,8 @@ for expl_i, (explainer_name, explainer) in enumerate((
         explanation, y_expl = explainer.feature_contributions(
             X_trunc, as_dict=True, return_y=True)
     else:
+        # TODO(SHAP) predictions don't include expected value for final
+        #  predictions...
         explanation = explainer.feature_contributions(X_trunc, as_dict=True)
 
     nrmse_func = metrics.nrmse_interquartile
@@ -389,7 +391,8 @@ for expl_i, (explainer_name, explainer) in enumerate((
             plt.show()
 
 
-    def apply_matching(matching, true_expl, pred_expl, n_explained):
+    def apply_matching(matching, true_expl, pred_expl, n_explained,
+                       explainer_name):
         matches = {}
         for match_true, match_pred in matching:
             if match_true:
@@ -403,7 +406,7 @@ for expl_i, (explainer_name, explainer) in enumerate((
                 #  same sample mean that the explainer saw before)
                 contribs_pred = sum(
                     [pred_expl[effect] for effect in match_pred],
-                    start=contribs_true_mean
+                    start=contribs_true_mean if explainer_name == 'SHAP' else 0
                 )
             else:
                 contribs_pred = np.zeros(n_explained)
@@ -440,7 +443,8 @@ for expl_i, (explainer_name, explainer) in enumerate((
         e_true_i = standardize_contributions(e_true_i)
         e_pred_i = standardize_contributions(e_pred_i)
         components, goodness = generous_eval(e_true_i, e_pred_i)
-        matches = apply_matching(components, e_true_i, e_pred_i, len(X_trunc))
+        matches = apply_matching(components, e_true_i, e_pred_i, len(X_trunc),
+                                 explainer_name)
         print(matches)
 
         true_func_idx = pred_func_idx = 1
