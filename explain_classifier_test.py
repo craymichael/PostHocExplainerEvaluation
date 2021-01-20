@@ -336,6 +336,7 @@ for expl_i, (explainer_name, explainer) in enumerate((
         # TODO(SHAP) predictions don't include expected value for final
         #  predictions...
         explanation = explainer.feature_contributions(X_trunc, as_dict=True)
+        intercepts = explainer.expected_value_
 
     nrmse_func = metrics.nrmse_interquartile
     # nrmse_func = metrics.nrmse_range
@@ -445,7 +446,7 @@ for expl_i, (explainer_name, explainer) in enumerate((
         components, goodness = generous_eval(e_true_i, e_pred_i)
         matches = apply_matching(components, e_true_i, e_pred_i, len(X_trunc),
                                  explainer_name)
-        print(matches)
+        # print(matches)
 
         true_func_idx = pred_func_idx = 1
         for ((true_feats, pred_feats),
