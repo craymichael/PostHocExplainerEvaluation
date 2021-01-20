@@ -119,7 +119,7 @@ else:
 X = np.asarray(X)
 y = np.asarray(y)
 
-if 0:  # TODO:
+if 1:  # TODO:
     scaler = StandardScaler()
     X = scaler.fit_transform(X)
 
