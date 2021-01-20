@@ -166,8 +166,8 @@ start_interact_order = 0
 n_main = X.shape[1]
 n_interact_max = 0 or len(desired_interactions)
 
-# model_type = 'gam'
-model_type = 'dnn'
+model_type = 'gam'
+# model_type = 'dnn'
 
 n_units = 64
 activation = 'relu'
@@ -280,8 +280,9 @@ if model_type == 'dnn':
 
 elif model_type == 'gam':
 
+    terms = sum(terms[1:], terms[0])
+
     if task == 'classification':
-        terms = sum(terms[1:], terms[0])
         model = MultiClassLogisticGAM(
             symbols=symbols, terms=terms, max_iter=100, verbose=True
         )
