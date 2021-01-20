@@ -44,7 +44,7 @@ class LogisticGAM(_LogisticGAM):
         return np.stack([1 - probas, probas], axis=1)
 
 
-class BaseGAM(AdditiveModel, metaclass=abc.ABCMeta):
+class BaseGAM(AdditiveModel):
     def __init__(self, symbols, symbol_names=None, **kwargs):
         self.fit_with_gridsearch = kwargs.pop('fit_with_gridsearch', False)
 
@@ -223,9 +223,6 @@ def inverse_log_odd(values):
 
 
 class LinearGAM(BaseGAM):
-
-    def __init__(self, symbols, symbol_names=None, **kwargs):
-        super().__init__(symbols, symbol_names=symbol_names, **kwargs)
 
     @property
     def is_classifier(self):
