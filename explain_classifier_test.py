@@ -120,17 +120,24 @@ else:
 X = np.asarray(X)
 y = np.asarray(y)
 
+
+def scale_y(y_scaler_func, y):
+    if y.ndim < 2:
+        y = y[:, np.newaxis]
+    y = y_scaler_func(y)
+    y = y.squeeze(axis=1)
+    return y
+
+
+scaler = None
+y_scaler = None
 if 1:  # TODO:
     scaler = StandardScaler()
     X = scaler.fit_transform(X)
 
-    y_scaler = None
     if task == 'regression':
         y_scaler = StandardScaler()
-        if y.ndim < 2:
-            y = y[:, np.newaxis]
-        y = y_scaler.fit_transform(y)
-        y = y.squeeze(axis=1)
+        y = scale_y(y_scaler.fit_transform, y)
 
 desired_interactions = []
 
@@ -316,15 +323,17 @@ if task == 'regression':
 rows = []
 rows_3d = []
 
-for expl_i, (explainer_name, explainer) in enumerate((
-        ('LIME',
-         LIMEExplainer(model, seed=seed, task=task)),
-        ('MAPLE',
-         MAPLEExplainer(model, seed=seed, task=task)),
-        ('SHAP',
-         KernelSHAPExplainer(model, task=task, seed=seed,
-                             n_cpus=1 if model_type == 'dnn' else -1)),
-)):
+explainer_array = (
+    ('LIME',
+     LIMEExplainer(model, seed=seed, task=task)),
+    ('MAPLE',
+     MAPLEExplainer(model, seed=seed, task=task)),
+    ('SHAP',
+     KernelSHAPExplainer(model, task=task, seed=seed,
+                         n_cpus=1 if model_type == 'dnn' else -1)),
+)
+
+for expl_i, (explainer_name, explainer) in enumerate(explainer_array):
     print('Start explainer', explainer_name)
 
     explainer.fit(X)  # fit full X
@@ -459,21 +468,18 @@ for expl_i, (explainer_name, explainer) in enumerate((
             all_feats = [*{*chain(chain.from_iterable(true_feats),
                                   chain.from_iterable(pred_feats))}]
 
-            # TODO non-logit...
-            contribution = pred_contrib_i + true_contrib_i.mean()
-
             f_idxs = [model.symbols.index(fi) for fi in all_feats]
 
             feature_str = ' & '.join(map(str, (headers[fi] for fi in f_idxs)))
 
             match_str = (
-                    feature_str  # + '\n' +
-                    # TODO: depression
-                    # 'True: ' +
-                    # make_tex_str(true_feats, true_func_idx, False) +
-                    # ' | Predicted: ' +
-                    # ' vs. ' +
-                    # make_tex_str(pred_feats, pred_func_idx, True)
+                feature_str  # + '\n' +
+                # TODO: depression
+                # 'True: ' +
+                # make_tex_str(true_feats, true_func_idx, False) +
+                # ' | Predicted: ' +
+                # ' vs. ' +
+                # make_tex_str(pred_feats, pred_func_idx, True)
             )
             true_func_idx += len(true_feats)
             pred_func_idx += len(pred_feats)
@@ -496,34 +502,41 @@ for expl_i, (explainer_name, explainer) in enumerate((
                     f'with order > 2 true_feats {true_feats} | pred_feats '
                     f'{pred_feats}')
                 continue
-            xi = X_trunc[:, f_idxs]
+            X_trunc_inverse = X_trunc
+            if scaler is not None:
+                X_trunc_inverse = scaler.inverse_transform(X_trunc_inverse)
+            xi = X_trunc_inverse[:, f_idxs]
             base = {
                 'class': i,
                 'true_effect': true_feats,
                 'pred_effect': pred_feats,
                 'Match': match_str,
             }
-            true_row = base.copy()  # TODO: true last...
+            true_row = base.copy()
             true_row['explainer'] = 'True'
 
             pred_row = base
-            pred_row['contribution'] = contribution
             pred_row['explainer'] = explainer_name
 
             for true_contrib_ik, pred_contrib_ik, xik in zip(
                     true_contrib_i, pred_contrib_i, xi):
                 true_row_i = true_row.copy()
+                if scale_y is not None and y.ndim == 1:
+                    true_contrib_ik = scale_y(
+                        y_scaler.inverse_transform, true_contrib_ik)
                 true_row_i['contribution'] = true_contrib_ik
 
                 pred_row_i = pred_row.copy()
+                if scale_y is not None and y.ndim == 1:
+                    pred_contrib_ik = scale_y(
+                        y_scaler.inverse_transform, pred_contrib_ik)
                 pred_row_i['contribution'] = pred_contrib_ik
 
                 if len(all_feats) == 1:
                     pred_row_i['feature value'] = xik[0]
                     rows.append(pred_row_i)
 
-                    # TODO: wow...(3 explainers total...)
-                    if (expl_i + 1) == 3:
+                    if (expl_i + 1) == len(explainer_array):
                         true_row_i['feature value'] = xik[0]
                         rows.append(true_row_i)
                 else:  # interaction == 2
@@ -531,8 +544,7 @@ for expl_i, (explainer_name, explainer) in enumerate((
                     pred_row_i['feature value y'] = xik[1]
                     rows_3d.append(pred_row_i)
 
-                    # TODO: wow...(3 explainers total...)
-                    if (expl_i + 1) == 3:
+                    if (expl_i + 1) == len(explainer_array):
                         true_row_i['feature value x'] = xik[0]
                         true_row_i['feature value y'] = xik[1]
                         rows_3d.append(true_row_i)
