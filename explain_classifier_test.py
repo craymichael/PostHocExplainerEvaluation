@@ -53,6 +53,7 @@ from posthoceval.explainers.local.shap import KernelSHAPExplainer
 from posthoceval.explainers.local.maple import MAPLEExplainer
 from posthoceval.explainers.local.lime import LIMEExplainer
 from posthoceval.models.gam import MultiClassLogisticGAM
+from posthoceval.models.gam import LinearGAM
 from posthoceval.models.gam import T
 from posthoceval.models.dnn import DNNRegressor
 from posthoceval.metrics import generous_eval
@@ -275,7 +276,10 @@ elif model_type == 'gam':
             symbols=symbols, terms=terms, max_iter=100, verbose=True
         )
     else:
-        raise NotImplementedError(task)
+        # raise NotImplementedError(task)
+        model = LinearGAM(
+            symbols=symbols, terms=terms, max_iter=100, verbose=True
+        )
 
 model.fit(X, y, **fit_kwargs)
 
