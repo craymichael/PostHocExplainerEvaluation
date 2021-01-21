@@ -53,6 +53,7 @@ from posthoceval.explainers.local.shap import KernelSHAPExplainer
 from posthoceval.explainers.local.maple import MAPLEExplainer
 from posthoceval.explainers.local.lime import LIMEExplainer
 from posthoceval.models.gam import MultiClassLogisticGAM
+from posthoceval.models.gam import LinearGAM
 from posthoceval.models.gam import T
 from posthoceval.models.dnn import DNNRegressor
 from posthoceval.metrics import generous_eval
@@ -70,19 +71,43 @@ sns.set_theme(
     # palette=sns.color_palette('pastel'),
 )
 
-if 1:
+if 0:
     task = 'regression'
-    X = np.random.randn(1000, 4)
-    X[:, 3] = X[:, 2] * 2 - .5
-    y = (np.sin(X[:, 0] ** 3) + np.maximum(X[:, 1], 0)
-         - np.sin(X[:, 2]) / X[:, 2] + 2 * X[:, 3])
+
+    # import numpy
+    # X = np.random.rand(1000, 8) / 4
+    # x1, x2, x3, x4, x5, x6, x7, x8 = X.T
+    # y = x1**2 + x5**2 + x5*numpy.log(x1 + x2) + x7*numpy.select([numpy.greater(x2, numpy.sinc(x1/numpy.pi)),True], [numpy.asarray(x2**(-1.0)).astype(numpy.bool),numpy.asarray(numpy.sinc(x1/numpy.pi)**(-1.0)).astype(numpy.bool)], default=numpy.nan) + (x1*abs(x7) + x5)**3 + numpy.exp(x7) + numpy.exp((x1 + x2)/x5) + numpy.sin(numpy.log(x2))
+
+    # X = np.random.randn(1000, 4)
+    # x1, x2, x3, x4 = X.T
+    # x1 = np.abs(x1)
+    # x2 = np.abs(x2)
+    # y = x1 ** (1 / 4) + np.sqrt(x2) + np.exp(x3 / 2) + np.abs(x4) + np.tan(x4) / x1 ** 2
+
+    # X = np.random.randn(1000, 2)
+    # y = X[:, 0] ** 9 + np.tan(X[:, 1]) + np.abs(X[:, 0] / X[:, 1] ** 2)
+
+    # X = np.random.randn(1000, 400)
+    # y = np.exp(np.random.randn(len(X)))
+
+    # X[:, 1] = X[:, 0] / 2
+    # X[:, 2] = X[:, 1] + 1
+    # X[:, 3] = X[:, 2] * 2.6
+    # y = (np.sin(X[:, 0] ** 3) + np.maximum(X[:, 1], 0)
+    #     - np.sin(X[:, 2]) / X[:, 2] + 2 * X[:, 3])
+
+    headers = [*range(X.shape[1])]
 elif 1:
     task = 'regression'
     data_df = pd.read_csv('data/boston', delimiter=' ')
     label_col = 'MEDV'
 
-    X = data_df.drop(columns=label_col).values
+    X_df = data_df.drop(columns=label_col)
+    X = X_df.values
     y = data_df[label_col].values
+
+    headers = [*X_df.keys()]
 else:
     task = 'classification'
     # dataset = datasets.load_iris()
@@ -95,16 +120,27 @@ else:
 X = np.asarray(X)
 y = np.asarray(y)
 
-scaler = StandardScaler()
-X = scaler.fit_transform(X)
 
-y_scaler = None
-if task == 'regression':
-    y_scaler = StandardScaler()
-    if y.ndim < 2:
+def scale_y(y_scaler_func, y):
+    shape_orig = y.shape
+    if y.ndim == 1:
         y = y[:, np.newaxis]
-    y = y_scaler.fit_transform(y)
-    y = y.squeeze(axis=1)
+    elif y.ndim == 0:
+        y = y[np.newaxis, np.newaxis]
+    y = y_scaler_func(y)
+    y = y.reshape(shape_orig)
+    return y
+
+
+scaler = None
+y_scaler = None
+if 1:  # TODO:
+    scaler = StandardScaler()
+    X = scaler.fit_transform(X)
+
+    if task == 'regression':
+        y_scaler = StandardScaler()
+        y = scale_y(y_scaler.fit_transform, y)
 
 desired_interactions = []
 
@@ -120,6 +156,8 @@ desired_interactions = []
 
 # desired_interactions = [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9), (10, 11, 12)]
 # desired_interactions = [(0, 1, 2, 3), (4, 5), (6, 7), (8, 9), (10, 11, 12)]
+# desired_interactions = [(0, 1, 2, 3), (4, 5), (6, 7), (8, 9), (10, 11, 12),
+#                         (220, 101)]
 
 max_order = 2
 start_interact_order = 0
@@ -128,12 +166,14 @@ start_interact_order = 0
 n_main = X.shape[1]
 n_interact_max = 0 or len(desired_interactions)
 
-model_type = 'dnn'
+model_type = 'gam'
+# model_type = 'dnn'
+
 n_units = 64
 activation = 'relu'
 
 if model_type == 'dnn':
-    callback = EarlyStopping(monitor='loss', mode='min', patience=10,
+    callback = EarlyStopping(monitor='loss', mode='min', patience=100,
                              restore_best_weights=True)
     optimizer = Adam(learning_rate=1e-3)
     fit_kwargs = {'epochs': 1000, 'batch_size': len(X),
@@ -216,6 +256,9 @@ if not terms:
 symbols = [*range(1, X.shape[1] + 1)]
 if model_type == 'dnn':
 
+    # TODO..
+    assert task == 'regression'
+
     x = Input([X.shape[1]])
 
     outputs = []
@@ -238,9 +281,16 @@ if model_type == 'dnn':
 elif model_type == 'gam':
 
     terms = sum(terms[1:], terms[0])
-    model = MultiClassLogisticGAM(
-        symbols=symbols, terms=terms, max_iter=100, verbose=True
-    )
+
+    if task == 'classification':
+        model = MultiClassLogisticGAM(
+            symbols=symbols, terms=terms, max_iter=100, verbose=True
+        )
+    else:
+        # raise NotImplementedError(task)
+        model = LinearGAM(
+            symbols=symbols, terms=terms, max_iter=100, verbose=True
+        )
 
 model.fit(X, y, **fit_kwargs)
 
@@ -248,8 +298,11 @@ if model_type == 'dnn':
     model.plot_model(nonexistent_filename('dnn.png'),
                      show_shapes=True)
 
-explain_only_this_many = 101
+explain_only_this_many = 512
+# explain_only_this_many = 101
+# explain_only_this_many = 12
 # explain_only_this_many = len(X)
+explain_only_this_many = min(explain_only_this_many, len(X))
 sample_idxs_all = np.arange(len(X))
 sample_idxs = rng_np.choice(sample_idxs_all,
                             size=explain_only_this_many, replace=False)
@@ -257,210 +310,256 @@ X_trunc = X[sample_idxs]
 
 contribs = model.feature_contributions(X_trunc)
 
-if 1:
-    explainer_name = 'SHAP'
-    explainer = KernelSHAPExplainer(model, task=task, seed=seed,
-                                    n_cpus=1 if model_type == 'dnn' else -1)
-elif 0:
-    explainer_name = 'LIME'
-    explainer = LIMEExplainer(model, seed=seed, task=task)
-else:
-    explainer_name = 'MAPLE'
-    explainer = MAPLEExplainer(model, seed=seed, task=task)
-
-explainer.fit(X)  # fit full X
-intercepts = None
-y_expl = None
-if explainer_name == 'LIME' or explainer_name == 'MAPLE':
-    explanation, intercepts = explainer.feature_contributions(
-        X_trunc, as_dict=True, return_intercepts=True)
-elif explainer_name == 'MAPLE':
-    explanation, y_expl = explainer.feature_contributions(
-        X_trunc, as_dict=True, return_y=True)
-else:
-    explanation = explainer.feature_contributions(X_trunc, as_dict=True)
-
-nrmse_func = metrics.nrmse_interquartile
-# nrmse_func = metrics.nrmse_range
-
 if task == 'regression':
-    y_pred = model(X)
-    contribs_full = model.feature_contributions(X)
+    contribs = [contribs]
 
-    print('GT vs. NN')
-    print(f' RMSE={metrics.rmse(y, y_pred)}')
-    print(f'NRMSE={nrmse_func(y, y_pred)}')
-
-    print('NN Out vs. NN Contribs')
-    y_contrib_pred = np.asarray([*contribs_full.values()]).sum(axis=0)
-    print(f' RMSE={metrics.rmse(y_pred, y_contrib_pred)}')
-    print(f'NRMSE={nrmse_func(y_pred, y_contrib_pred)}')
-
-    print('NN vs. Explainer')
-    y_pred_trunc = model(X_trunc)
-    if y_expl is None:
-        y_expl = np.asarray([*explanation.values()]).sum(axis=0)
-        if intercepts is not None:
-            y_expl += np.asarray(intercepts)
-    print(f' RMSE={metrics.rmse(y_pred_trunc, y_expl)}')
-    print(f'NRMSE={nrmse_func(y_pred_trunc, y_expl)}')
-
-    fig, ax = plt.subplots()
-    ax.scatter(sample_idxs_all,
-               y,
-               alpha=.65,
-               label='GT')
-    ax.scatter(sample_idxs_all,
-               # sample_idxs,
-               y_pred,
-               # y_pred_trunc,
-               alpha=.65,
-               label='NN')
-    ax.scatter(sample_idxs,
-               y_expl,
-               alpha=.65,
-               label='Explainer')
-    ax.set_xlabel('Sample idx')
-    ax.set_ylabel('Predicted value')
-    fig.legend()
-
-    if plt.get_backend() == 'agg':
-        fig.savefig(
-            nonexistent_filename(f'prediction_comparison_{model_type}.pdf'))
-    else:
-        plt.show()
-
-
-# TODO: make this func else where?
-def apply_matching(matching, true_expl, pred_expl, n_explained):
-    matches = {}
-    for match_true, match_pred in matching:
-        if match_true:
-            contribs_true = sum(
-                [true_expl[effect] for effect in match_true])
-            contribs_true_mean = np.mean(contribs_true)
-        else:
-            contribs_true = contribs_true_mean = np.zeros(n_explained)
-        if match_pred:
-            # add the mean back for these effects (this will be the
-            #  same sample mean that the explainer saw before)
-            contribs_pred = sum(
-                [pred_expl[effect] for effect in match_pred],
-                start=contribs_true_mean
-            )
-        else:
-            contribs_pred = np.zeros(n_explained)
-
-        match_key = (tuple(match_true), tuple(match_pred))
-        matches[match_key] = (contribs_true, contribs_pred)
-
-    return matches
-
-
-def make_tex_str(features, start_i, explained=False):
-    out_strs = []
-    for feats in features:
-        feats_str = ','.join(
-            f'x_{{{feat}}}' if isinstance(feat, int) else str(feat)
-            for feat in feats
-        )
-        if explained:
-            out_str = fr'\hat{{f}}_{{{start_i}}}({feats_str})'
-        else:
-            out_str = f'f_{{{start_i}}}({feats_str})'
-        out_strs.append(out_str)
-        start_i += 1
-    return '$' + ('+'.join(out_strs) or '0') + '$'
-
+# if 1:
+#     explainer_name = 'SHAP'
+#     explainer = KernelSHAPExplainer(model, task=task, seed=seed,
+#                                     n_cpus=1 if model_type == 'dnn' else -1)
+# elif 0:
+#     explainer_name = 'LIME'
+#     explainer = LIMEExplainer(model, seed=seed, task=task)
+# else:
+#     explainer_name = 'MAPLE'
+#     explainer = MAPLEExplainer(model, seed=seed, task=task)
 
 rows = []
 rows_3d = []
 
-if task == 'regression':
-    contribs = [contribs]
-    explanation = [explanation]
-else:
-    assert len(explanation) == len(contribs)
+explainer_array = (
+    ('LIME',
+     LIMEExplainer(model, seed=seed, task=task)),
+    ('MAPLE',
+     MAPLEExplainer(model, seed=seed, task=task)),
+    ('SHAP',
+     KernelSHAPExplainer(model, task=task, seed=seed,
+                         n_cpus=1 if model_type == 'dnn' else -1)),
+)
 
-for i, (e_true_i, e_pred_i) in enumerate(zip(contribs, explanation)):
-    # shed zero-elements
-    e_true_i = standardize_contributions(e_true_i)
-    e_pred_i = standardize_contributions(e_pred_i)
-    components, goodness = generous_eval(e_true_i, e_pred_i)
-    matches = apply_matching(components, e_true_i, e_pred_i, len(X_trunc))
+for expl_i, (explainer_name, explainer) in enumerate(explainer_array):
+    print('Start explainer', explainer_name)
 
-    true_func_idx = pred_func_idx = 1
-    for ((true_feats, pred_feats),
-         (true_contrib_i, pred_contrib_i)) in matches.items():
+    explainer.fit(X)  # fit full X
+    intercepts = None
+    y_expl = None
+    if explainer_name == 'LIME' or explainer_name == 'MAPLE':
+        explanation, intercepts = explainer.feature_contributions(
+            X_trunc, as_dict=True, return_intercepts=True)
+    elif explainer_name == 'MAPLE':
+        explanation, y_expl = explainer.feature_contributions(
+            X_trunc, as_dict=True, return_y=True)
+    else:
+        # TODO(SHAP) predictions don't include expected value for final
+        #  predictions...
+        explanation = explainer.feature_contributions(X_trunc, as_dict=True)
+        intercepts = explainer.expected_value_
 
-        all_feats = [*{*chain(chain.from_iterable(true_feats),
-                              chain.from_iterable(pred_feats))}]
+    nrmse_func = metrics.nrmse_interquartile
+    # nrmse_func = metrics.nrmse_range
 
-        # TODO non-logit...
-        contribution = pred_contrib_i + true_contrib_i.mean()
+    if task == 'regression':
+        y_pred = model(X)
+        contribs_full = model.feature_contributions(X)
 
-        match_str = (
-            # 'True: ' +
-                make_tex_str(true_feats, true_func_idx, False) +
+        print('GT vs. NN')
+        print(f' RMSE={metrics.rmse(y, y_pred)}')
+        print(f'NRMSE={nrmse_func(y, y_pred)}')
+
+        print('NN Out vs. NN Contribs')
+        y_contrib_pred = np.asarray([*contribs_full.values()]).sum(axis=0)
+        print(f' RMSE={metrics.rmse(y_pred, y_contrib_pred)}')
+        print(f'NRMSE={nrmse_func(y_pred, y_contrib_pred)}')
+
+        print('NN vs. Explainer')
+        y_pred_trunc = model(X_trunc)
+        if y_expl is None:
+            y_expl = np.asarray([*explanation.values()]).sum(axis=0)
+            if intercepts is not None:
+                y_expl += np.asarray(intercepts)
+        print(f' RMSE={metrics.rmse(y_pred_trunc, y_expl)}')
+        print(f'NRMSE={nrmse_func(y_pred_trunc, y_expl)}')
+
+        fig, ax = plt.subplots()
+        ax.scatter(sample_idxs_all,
+                   y,
+                   alpha=.65,
+                   label='GT')
+        ax.scatter(sample_idxs_all,
+                   # sample_idxs,
+                   y_pred,
+                   # y_pred_trunc,
+                   alpha=.65,
+                   label='NN')
+        ax.scatter(sample_idxs,
+                   y_expl,
+                   alpha=.65,
+                   label='Explainer')
+        ax.set_xlabel('Sample idx')
+        ax.set_ylabel('Predicted value')
+        fig.legend()
+
+        if plt.get_backend() == 'agg':
+            fig.savefig(
+                nonexistent_filename(
+                    f'prediction_comparison_{model_type}_{explainer_name}.pdf'
+                )
+            )
+        else:
+            plt.show()
+
+
+    def apply_matching(matching, true_expl, pred_expl, n_explained,
+                       explainer_name):
+        matches = {}
+        for match_true, match_pred in matching:
+            if match_true:
+                contribs_true = sum(
+                    [true_expl[effect] for effect in match_true])
+                contribs_true_mean = np.mean(contribs_true)
+            else:
+                contribs_true = contribs_true_mean = np.zeros(n_explained)
+            if match_pred:
+                # add the mean back for these effects (this will be the
+                #  same sample mean that the explainer saw before)
+                contribs_pred = sum(
+                    [pred_expl[effect] for effect in match_pred],
+                    start=contribs_true_mean if explainer_name == 'SHAP' else 0
+                )
+            else:
+                contribs_pred = np.zeros(n_explained)
+
+            match_key = (tuple(match_true), tuple(match_pred))
+            matches[match_key] = (contribs_true, contribs_pred)
+
+        return matches
+
+
+    def make_tex_str(features, start_i, explained=False):
+        out_strs = []
+        for feats in features:
+            feats_str = ','.join(
+                f'x_{{{feat}}}' if isinstance(feat, int) else str(feat)
+                for feat in feats
+            )
+            if explained:
+                out_str = fr'\hat{{f}}_{{{start_i}}}({feats_str})'
+            else:
+                out_str = f'f_{{{start_i}}}({feats_str})'
+            out_strs.append(out_str)
+            start_i += 1
+        return '$' + ('+'.join(out_strs) or '0') + '$'
+
+
+    if task == 'regression':
+        explanation = [explanation]
+    else:
+        assert len(explanation) == len(contribs)
+
+    for i, (e_true_i, e_pred_i) in enumerate(zip(contribs, explanation)):
+        # shed zero-elements
+        e_true_i = standardize_contributions(e_true_i)
+        e_pred_i = standardize_contributions(e_pred_i)
+        components, goodness = generous_eval(e_true_i, e_pred_i)
+        matches = apply_matching(components, e_true_i, e_pred_i, len(X_trunc),
+                                 explainer_name)
+        # print(matches)
+
+        true_func_idx = pred_func_idx = 1
+        for ((true_feats, pred_feats),
+             (true_contrib_i, pred_contrib_i)) in matches.items():
+
+            # TODO: blegh
+            true_contrib_is_zero = (true_contrib_i == 0.).all()
+            pred_contrib_is_zero = (pred_contrib_i == 0.).all()
+
+            all_feats = [*{*chain(chain.from_iterable(true_feats),
+                                  chain.from_iterable(pred_feats))}]
+
+            f_idxs = [model.symbols.index(fi) for fi in all_feats]
+
+            feature_str = ' & '.join(map(str, (headers[fi] for fi in f_idxs)))
+
+            match_str = (
+                feature_str  # + '\n' +
+                # TODO: depression
+                # 'True: ' +
+                # make_tex_str(true_feats, true_func_idx, False) +
                 # ' | Predicted: ' +
-                ' vs. ' +
-                make_tex_str(pred_feats, pred_func_idx, True)
-        )
-        true_func_idx += len(true_feats)
-        pred_func_idx += len(pred_feats)
+                # ' vs. ' +
+                # make_tex_str(pred_feats, pred_func_idx, True)
+            )
+            true_func_idx += len(true_feats)
+            pred_func_idx += len(pred_feats)
 
-        print(match_str, ' RMSE', metrics.rmse(true_contrib_i, pred_contrib_i))
-        nrmse_score = nrmse_func(true_contrib_i, pred_contrib_i)
-        print(match_str, 'NRMSE', nrmse_score)
-        print()
+            print(match_str, ' RMSE',
+                  metrics.rmse(true_contrib_i, pred_contrib_i))
+            nrmse_score = nrmse_func(true_contrib_i, pred_contrib_i)
+            print(match_str, 'NRMSE', nrmse_score)
+            print()
 
-        # pretty format score
-        match_str += ('\nNRMSE = ' + (f'{nrmse_score:.3f}'
-                                      if (1e-3 < nrmse_score < 1e3) else
-                                      f'{nrmse_score:.3}'))
+            # pretty format score
+            # TODO: sad times we have here
+            # match_str += ('\nNRMSE = ' + (f'{nrmse_score:.3f}'
+            #                               if (1e-3 < nrmse_score < 1e3) else
+            #                               f'{nrmse_score:.3}'))
 
-        if len(all_feats) > 2:
-            print(f'skipping match with {all_feats} for now as is interaction '
-                  f'with order > 2 true_feats {true_feats} | pred_feats '
-                  f'{pred_feats}')
-            continue
-        f_idxs = [model.symbols.index(fi) for fi in all_feats]
-        xi = X_trunc[:, f_idxs]
-        base = {
-            'class': i,
-            'true_effect': true_feats,
-            'pred_effect': pred_feats,
-            'Match': match_str,
-        }
-        true_row = base.copy()
-        true_row['explainer'] = 'True'
+            if len(all_feats) > 2:
+                print(
+                    f'skipping match with {all_feats} for now as is interaction '
+                    f'with order > 2 true_feats {true_feats} | pred_feats '
+                    f'{pred_feats}')
+                continue
+            X_trunc_inverse = X_trunc
+            if scaler is not None:
+                X_trunc_inverse = scaler.inverse_transform(X_trunc_inverse)
+            xi = X_trunc_inverse[:, f_idxs]
+            base = {
+                'class': i,
+                'true_effect': true_feats,
+                'pred_effect': pred_feats,
+                'Match': match_str,
+            }
+            true_row = base.copy()
+            true_row['explainer'] = 'True'
 
-        pred_row = base
-        pred_row['contribution'] = contribution
-        pred_row['explainer'] = explainer_name
+            pred_row = base
+            pred_row['explainer'] = explainer_name
 
-        for true_contrib_ik, pred_contrib_ik, xik in zip(
-                true_contrib_i, pred_contrib_i, xi):
-            true_row_i = true_row.copy()
-            true_row_i['contribution'] = true_contrib_ik
+            for true_contrib_ik, pred_contrib_ik, xik in zip(
+                    true_contrib_i, pred_contrib_i, xi):
+                true_row_i = true_row.copy()
+                if scale_y is not None and y.ndim == 1:
+                    true_contrib_ik = float(scale_y(
+                        y_scaler.inverse_transform, true_contrib_ik))
+                true_row_i['contribution'] = true_contrib_ik
 
-            pred_row_i = pred_row.copy()
-            pred_row_i['contribution'] = pred_contrib_ik
+                pred_row_i = pred_row.copy()
+                if scale_y is not None and y.ndim == 1:
+                    pred_contrib_ik = float(scale_y(
+                        y_scaler.inverse_transform, pred_contrib_ik))
+                pred_row_i['contribution'] = pred_contrib_ik
 
-            if len(all_feats) == 1:
-                true_row_i['feature value'] = xik[0]
-                rows.append(true_row_i)
+                if len(all_feats) == 1:
+                    if not pred_contrib_is_zero:
+                        pred_row_i['feature value'] = xik[0]
+                        rows.append(pred_row_i)
 
-                pred_row_i['feature value'] = xik[0]
-                rows.append(pred_row_i)
-            else:  # interaction == 2
-                true_row_i['feature value x'] = xik[0]
-                true_row_i['feature value y'] = xik[1]
-                rows_3d.append(true_row_i)
+                    if (not true_contrib_is_zero and
+                            (expl_i + 1) == len(explainer_array)):
+                        true_row_i['feature value'] = xik[0]
+                        rows.append(true_row_i)
+                else:  # interaction == 2
+                    if not pred_contrib_is_zero:
+                        pred_row_i['feature value x'] = xik[0]
+                        pred_row_i['feature value y'] = xik[1]
+                        rows_3d.append(pred_row_i)
 
-                pred_row_i['feature value x'] = xik[0]
-                pred_row_i['feature value y'] = xik[1]
-                rows_3d.append(pred_row_i)
+                    if (not true_contrib_is_zero and
+                            (expl_i + 1) == len(explainer_array)):
+                        true_row_i['feature value x'] = xik[0]
+                        true_row_i['feature value y'] = xik[1]
+                        rows_3d.append(true_row_i)
 
 df = pd.DataFrame(rows)
 
@@ -523,13 +622,11 @@ if not df_3d.empty:
         if i == 0:
             fig.legend(loc='center right')
 
-    # fig.legend()
+if not df.empty:
+    g.savefig(nonexistent_filename(f'contributions_grid_{model_type}.pdf'))
+if not df_3d.empty:
+    fig.savefig(nonexistent_filename(
+        f'contributions_grid_interact_{model_type}.pdf'))
 
-if plt.get_backend() == 'agg':
-    if not df.empty:
-        g.savefig(nonexistent_filename(f'contributions_grid_{model_type}.pdf'))
-    if not df_3d.empty:
-        fig.savefig(nonexistent_filename(
-            f'contributions_grid_interact_{model_type}.pdf'))
-else:
+if plt.get_backend() != 'agg':
     plt.show()
