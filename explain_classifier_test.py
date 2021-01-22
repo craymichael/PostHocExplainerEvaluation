@@ -362,16 +362,17 @@ for expl_i, (explainer_name, explainer) in enumerate(explainer_array):
         y_pred = model(X)
         contribs_full = model.feature_contributions(X)
 
-        print('GT vs. NN')
+        print(f'GT vs. {model_type}')
         print(f' RMSE={metrics.rmse(y, y_pred)}')
         print(f'NRMSE={nrmse_func(y, y_pred)}')
 
-        print('NN Out vs. NN Contribs')
+        # This should be 0
+        print(f'{model_type} Out vs. {model_type} Contribs')
         y_contrib_pred = np.asarray([*contribs_full.values()]).sum(axis=0)
         print(f' RMSE={metrics.rmse(y_pred, y_contrib_pred)}')
         print(f'NRMSE={nrmse_func(y_pred, y_contrib_pred)}')
 
-        print('NN vs. Explainer')
+        print(f'{model_type} vs. Explainer')
         y_pred_trunc = model(X_trunc)
         if y_expl is None:
             y_expl = np.asarray([*explanation.values()]).sum(axis=0)
@@ -390,7 +391,7 @@ for expl_i, (explainer_name, explainer) in enumerate(explainer_array):
                    y_pred,
                    # y_pred_trunc,
                    alpha=.65,
-                   label='NN')
+                   label=f'{model_type}')
         ax.scatter(sample_idxs,
                    y_expl,
                    alpha=.65,
