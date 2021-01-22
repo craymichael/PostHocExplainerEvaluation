@@ -66,7 +66,7 @@ sns.set_theme(
     context='paper',
     # context='notebook',
     style='ticks',
-    font_scale=1.5,
+    font_scale=2.25,
     color_codes=True,
     # palette=sns.color_palette('pastel'),
 )
@@ -476,7 +476,6 @@ for expl_i, (explainer_name, explainer) in enumerate(explainer_array):
 
             all_feats = [*{*chain(chain.from_iterable(true_feats),
                                   chain.from_iterable(pred_feats))}]
-
             f_idxs = [model.symbols.index(fi) for fi in all_feats]
 
             feature_str = ' & '.join(map(str, (headers[fi] for fi in f_idxs)))
