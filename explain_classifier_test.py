@@ -394,7 +394,10 @@ explainer_array = (
 for expl_i, (explainer_name, explainer) in enumerate(explainer_array):
     print('Start explainer', explainer_name)
 
-    explainer.fit(X)  # fit full X
+    if explainer_name == 'SHAP':  # TODO!!
+        explainer.fit(X, **expl_fit_kwargs)  # fit full X
+    else:
+        explainer.fit(X)  # fit full X
     intercepts = None
     y_expl = None
     # TODO: unify this ish
@@ -405,8 +408,7 @@ for expl_i, (explainer_name, explainer) in enumerate(explainer_array):
         explanation, y_expl = explainer.feature_contributions(
             X_trunc, as_dict=True, return_y=True)
     elif explainer_name == 'SHAP':
-        explanation = explainer.feature_contributions(X_trunc, as_dict=True,
-                                                      **expl_fit_kwargs)
+        explanation = explainer.feature_contributions(X_trunc, as_dict=True)
         intercepts = explainer.expected_value_
     else:
         raise NotImplementedError
