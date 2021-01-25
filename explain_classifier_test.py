@@ -355,10 +355,6 @@ if categorical_cols is not None:
     categories = scaler.named_transformers_['cat'].categories_
 
     groups = [[i] for i in range(len(numerical_cols))]
-    groups.extend(
-        [*range(len(cat))]
-        for cat in categories
-    )
 
     start = len(groups)
 
