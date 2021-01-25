@@ -110,7 +110,7 @@ class BaseGAM(AdditiveModel):
         else:
             estimator.fit(X, y, weights=weights)
 
-    def feature_contributions(self, X, **kwargs):
+    def feature_contributions(self, X, return_intercepts=False, **kwargs):
         if kwargs:
             warnings.warn(f'Ignoring all kwargs {kwargs} - these are N/A '
                           f'here.')
@@ -146,9 +146,13 @@ class BaseGAM(AdditiveModel):
                     for effect, pd in contribs_1.items()
                 }
                 contribs = [contribs_0, contribs_1]
+                intercepts = intercepts * 2
             else:
                 contribs = contribs[0]
+                intercepts = intercepts[0]
 
+        if return_intercepts:
+            return contribs, intercepts
         return contribs
 
     def predict(self, X):

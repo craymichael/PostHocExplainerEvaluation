@@ -341,9 +341,9 @@ if model_type == 'dnn':
     model.plot_model(nonexistent_filename('dnn.png'),
                      show_shapes=True)
 
-# explain_only_this_many = 512
+explain_only_this_many = 512
 # explain_only_this_many = 101
-explain_only_this_many = 12
+# explain_only_this_many = 12
 # explain_only_this_many = len(X)
 explain_only_this_many = min(explain_only_this_many, len(X))
 sample_idxs_all = np.arange(len(X))
@@ -423,7 +423,14 @@ for expl_i, (explainer_name, explainer) in enumerate(explainer_array):
 
     if task == 'regression':
         y_pred = model(X)
-        contribs_full = model.feature_contributions(X)
+
+        # TODO: unify
+        model_intercepts = 0
+        if model_type == 'gam':
+            contribs_full, model_intercepts = model.feature_contributions(
+                X, return_intercepts=True)
+        else:
+            contribs_full = model.feature_contributions(X)
 
         print(f'GT vs. {model_type}')
         print(f' RMSE={metrics.rmse(y, y_pred)}')
@@ -432,6 +439,7 @@ for expl_i, (explainer_name, explainer) in enumerate(explainer_array):
         # This should be 0
         print(f'{model_type} Out vs. {model_type} Contribs')
         y_contrib_pred = np.asarray([*contribs_full.values()]).sum(axis=0)
+        y_contrib_pred += model_intercepts
         print(f' RMSE={metrics.rmse(y_pred, y_contrib_pred)}')
         print(f'NRMSE={nrmse_func(y_pred, y_contrib_pred)}')
 
@@ -645,6 +653,9 @@ if not df.empty:
         alpha=.65,
         facet_kws=dict(sharex=False, sharey=False),
     )
+    for ax in g.axes.flat:
+        title = ax.get_title()
+        ax.set_title(title.split(' = ', 1)[1])
 
 # 3d interaction plot time TODO this is regression-only atm...
 df_3d = pd.DataFrame(rows_3d)
