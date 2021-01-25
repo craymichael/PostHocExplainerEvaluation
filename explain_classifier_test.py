@@ -133,11 +133,14 @@ elif 1:
     y = data_df[label_col].values
 
     # headers = [*X_df.keys()]
-    headers = numerical_cols
-    cat_feat_names = scaler.named_transformers_['cat'].get_feature_names()
-    for cat, names in zip(categorical_cols, cat_feat_names):
+    headers = [compas_meta[c]['name'] for c in numerical_cols]
+    categories = scaler.named_transformers_['cat'].categories_
+
+    for cat, names in zip(categorical_cols, categories):
+        cat = compas_meta[cat]['name']
         headers.extend(
-            cat + '_' + name.split('_', 1)[1] for name in names
+            cat + f' = {name}'
+            for name in names
         )
 elif 1:
     task = 'regression'
