@@ -376,6 +376,12 @@ if categorical_cols is not None:
     # TODO: these are both SHAP-only
     expl_init_kwargs = dict(categorical_names=category_map)
     expl_fit_kwargs = dict(group_names=group_names, groups=groups)
+
+    print('groups', groups)
+
+    print('group_names', group_names)
+
+    print('category_map', category_map)
 else:
     expl_init_kwargs = {}
     expl_fit_kwargs = {}
@@ -569,7 +575,8 @@ for expl_i, (explainer_name, explainer) in enumerate(explainer_array):
                     f'{pred_feats}')
                 continue
             X_trunc_inverse = X_trunc
-            if scaler is not None:
+            # TODO!!!inverse_transform
+            if scaler is not None and hasattr(scaler, 'inverse_transform'):
                 X_trunc_inverse = scaler.inverse_transform(X_trunc_inverse)
             xi = X_trunc_inverse[:, f_idxs]
             base = {
