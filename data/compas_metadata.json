@@ -1,54 +1,54 @@
 {
     "age": {
-        "categorial": false,
+        "categorical": false,
         "name": "Age"
     },
     "age_cat": {
-        "categorial": true,
+        "categorical": true,
         "name": "Age Group"
     },
     "c_charge_degree": {
-        "categorial": true,
+        "categorical": true,
         "name": "Charge Degree"
     },
     "decile_score": {
-        "categorial": false,
+        "categorical": false,
         "name": "COMPAS Score (Decile)"
     },
     "is_recid": {
-        "categorial": true,
+        "categorical": true,
         "name": "Recidivated"
     },
     "juv_fel_count": {
-        "categorial": true,
+        "categorical": true,
         "name": "Juvenile Crime Count (Felony)"
     },
     "juv_misd_count": {
-        "categorial": true,
+        "categorical": true,
         "name": "Juvenile Crime Count (Misdameanor)"
     },
     "juv_other_count": {
-        "categorial": false,
+        "categorical": false,
         "name": "Juvenile Crime Count (Other)"
     },
     "priors_count": {
-        "categorial": false,
+        "categorical": false,
         "name": "Priors Count"
     },
     "race": {
-        "categorial": true,
+        "categorical": true,
         "name": "Race"
     },
     "score_text": {
-        "categorial": true,
+        "categorical": true,
         "name": "COMPAS Score (Ternary)"
     },
     "sex": {
-        "categorial": true,
+        "categorical": true,
         "name": "Sex"
     },
     "two_year_recid": {
-        "categorial": true,
+        "categorical": true,
         "name": "Recidivated in Two Years"
     }
 }
