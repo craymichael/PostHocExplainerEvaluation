@@ -405,10 +405,6 @@ for expl_i, (explainer_name, explainer) in enumerate(explainer_array):
         explanation, y_expl = explainer.feature_contributions(
             X_trunc, as_dict=True, return_y=True)
     elif explainer_name == 'SHAP':
-        # TODO(SHAP) predictions don't include expected value for final
-        #  predictions...
-        if categorical_cols is not None:
-            raise NotImplementedError
         explanation = explainer.feature_contributions(X_trunc, as_dict=True,
                                                       **expl_fit_kwargs)
         intercepts = explainer.expected_value_
