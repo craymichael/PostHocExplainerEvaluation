@@ -132,7 +132,13 @@ elif 1:
     X = scaler.fit_transform(X_df)
     y = data_df[label_col].values
 
-    headers = [*X_df.keys()]
+    # headers = [*X_df.keys()]
+    headers = numerical_cols
+    cat_feat_names = scaler.named_transformers_['cat'].get_feature_names()
+    for cat, names in zip(categorical_cols, cat_feat_names):
+        headers.extend(
+            cat + '_' + name.split('_', 1)[1] for name in names
+        )
 elif 1:
     task = 'regression'
     data_df = pd.read_csv('data/boston', delimiter=' ')
@@ -372,12 +378,6 @@ if categorical_cols is not None:
     # TODO: these are both SHAP-only
     expl_init_kwargs = dict(categorical_names=category_map)
     expl_fit_kwargs = dict(group_names=group_names, groups=groups)
-
-    print('groups', groups)
-
-    print('group_names', group_names)
-
-    print('category_map', category_map)
 else:
     expl_init_kwargs = {}
     expl_fit_kwargs = {}
