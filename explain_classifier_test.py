@@ -71,6 +71,9 @@ sns.set_theme(
     # palette=sns.color_palette('pastel'),
 )
 
+scaler = None
+categorical_cols = None
+
 if 0:
     task = 'regression'
 
@@ -98,6 +101,122 @@ if 0:
     #     - np.sin(X[:, 2]) / X[:, 2] + 2 * X[:, 3])
 
     headers = [*range(X.shape[1])]
+elif 1:
+    import json
+
+    from sklearn.utils.validation import check_is_fitted
+    from sklearn.utils import _safe_indexing
+    from sklearn.preprocessing import FunctionTransformer
+    from sklearn.pipeline import _inverse_transform_one
+    from scipy import sparse
+    from joblib import Parallel, delayed
+
+
+    # https://github.com/scikit-learn/scikit-learn/pull/11639
+    def column_inverse_transform_hack(self, X):
+        """Apply inverse transform
+        All estimators in ``transformers`` must support ``column_inverse_transform_hack``.
+        Parameters
+        ----------
+        X: array-like, shape = [n_samples, n_transformed_features]
+            Data samples, where ``n_samples`` is the number of samples and
+            ``n_features`` is the number of features.
+        Returns
+        -------
+        Xt : array-like or DataFrame of shape [n_samples, n_features]
+        """
+        check_is_fitted(self)
+
+        if self._inverse_error:
+            raise ValueError("Unable to invert: {}".format(
+                self._inverse_error))
+
+        X_sels = (_safe_indexing(X, indicies, axis=1)
+                  for indicies in self._output_indices)
+        inv_transformers = []
+        get_weight = (self.transformer_weights or {}).get
+
+        for (name, trans, column), X_sel in zip(self.transformers_, X_sels):
+            if trans == 'passthrough':
+                trans = FunctionTransformer(
+                    validate=False, accept_sparse=True, check_inverse=False)
+            inv_transformers.append((trans, X_sel, get_weight(name)))
+
+        Xs = Parallel(n_jobs=self.n_jobs)(
+            delayed(_inverse_transform_one)(trans, X_sel, weight)
+            for trans, X_sel, weight in inv_transformers)
+
+        if hasattr(X, 'shape'):
+            n_samples = X.shape[0]
+        else:
+            n_samples = len(X)
+
+        if not Xs:
+            # All transformers are None
+            return np.zeros((n_samples, 0))
+
+        if self._X_is_sparse:
+            inverse_Xs = sparse.lil_matrix((n_samples,
+                                            self._n_features_in))
+            for indices, inverse_X in zip(self._input_indices, Xs):
+                inverse_Xs[:, indices] = inverse_X
+            return inverse_Xs.tocsr()
+
+        # numpy array
+        if self._X_row_index is None:
+            inverse_Xs = np.empty((n_samples, self._n_features_in))
+            for indices, inverse_X in zip(self._input_indices, Xs):
+                if sparse.issparse(inverse_X):
+                    inverse_X = inverse_X.toarray()
+                inverse_Xs[:, indices] = inverse_X
+            return inverse_Xs
+
+        # pandas dataframe and cannot be sparse
+        import pandas as pd
+        output_dfs = []
+        for indices, inverse_X in zip(self._input_indices, Xs):
+            cols = self._X_columns[indices]
+            dtype = self._X_dtypes[indices][0]
+            if not hasattr(inverse_X, "dtype"):
+                inverse_X = np.array(inverse_X)
+            output_dfs.append(
+                pd.DataFrame(inverse_X, columns=cols, dtype=dtype))
+
+        return pd.concat(output_dfs, axis=1)[self._X_columns]
+
+
+    from sklearn.compose import ColumnTransformer
+    from sklearn.preprocessing import OneHotEncoder
+
+    # monkey patch
+    ColumnTransformer.inverse_transform = column_inverse_transform_hack
+
+    task = 'regression'
+    data_df = pd.read_csv('data/compas_two_year_filtered.csv')
+
+    with open('data/compas_metadata.json', 'r') as f:
+        compas_meta = json.load(f)
+
+    label_col = 'decile_score'
+    X_df = data_df.drop(columns=[label_col, 'age_cat', 'score_text'])
+
+    numerical_cols = []
+    categorical_cols = []
+    for col in X_df:
+        if compas_meta[col]['categorical']:
+            categorical_cols.append(col)
+        else:
+            numerical_cols.append(col)
+
+    scaler = ColumnTransformer([
+        ('num', StandardScaler(), numerical_cols),
+        ('cat', OneHotEncoder(sparse=False), categorical_cols),
+    ])
+
+    X = scaler.fit_transform(X_df)
+    y = data_df[label_col].values
+
+    headers = [*X_df.keys()]
 elif 1:
     task = 'regression'
     data_df = pd.read_csv('data/boston', delimiter=' ')
@@ -132,15 +251,14 @@ def scale_y(y_scaler_func, y):
     return y
 
 
-scaler = None
-y_scaler = None
-if 1:  # TODO:
+if scaler is None:
     scaler = StandardScaler()
     X = scaler.fit_transform(X)
 
-    if task == 'regression':
-        y_scaler = StandardScaler()
-        y = scale_y(y_scaler.fit_transform, y)
+y_scaler = None
+if task == 'regression':
+    y_scaler = StandardScaler()
+    y = scale_y(y_scaler.fit_transform, y)
 
 desired_interactions = []
 
@@ -298,9 +416,9 @@ if model_type == 'dnn':
     model.plot_model(nonexistent_filename('dnn.png'),
                      show_shapes=True)
 
-explain_only_this_many = 512
+# explain_only_this_many = 512
 # explain_only_this_many = 101
-# explain_only_this_many = 12
+explain_only_this_many = 12
 # explain_only_this_many = len(X)
 explain_only_this_many = min(explain_only_this_many, len(X))
 sample_idxs_all = np.arange(len(X))
@@ -313,28 +431,48 @@ contribs = model.feature_contributions(X_trunc)
 if task == 'regression':
     contribs = [contribs]
 
-# if 1:
-#     explainer_name = 'SHAP'
-#     explainer = KernelSHAPExplainer(model, task=task, seed=seed,
-#                                     n_cpus=1 if model_type == 'dnn' else -1)
-# elif 0:
-#     explainer_name = 'LIME'
-#     explainer = LIMEExplainer(model, seed=seed, task=task)
-# else:
-#     explainer_name = 'MAPLE'
-#     explainer = MAPLEExplainer(model, seed=seed, task=task)
-
 rows = []
 rows_3d = []
 
+if categorical_cols is not None:
+
+    categories = scaler.named_transformers_['cat'].categories_
+
+    groups = [[i] for i in range(len(numerical_cols))]
+    groups.extend(
+        [*range(len(cat))]
+        for cat in categories
+    )
+
+    start = len(groups)
+
+    category_map = dict(zip(
+        range(start, start + len(categories)), categories
+    ))
+
+    for cat in categories:
+        end = start + len(cat)
+        groups.append([*range(start, end)])
+        start = end
+
+    group_names = numerical_cols + categorical_cols
+
+    # TODO: these are both SHAP-only
+    expl_init_kwargs = dict(categorical_names=category_map)
+    expl_fit_kwargs = dict(group_names=group_names, groups=groups)
+else:
+    expl_init_kwargs = {}
+    expl_fit_kwargs = {}
+
 explainer_array = (
-    ('LIME',
-     LIMEExplainer(model, seed=seed, task=task)),
-    ('MAPLE',
-     MAPLEExplainer(model, seed=seed, task=task)),
+    # ('LIME',
+    #  LIMEExplainer(model, seed=seed, task=task)),
+    # ('MAPLE',
+    #  MAPLEExplainer(model, seed=seed, task=task)),
     ('SHAP',
      KernelSHAPExplainer(model, task=task, seed=seed,
-                         n_cpus=1 if model_type == 'dnn' else -1)),
+                         n_cpus=1 if model_type == 'dnn' else -1,
+                         **expl_init_kwargs)),
 )
 
 for expl_i, (explainer_name, explainer) in enumerate(explainer_array):
@@ -343,17 +481,23 @@ for expl_i, (explainer_name, explainer) in enumerate(explainer_array):
     explainer.fit(X)  # fit full X
     intercepts = None
     y_expl = None
-    if explainer_name == 'LIME' or explainer_name == 'MAPLE':
+    # TODO: unify this ish
+    if explainer_name == 'LIME':
         explanation, intercepts = explainer.feature_contributions(
             X_trunc, as_dict=True, return_intercepts=True)
     elif explainer_name == 'MAPLE':
         explanation, y_expl = explainer.feature_contributions(
             X_trunc, as_dict=True, return_y=True)
-    else:
+    elif explainer_name == 'SHAP':
         # TODO(SHAP) predictions don't include expected value for final
         #  predictions...
-        explanation = explainer.feature_contributions(X_trunc, as_dict=True)
+        if categorical_cols is not None:
+            raise NotImplementedError
+        explanation = explainer.feature_contributions(X_trunc, as_dict=True,
+                                                      **expl_fit_kwargs)
         intercepts = explainer.expected_value_
+    else:
+        raise NotImplementedError
 
     nrmse_func = metrics.nrmse_interquartile
     # nrmse_func = metrics.nrmse_range

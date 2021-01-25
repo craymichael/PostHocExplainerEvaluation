@@ -50,7 +50,8 @@ class KernelSHAPExplainer(BaseExplainer):
                  task: str = 'regression',
                  link: Optional[str] = None,
                  seed: Optional[int] = None,
-                 verbose: Union[int, bool] = 1):
+                 verbose: Union[int, bool] = 1,
+                 **explainer_kwargs):
         """"""
         self.model = model
         self.n_background_samples = n_background_samples
@@ -85,20 +86,19 @@ class KernelSHAPExplainer(BaseExplainer):
                 'batch_size': None,
             } if use_ray else None,
             seed=seed,
+            **explainer_kwargs
         )
         # attributes set after fit
         self.expected_value_ = None
 
-    def fit(self, X, y=None):
-        fit_kwargs = {}
+    def fit(self, X, y=None, **fit_kwargs):
         if self.n_background_samples < len(X):
             if self.verbose > 1:
                 logger.info(f'Intending to summarize background data as '
                             f'n_samples > {self.n_background_samples}')
-            fit_kwargs.update(
-                summarise_background=True,
-                n_background_samples=self.n_background_samples,
-            )
+            fit_kwargs.setdefault('summarise_background', True)
+            fit_kwargs.setdefault('n_background_samples',
+                                  self.n_background_samples)
 
         if self.verbose > 0:
             logger.info('Fitting KernelSHAP')
