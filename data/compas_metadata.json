@@ -20,11 +20,11 @@
         "name": "Recidivated"
     },
     "juv_fel_count": {
-        "categorical": true,
+        "categorical": false,
         "name": "Juvenile Crime Count (Felony)"
     },
     "juv_misd_count": {
-        "categorical": true,
+        "categorical": false,
         "name": "Juvenile Crime Count (Misdameanor)"
     },
     "juv_other_count": {
