@@ -209,8 +209,8 @@ start_interact_order = 0
 n_main = X.shape[1]
 n_interact_max = 0 or len(desired_interactions)
 
-model_type = 'gam'
-# model_type = 'dnn'
+# model_type = 'gam'
+model_type = 'dnn'
 
 n_units = 64
 activation = 'relu'
