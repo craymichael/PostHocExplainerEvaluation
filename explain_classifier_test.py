@@ -330,7 +330,6 @@ elif model_type == 'gam':
             symbols=symbols, terms=terms, max_iter=100, verbose=True
         )
     else:
-        # raise NotImplementedError(task)
         model = LinearGAM(
             symbols=symbols, terms=terms, max_iter=100, verbose=True
         )
