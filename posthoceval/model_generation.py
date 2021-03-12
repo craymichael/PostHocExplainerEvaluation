@@ -4,6 +4,7 @@ import random
 import warnings
 from collections.abc import Callable
 from typing import Sequence
+from typing import Optional
 from typing import Dict
 from typing import Tuple
 from typing import Union
@@ -927,12 +928,18 @@ class AdditiveModel(object):
     @classmethod
     def from_expr(
             cls,
-            expr: sp.Expr,
-            symbols: Symbol1orMore,
+            expr: Union[sp.Expr, str],
+            symbols: Optional[Symbol1orMore] = None,
             backend=None,
     ):
         """Symbols needs to be ordered properly"""
         # Ensure expr symbols are a subset of symbols
+        if isinstance(expr, str):
+            expr = sp.parse_expr(expr)
+
+        if symbols is None:
+            symbols = sorted(expr.free_symbols, key=lambda x: x.name)
+
         symbols = (symbols,) if isinstance(symbols, sp.Symbol) else symbols
         missing_symbols = set(expr.free_symbols) - set(symbols)
         if missing_symbols:

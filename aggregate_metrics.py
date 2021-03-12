@@ -70,11 +70,13 @@ def compute_metrics(true_expl, pred_expl, n_explained, true_means):
     # per-effect metrics
     per_match_metrics = []
 
+    # TODO: no comment out these, maybe take in as parameter?
+    #  commented out for now as saves compute...
     for name, effect_wise_metric in (
-            ('strict_matching', metrics.strict_eval),
+            # ('strict_matching', metrics.strict_eval),
             ('generous_matching', metrics.generous_eval),
-            ('maybe_exact_matching',
-             partial(metrics.generous_eval, maybe_exact=True)),
+            # ('maybe_exact_matching',
+            #  partial(metrics.generous_eval, maybe_exact=True)),
     ):
         matching, goodness = effect_wise_metric(true_expl, pred_expl)
         matching_results = []
@@ -296,8 +298,9 @@ def clean_explanations(
 
 
 def load_explanation(expl_file: str, true_model: AdditiveModel):
+    # TODO: intercept loading...
     if not os.path.exists(expl_file):
-        raise IOError(f'{expl_file} does not exist!')
+        raise FileNotFoundError(f'{expl_file} does not exist!')
 
     expl_dict = np.load(expl_file)
 
