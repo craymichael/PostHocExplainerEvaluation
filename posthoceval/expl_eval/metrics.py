@@ -2,8 +2,6 @@
 metrics.py - A PostHocExplainerEvaluation file
 Copyright (C) 2021  Zach Carmichael
 """
-from typing import Iterable
-
 import warnings
 
 import numpy as np
@@ -33,16 +31,11 @@ def sensitivity_n(model, explain_func, X, n_subsets=100, max_feats=0.8,
     :param n_subsets:
     :return:
     """
-    if isinstance(n_subsets, Iterable):
-        pass
-    elif isinstance(n_subsets, int):
-        pass
-    else:
-        raise TypeError(f'`n_subsets` cannot be {type(n_subsets)}')
-
     assert X.ndim == 2, 'i lazy gimme 2 dims for X'
+
     n_feats = X.shape[1]
     feats = np.arange(n_feats)
+
     if n_points is None:
         n_points = min(32, n_feats)
     if n_samples is None:
