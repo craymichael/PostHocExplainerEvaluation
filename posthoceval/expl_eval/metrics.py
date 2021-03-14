@@ -6,12 +6,15 @@ import warnings
 
 import numpy as np
 from scipy.special import comb
+
+from tqdm.auto import tqdm
+
 from posthoceval.rand import select_n_combinations
 from posthoceval.rand import as_random_state
 
 
 def sensitivity_n(model, explain_func, X, n_subsets=100, max_feats=0.8,
-                  n_samples=None, n_points=None, seed=None):
+                  n_samples=None, n_points=None, seed=None, verbose=True):
     """
     Pros:
 
@@ -55,9 +58,14 @@ def sensitivity_n(model, explain_func, X, n_subsets=100, max_feats=0.8,
     # pearson corr coefs
     all_pccs = []
 
-    for n in all_n:
+    pbar_n = tqdm(all_n, desc='N', disable=not verbose, position=0)
+    for n in pbar_n:
+        pbar_n.set_description(f'N={n}')
+
         pccs = []
-        for x in X_eval:
+
+        pbar_x = tqdm(X_eval, desc='X', disable=not verbose, position=1)
+        for x in pbar_x:
             max_combs = comb(n_feats, n, exact=True)
             n_subsets_n = min(max_combs, n_subsets)
             combs = select_n_combinations(feats, n, n_subsets_n, seed=rs)
