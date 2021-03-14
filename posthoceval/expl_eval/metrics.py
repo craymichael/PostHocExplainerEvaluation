@@ -66,14 +66,20 @@ def sensitivity_n(model, explain_func, X, n_subsets=100, max_feats=0.8,
 
         pbar_x = tqdm(X_eval, desc='X', disable=not verbose, position=1)
         for x in pbar_x:
+            pbar_x.set_description('Select combinations')
+
             max_combs = comb(n_feats, n, exact=True)
             n_subsets_n = min(max_combs, n_subsets)
             combs = select_n_combinations(feats, n, n_subsets_n, seed=rs)
 
             # model output for sample
+            pbar_x.set_description('Call model')
+
             y = model(x[None, ...])
 
             # Create array of all perturbations of x
+            pbar_x.set_description('Permute x')
+
             all_x_s0s = np.repeat(x[None, :], len(combs), axis=0)
             # for i, feat_subset in enumerate(combs):
             #     all_x_s0s[i, [*feat_subset]] = 0
@@ -81,10 +87,14 @@ def sensitivity_n(model, explain_func, X, n_subsets=100, max_feats=0.8,
                       [*map(list, combs)]] = 0
 
             # explain samples and compute attribution sum
+            pbar_x.set_description('Explain')
+
             attribs = explain_func(all_x_s0s)
             attrib_sums = np.sum(attribs, axis=1)
 
             # compute model output for perturbed samples
+            pbar_x.set_description('Call model (permuted)')
+
             all_y_s0s = model(all_x_s0s)
             all_y_diffs = y - all_y_s0s
 
