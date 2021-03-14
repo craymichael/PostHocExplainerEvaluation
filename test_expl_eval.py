@@ -20,7 +20,8 @@ def test_sensitivity_n():
 
     print('Create and fit explainer')
     explainer = LIMEExplainer(
-        model
+        model,
+        num_samples=500,
     )
     explainer.fit(X)
 

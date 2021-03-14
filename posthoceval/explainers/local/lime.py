@@ -25,6 +25,7 @@ class LIMEExplainer(BaseExplainer):
                  model: AdditiveModel,
                  seed: Optional[int] = None,
                  task: str = 'regression',
+                 num_samples: int = 5000,
                  verbose: Union[int, bool] = 1):
         """"""
         self.model = model
@@ -35,6 +36,8 @@ class LIMEExplainer(BaseExplainer):
             raise NotImplementedError('Backend `interpret` does not have '
                                       'proper classification support....')
         self.task = task
+
+        self.num_samples = num_samples
 
         # will be initialized in fit
         self._explainer = None
@@ -54,7 +57,7 @@ class LIMEExplainer(BaseExplainer):
             random_state=self.seed,
             discretize_continuous=False,
             explain_kwargs={'num_features': X.shape[1],
-                            'num_samples': 5000}
+                            'num_samples': self.num_samples}
         )
 
         # used in un-normalizing contributions
