@@ -13,7 +13,7 @@ def test_sensitivity_n():
     print('Create model')
     model = AdditiveModel.from_expr(
         # '2 * x1 - x2 + x3 * x4 + x5 + x6 + x7 * x8'
-        '+'.join(f'x{i}' for i in range(1000))
+        '+'.join(f'x{i}' for i in range(512))
     )
     print('Generate data')
     X = np.random.rand(100, model.n_features)
