@@ -40,7 +40,7 @@ def select_n_combinations(values, k, n, seed=None):
     rs = as_random_state(seed)
 
     # check if many collisions may occur
-    if sqrt(n_combs) <= n:
+    if sqrt(n_combs) >= n:
         # not many collisions expected
         choice_idxs = set()
         idxs = np.arange(len(values))
