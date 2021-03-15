@@ -17,11 +17,17 @@ def sensitivity_n(model, explain_func, X, n_subsets=100, max_feats=0.8,
                   n_samples=None, n_points=None, seed=None, verbose=True):
     """
     Pros:
-
+    - can quantify the number of features attribution methods are capable of
+      identifying "correctly"
+    - objectively gives measure of goodness in terms of target variation, it
+      at least weeds out completely off attributions
     Cons:
     - only works on feature attributions, so no interactions or other types of
       explanations
-    -
+    - assumes a removed value is zero, not truly removed, 0 may not be best
+      choice
+    - assumes variation is linear with attribution, but attributions assume
+      local linearity, locality can be breached by setting features to 0
 
     Aggregated version of sensitivity-n
     Max score of 1, minimum score of -1 (validate this min...)
@@ -58,14 +64,20 @@ def sensitivity_n(model, explain_func, X, n_subsets=100, max_feats=0.8,
     # pearson corr coefs
     all_pccs = []
 
+    # gather all explanations
+    attribs = explain_func(X_eval)
+    y = model(X_eval)
+
     pbar_n = tqdm(all_n, desc='N', disable=not verbose, position=0)
     for n in pbar_n:
         pbar_n.set_description(f'N={n}')
 
         pccs = []
 
-        pbar_x = tqdm(X_eval, desc='X', disable=not verbose, position=1)
-        for x in pbar_x:
+        pbar_x = tqdm(zip(X_eval, y, attribs),
+                      desc='X', disable=not verbose, position=1)
+        for x_i, y_i, attrib_i in pbar_x:
+            # TODO: descriptions only here for debug - update less....
             pbar_x.set_description('Select combinations')
 
             max_combs = comb(n_feats, n, exact=True)
@@ -75,32 +87,30 @@ def sensitivity_n(model, explain_func, X, n_subsets=100, max_feats=0.8,
             # model output for sample
             pbar_x.set_description('Call model')
 
-            y = model(x[None, ...])
-
             # Create array of all perturbations of x
             pbar_x.set_description('Permute x')
 
-            all_x_s0s = np.repeat(x[None, :], len(combs), axis=0)
-            # for i, feat_subset in enumerate(combs):
-            #     all_x_s0s[i, [*feat_subset]] = 0
-            all_x_s0s[np.arange(len(combs))[:, None],
-                      [*map(list, combs)]] = 0
+            all_x_s0s = np.repeat(x_i[None, :], len(combs), axis=0)
+            idx_rows = np.arange(len(combs))[:, None]
+            idx_feats = np.asarray(combs)
+            all_x_s0s[idx_rows, idx_feats] = 0
 
             # explain samples and compute attribution sum
             pbar_x.set_description('Explain')
 
-            attribs = explain_func(all_x_s0s)
-            attrib_sums = np.sum(attribs, axis=1)
+            attrib_sum_subset = attrib_i[idx_feats.ravel()]
+            attrib_sum_subset = attrib_sum_subset.reshape(-1, n)
+            attrib_sum_subset = attrib_sum_subset.sum(axis=1)
 
             # compute model output for perturbed samples
             pbar_x.set_description('Call model (permuted)')
 
             all_y_s0s = model(all_x_s0s)
-            all_y_diffs = y - all_y_s0s
+            all_y_diffs = y_i - all_y_s0s
 
             # compute PCC
             pccs.append(
-                np.corrcoef(all_y_diffs, attrib_sums)
+                np.corrcoef(all_y_diffs, attrib_sum_subset)
             )
         # append average over all PCCs for this value of n
         mean_pcc = np.mean(pccs)

@@ -21,7 +21,6 @@ def test_sensitivity_n():
     print('Create and fit explainer')
     explainer = LIMEExplainer(
         model,
-        num_samples=500,
     )
     explainer.fit(X)
 
@@ -33,6 +32,7 @@ def test_sensitivity_n():
     )
 
     import matplotlib.pyplot as plt
+    print(ns, pccs)
     plt.scatter(ns, pccs)
     plt.xlabel('n')
     plt.ylabel('PCC')
