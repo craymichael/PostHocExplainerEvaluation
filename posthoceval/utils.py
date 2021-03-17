@@ -1,3 +1,4 @@
+import json
 from collections.abc import Sized
 from collections.abc import Iterable
 from typing import Sequence  # collections.abc Sequence no subscript until 3.9
@@ -27,6 +28,7 @@ import joblib
 
 import numpy as np
 import mpmath
+import sympy as sp
 
 if hasattr(math, 'prod'):  # available in 3.8+
     prod = math.prod
@@ -275,6 +277,8 @@ def atomic_write_exclusive(
             continue  # try again - race condition must've happened
         break
 
+    return filename
+
 
 def nonexistent_filename(filename):
     if not os.path.exists(filename):
@@ -385,3 +389,15 @@ def _safe_parse_tuple_generator(string_, verbose=False):
         prev_token = token
     assert tuple_closed, (f'failed to close an element with a {left}'
                           if left else 'missing ")" to close tuple')
+
+
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, sp.Symbol):
+            return obj.name
+        if is_int(obj):
+            return int(obj)
+        if is_float(obj):
+            return float(obj)
+        # Let the base class default method raise the TypeError
+        return json.JSONEncoder.default(self, obj)

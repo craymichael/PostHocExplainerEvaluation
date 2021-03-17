@@ -13,8 +13,9 @@ from posthoceval.rand import select_n_combinations
 from posthoceval.rand import as_random_state
 
 
-def sensitivity_n(model, explain_func, X, n_subsets=100, max_feats=0.8,
-                  n_samples=None, n_points=None, seed=None, verbose=True):
+def sensitivity_n(model, attribs, X, n_subsets=100, max_feats=0.8,
+                  n_samples=None, n_points=None, aggregate=True,
+                  seed=None, verbose=True):
     """
     Pros:
     - can quantify the number of features attribution methods are capable of
@@ -54,29 +55,30 @@ def sensitivity_n(model, explain_func, X, n_subsets=100, max_feats=0.8,
 
     X_eval = rs.choice(X, n_samples, replace=False)
 
-    # TODO: do model compute out here
-
-    # all_n = np.unique(np.round(
-    #     np.geomspace(1, n_feats * max_feats, n_points)).astype(int))
+    max_n = max(n_feats * max_feats, min(2, n_feats))
     all_n = np.unique(np.round(
-        np.linspace(1, n_feats * max_feats, n_points)).astype(int))
+        np.linspace(1, max_n, n_points)).astype(int))
 
     # pearson corr coefs
     all_pccs = []
 
     # gather all explanations
-    attribs = explain_func(X_eval)
+    if verbose:
+        tqdm.write('Calling model with evaluation data')
     y = model(X_eval)
 
     pbar_n = tqdm(all_n, desc='N', disable=not verbose, position=0)
+    pbar_x = tqdm(total=len(X_eval), desc='X', disable=not verbose, position=1)
+
     for n in pbar_n:
         pbar_n.set_description(f'N={n}')
 
         pccs = []
 
-        pbar_x = tqdm(zip(X_eval, y, attribs),
-                      desc='X', disable=not verbose, position=1)
-        for x_i, y_i, attrib_i in pbar_x:
+        pbar_x.reset()
+        for x_i, y_i, attrib_i in zip(X_eval, y, attribs):
+            pbar_x.update()
+
             # TODO: descriptions only here for debug - update less....
             pbar_x.set_description('Select combinations')
 
@@ -98,8 +100,7 @@ def sensitivity_n(model, explain_func, X, n_subsets=100, max_feats=0.8,
             # explain samples and compute attribution sum
             pbar_x.set_description('Explain')
 
-            attrib_sum_subset = attrib_i[idx_feats.ravel()]
-            attrib_sum_subset = attrib_sum_subset.reshape(-1, n)
+            attrib_sum_subset = attrib_i[idx_feats.ravel()].reshape(-1, n)
             attrib_sum_subset = attrib_sum_subset.sum(axis=1)
 
             # compute model output for perturbed samples
@@ -112,6 +113,7 @@ def sensitivity_n(model, explain_func, X, n_subsets=100, max_feats=0.8,
             pccs.append(
                 np.corrcoef(all_y_diffs, attrib_sum_subset)
             )
+        pbar_x.refresh()
         # append average over all PCCs for this value of n
         mean_pcc = np.mean(pccs)
         if mean_pcc < 0:
@@ -119,7 +121,12 @@ def sensitivity_n(model, explain_func, X, n_subsets=100, max_feats=0.8,
             # make user aware...
             warnings.warn(f'Negative PCC in sensitivity_n: {mean_pcc}')
         all_pccs.append(mean_pcc)
+    pbar_x.close()
 
-    # TODO: compute AUC of all_pccs
-
-    return all_n, all_pccs
+    if aggregate:  # AUC
+        if len(all_pccs) == 1:
+            return all_pccs[0]
+        # all_n[-1] is max, 1 is min
+        return np.trapz(x=all_n, y=all_pccs) / (all_n[-1] - 1)
+    else:
+        return all_n, all_pccs
