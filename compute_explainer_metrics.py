@@ -49,9 +49,17 @@ def compute_metrics(model, data, pred_expl, n_explained):
     for name, metric in (
             ('sensitivity-n', metrics.sensitivity_n),
     ):
-        ret = metric(
-            model, expl, data
-        )
+        try:
+            ret = metric(
+                model, expl, data
+            )
+        except FloatingPointError as e:
+            # this is caused by e.g. sensitivity-n with models that don't have
+            #  zero in input domain
+            if 'divide by zero' in e.args[0]:
+                continue
+            else:
+                raise
 
         results[name] = ret
 
