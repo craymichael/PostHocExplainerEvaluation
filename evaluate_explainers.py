@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 evaluate_explainers.py - A PostHocExplainerEvaluation file
 Copyright (C) 2020  Zach Carmichael

@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 aggregate_metrics.py - A PostHocExplainerEvaluation file
 Copyright (C) 2021  Zach Carmichael

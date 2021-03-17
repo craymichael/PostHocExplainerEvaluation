@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 aggregate_metrics.py - A PostHocExplainerEvaluation file
 Copyright (C) 2021  Zach Carmichael
@@ -33,8 +34,8 @@ def compute_metrics(model, data, pred_expl, n_explained):
     results = {}
 
     # ensure explanation is compatible with metric
-    assert all(len(s) == 1 and s in model.symbols
-               for s in pred_expl.keys())
+    assert all(len(s) == 1 and s[0] in model.symbols
+               for s in pred_expl.keys()), pred_expl.keys()
 
     # convert to ndarray
     expl_cols = []
@@ -65,7 +66,7 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False,
     expr_basename = os.path.basename(expr_filename).rsplit('.', 1)[0]
     os.makedirs(out_dir, exist_ok=True)
 
-    tqdm.write('Loading', expr_filename, '(this may take a while)')
+    tqdm.write(f'Loading {expr_filename}, (this may take a while)')
     with open(expr_filename, 'rb') as f:
         expr_data = pickle.load(f)
 
