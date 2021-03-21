@@ -48,6 +48,7 @@ def compute_metrics(model, data, pred_expl, n_explained):
 
     for name, metric in (
             ('sensitivity-n', metrics.sensitivity_n),
+            ('faithfulness_melis', metrics.faithfulness_melis),
     ):
         # try:
         ret = metric(
