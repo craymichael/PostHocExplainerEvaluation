@@ -2,8 +2,6 @@
 metrics.py - A PostHocExplainerEvaluation file
 Copyright (C) 2021  Zach Carmichael
 """
-import warnings
-
 import numpy as np
 from scipy.special import comb
 
@@ -71,8 +69,10 @@ def sensitivity_n(model, attribs, X, n_subsets=100, max_feats=0.8,
         tqdm.write('Calling model with evaluation data')
     y_eval = model(X_eval)
 
-    pbar_n = tqdm(enumerate(all_n), desc='N', disable=not verbose, position=0)
-    pbar_x = tqdm(total=len(X_eval), desc='X', disable=not verbose, position=1)
+    pbar_n = tqdm(enumerate(all_n), total=len(all_n),
+                  desc='N', disable=not verbose, position=0)
+    pbar_x = tqdm(total=len(X_eval), desc='X', disable=not verbose,
+                  position=1)
 
     bad_n = []
 
@@ -116,13 +116,14 @@ def sensitivity_n(model, attribs, X, n_subsets=100, max_feats=0.8,
             pbar_x.set_description('Call model (permuted)')
 
             all_y_s0s = model(all_x_s0s)
+            assert all_y_s0s.squeeze().ndim == 1
+
             invalid_mask = np.isnan(all_y_s0s) | np.isinf(all_y_s0s)
 
-            if len(invalid_mask):
-                if len(invalid_mask) >= (len(all_y_s0s) - 1):
-                    continue
-
+            if invalid_mask.any():
                 all_y_s0s = all_y_s0s[~invalid_mask]
+                if len(all_y_s0s) < 2:
+                    continue
                 attrib_sum_subset = attrib_sum_subset[~invalid_mask]
 
             all_y_diffs = y_i - all_y_s0s
@@ -135,6 +136,7 @@ def sensitivity_n(model, attribs, X, n_subsets=100, max_feats=0.8,
 
         if not len(pccs):
             bad_n.append(n_idx)
+            continue
 
         # append average over all PCCs for this value of n
         mean_pcc = np.mean(pccs)
