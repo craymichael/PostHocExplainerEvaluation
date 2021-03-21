@@ -273,6 +273,8 @@ def faithfulness_melis(model, attribs, X, ref_val=0, aggregate=None,
            31, pages 7775-7784. 2018.
            <https://papers.nips.cc/paper/8003-towards-robust-interpretability-with-self-explaining-neural-networks.pdf>`_
 
+       https://github.com/dmelis/robust_interpret/blob/master/robust_interpret/explainers.py#L292
+
     Args:
         model: callable model
         X (numpy.ndarray): data.
