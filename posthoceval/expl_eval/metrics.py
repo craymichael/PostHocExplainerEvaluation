@@ -359,6 +359,7 @@ def faithfulness_melis(model, attribs, X, ref_val=0, aggregate=None,
     pccs = []
     invalid_mask = np.isnan(prob_drops) | np.isinf(prob_drops)
     for row, mask, attribs_row in zip(prob_drops, invalid_mask, attribs):
+        mask = ~mask
         row = row[mask]
         if len(row) < 2:
             if not aggregate:

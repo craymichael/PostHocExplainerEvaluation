@@ -30,6 +30,15 @@ def test_sensitivity_n():
 
     print('Explaining')
     attribs = explainer.feature_contributions(X)
+    print(np.isnan(attribs).sum(), 'nan')
+
+    print('Faithfulness (Melis)')
+    print(faithfulness_melis(
+        model=model,
+        attribs=attribs,
+        X=X,
+        verbose=True,
+    ))
 
     print('Sensitivity N')
     ns, pccs = sensitivity_n(
@@ -39,13 +48,6 @@ def test_sensitivity_n():
         verbose=True,
         aggregate=False,
     )
-
-    print(faithfulness_melis(
-        model=model,
-        attribs=attribs,
-        X=X,
-        verbose=True,
-    ))
 
     import matplotlib.pyplot as plt
     print(ns, pccs)
