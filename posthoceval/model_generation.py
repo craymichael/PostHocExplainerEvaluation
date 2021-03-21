@@ -990,7 +990,21 @@ class AdditiveModel(object):
             backend = self.backend
         eval_func = symbolic_evaluate_func(self.expr, self.symbols,
                                            x=x, backend=backend)
-        return eval_func(*(x[:, i] for i in range(self.n_features)))
+        try:
+            return eval_func(*(x[:, i] for i in range(self.n_features)))
+        except FloatingPointError:
+
+            def safe_eval_func():
+                for x_i in x:
+                    x_i = x_i[None, ...]
+                    try:
+                        yield eval_func(*(x_i[:, i]
+                                          for i in range(self.n_features)))
+                    except FloatingPointError:
+                        # TODO: consider a multi-output AdditiveModel
+                        yield np.nan
+
+            return np.fromiter(safe_eval_func(), dtype=float)
 
     def make_effects_dict(self,
                           main_effects=True,
