@@ -49,17 +49,17 @@ def compute_metrics(model, data, pred_expl, n_explained):
     for name, metric in (
             ('sensitivity-n', metrics.sensitivity_n),
     ):
-        try:
-            ret = metric(
-                model, expl, data
-            )
-        except FloatingPointError as e:
-            # this is caused by e.g. sensitivity-n with models that don't have
-            #  zero in input domain
-            if 'divide by zero' in e.args[0]:
-                continue
-            else:
-                raise
+        # try:
+        ret = metric(
+            model, expl, data
+        )
+        # except FloatingPointError as e:
+        #     # this is caused by e.g. sensitivity-n with models that don't have
+        #     #  zero in input domain
+        #     if 'divide by zero' in e.args[0]:
+        #         continue
+        #     else:
+        #         raise
 
         results[name] = ret
 
@@ -95,6 +95,9 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False,
         assert len(explained) == len({*explained})
 
         def run_one(expl_id, expr_result: ExprResult):
+            # TODO: idk if this is necessary here or in main is ok
+            np.seterr('raise')  # never trust silent fp in metrics
+
             tqdm.write(f'\nBegin {expl_id}.')
             tqdm.write('Loading predicted explanation')
             pred_expl_file = os.path.join(explainer_path, f'{expl_id}.npz')
@@ -139,10 +142,9 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False,
             ) for expl_id in explained
         )
 
-        with tqdm_parallel(tqdm(desc=explainer, total=len(explained))):
+        with tqdm_parallel(tqdm(desc=explainer, total=len(explained))) as pbar:
             if n_jobs == 1 or debug:
-                # TODO: this doesn't update tqdm
-                results = [f(*a, **kw) for f, a, kw in jobs]
+                results = [f(*a, **kw) for f, a, kw in pbar(jobs)]
             else:
                 results = Parallel(n_jobs=n_jobs)(jobs)
 

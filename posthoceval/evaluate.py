@@ -206,7 +206,8 @@ def replace_unsupported_functions(expr):
 
 def symbolic_evaluate_func(expr, symbols, x=None, backend=None):
     if backend is None:
-        if len(symbols) >= 32:
+        # if len(symbols) >= 32:
+        if len(symbols) >= np.MAXDIMS:
             # See https://github.com/numpy/numpy/issues/4398
             # NPY_MAXARGS is set to 32, functions can not be lambdified using
             # numexpr

@@ -15,7 +15,7 @@ from posthoceval.rand import as_random_state
 
 def sensitivity_n(model, attribs, X, n_subsets=100, max_feats=0.8,
                   n_samples=None, n_points=None, aggregate=True,
-                  seed=None, verbose=True):
+                  seed=None, verbose=False):
     """
     Pros:
     - can quantify the number of features attribution methods are capable of
@@ -42,19 +42,23 @@ def sensitivity_n(model, attribs, X, n_subsets=100, max_feats=0.8,
     :return:
     """
     assert X.ndim == 2, 'i lazy gimme 2 dims for X'
+    assert len(X) == len(attribs)
 
     n_feats = X.shape[1]
     feats = np.arange(n_feats)
 
     if n_points is None:
-        n_points = min(32, n_feats)
+        n_points = min(16, n_feats)
     if n_samples is None:
         n_samples = min(1000, len(X))
 
     rs = as_random_state(seed)
 
-    X_eval = rs.choice(X, n_samples, replace=False)
+    sample_idxs = rs.choice(np.arange(len(X)), n_samples, replace=False)
+    X_eval = X[sample_idxs]
+    attribs_eval = attribs[sample_idxs]
 
+    # try to include at least two values of n
     max_n = max(n_feats * max_feats, min(2, n_feats))
     all_n = np.unique(np.round(
         np.linspace(1, max_n, n_points)).astype(int))
@@ -65,18 +69,20 @@ def sensitivity_n(model, attribs, X, n_subsets=100, max_feats=0.8,
     # gather all explanations
     if verbose:
         tqdm.write('Calling model with evaluation data')
-    y = model(X_eval)
+    y_eval = model(X_eval)
 
-    pbar_n = tqdm(all_n, desc='N', disable=not verbose, position=0)
+    pbar_n = tqdm(enumerate(all_n), desc='N', disable=not verbose, position=0)
     pbar_x = tqdm(total=len(X_eval), desc='X', disable=not verbose, position=1)
 
-    for n in pbar_n:
+    bad_n = []
+
+    for n_idx, n in pbar_n:
         pbar_n.set_description(f'N={n}')
 
         pccs = []
 
         pbar_x.reset()
-        for x_i, y_i, attrib_i in zip(X_eval, y, attribs):
+        for x_i, y_i, attrib_i in zip(X_eval, y_eval, attribs_eval):
             pbar_x.update()
 
             # TODO: descriptions only here for debug - update less....
@@ -84,6 +90,9 @@ def sensitivity_n(model, attribs, X, n_subsets=100, max_feats=0.8,
 
             max_combs = comb(n_feats, n, exact=True)
             n_subsets_n = min(max_combs, n_subsets)
+            # corr not defined for <2 points...
+            if n_subsets_n < 2:
+                continue
             combs = select_n_combinations(feats, n, n_subsets_n, seed=rs)
 
             # model output for sample
@@ -107,23 +116,37 @@ def sensitivity_n(model, attribs, X, n_subsets=100, max_feats=0.8,
             pbar_x.set_description('Call model (permuted)')
 
             all_y_s0s = model(all_x_s0s)
+            invalid_mask = np.isnan(all_y_s0s) | np.isinf(all_y_s0s)
+
+            if len(invalid_mask):
+                if len(invalid_mask) >= (len(all_y_s0s) - 1):
+                    continue
+
+                all_y_s0s = all_y_s0s[~invalid_mask]
+                attrib_sum_subset = attrib_sum_subset[~invalid_mask]
+
             all_y_diffs = y_i - all_y_s0s
 
             # compute PCC
             pccs.append(
-                np.corrcoef(all_y_diffs, attrib_sum_subset)
+                np.corrcoef(all_y_diffs, attrib_sum_subset)[0, 1]
             )
         pbar_x.refresh()
+
+        if not len(pccs):
+            bad_n.append(n_idx)
+
         # append average over all PCCs for this value of n
         mean_pcc = np.mean(pccs)
-        if mean_pcc < 0:
-            # probably not a problem just a shortcoming of method but let's
-            # make user aware...
-            warnings.warn(f'Negative PCC in sensitivity_n: {mean_pcc}')
         all_pccs.append(mean_pcc)
     pbar_x.close()
 
+    if len(bad_n):
+        all_n = np.delete(all_n, bad_n)
+
     if aggregate:  # AUC
+        if not len(all_pccs):
+            return np.nan
         if len(all_pccs) == 1:
             return all_pccs[0]
         # all_n[-1] is max, 1 is min

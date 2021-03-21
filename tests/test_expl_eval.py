@@ -16,19 +16,22 @@ def test_sensitivity_n():
         '+'.join(f'x{i}' for i in range(512))
     )
     print('Generate data')
-    X = np.random.rand(100, model.n_features)
+    X = np.random.rand(1000, model.n_features)
 
     print('Create and fit explainer')
     explainer = LIMEExplainer(
         model,
     )
     explainer.fit(X)
+    attribs = explainer.feature_contributions(X)
 
     print('Sensitivity N')
     ns, pccs = sensitivity_n(
         model=model,
-        explain_func=explainer.feature_contributions,
+        attribs=attribs,
         X=X,
+        verbose=True,
+        aggregate=False,
     )
 
     import matplotlib.pyplot as plt
@@ -36,7 +39,11 @@ def test_sensitivity_n():
     plt.scatter(ns, pccs)
     plt.xlabel('n')
     plt.ylabel('PCC')
-    plt.show()
+    if plt.get_backend() == 'agg':
+        print("plt.savefig('test_expl_eval.png')")
+        plt.savefig('test_expl_eval.png')
+    else:
+        plt.show()
 
 
 if __name__ == '__main__':
