@@ -10,6 +10,92 @@ from tqdm.auto import tqdm
 from posthoceval.rand import select_n_combinations
 from posthoceval.rand import as_random_state
 
+# Credit: http://www.asciify.net/ascii/show/9286
+FaItHfULnEsS = '''                ixzii:`
+               `MW@;`:*,
+               *x@#:*.`*.
+              .*`.``.+`.*
+              ,;`   `,*`i.
+              ,; ` ```*,.*
+              .i```````+`*`
+               *```````:i,;
+               i.`;*````+`+`
+               `*`;n``` :i,;
+                ;,.+.;.``+.*`
+                 *.*n,```,+`*
+                 :;`*.``,`i;::                          `.`
+                  *.,*`:i``*,*`       .:.     .;i;,`  .i+*+.
+            `.`   .+**:*,` `+:#:.` `,**i**i:;*+i;;i++*+i;ii+.
+           ,*i***iiz,*z;````i+z;i***i;;;;;iii*+z#+;;;;;:;*;ii
+          `*;;i*****#```````;@M:;;+#z+;;;;;;;znxnx*;;;ii*i;;*
+          :i;+nnnxnnxi``````n@@+:*nnnn;;;;;;;*##zzi;;iii;;;;*
+      `.:i*;;*nnnxxxnz*.``:n@@xx:;i**++++i;;;;;;;;;;;*;;;;;ii
+     `**ii;;;;;ii*+*i;ixxW@@@x*x;;i#nnnxnnn+;;;;;;;;;*;;;;;i:
+     .*;;;;;;;i+#+*;;;;*@@@Wni*x;;#xnnnnnnnni;;;;;;;ii;;;;;*.
+  `,;i;;;;;;;;+xxxx*;;;#z#+*iinn;;i#nnnnnnz+;;;;;;**i;;;;;;i:
+ ,+*i;;;;;;;;;;*+##i;+n#iiiiinn+;;;;;iiii;;;;;;;;i;;;;;;;;;;*.
+:+*+*;;;;*+++*;;;;i#nz*iiii;z#ni*i;;;i*ii*i;;;i**+;;;;;;+z+;;*.
+*;;;i++++i;:;i+++*n#*iiiii;z#z+;;i***i;;;;;iiii;;;i;;;;znnn+:;*
++::::;;;;::::::;::n*iiiii*n##z:::::;::::i++*;::::;*;;;*xnnnn;:+`
+;i:;++++*;::::::::##++*+zn+zz:::::::::;i*###;:::::i;;;zxnnnn;;*
+ :i;+##+*;::::::::;zzzzz##n*::::::::;++*i;;i++;:::i;;innnnnn;;*                 ,,
+  .*;;;;*;:::::::::;+znnz*;::::::::;+i:i:::;:;*i::i;;innxnxz;;*               `#+z.
+   .++;;z:::*::::::::::::::::::::::;;::n::;z:::;::i;;;nxnnx+;;*              ,#;:+,
+   ,#:::n;:;n:::::::::::::::::::::*i:::z*i*n::::::*;;;+nxxz;;;*`            :#;::#.
+  ,#z;;+x###x*::::::::::::::::::::izi##+ii*+#+::::*;;;;*#+;;;;i;           :#;:i:#`
+  #;in+,````.i#;:::::::::::::::::::n+.```` ``:#;::ii;;;;;;;;;;;*i    `.`  :+::n*:+
+ `#:#;````````,z;:::::::::::::::::#:``   ``  `,#::;*i;;;;;;i*;;;*:  :*ii++z::++;:+
+  ##;.;i,` `  `:#::::::::::::::::+;``    `.;:``*i::;ii;;;;;zx+;;ii :;`  `.#i+.+::+   ``
+  ,#,z+*#+`    `#;:::::::::::::::#```  ` iz+#z.,#:::;*;;;;ixx#;;ii.*```   .n, #::* +#zz`
+  i,#+xz;#:    `*i::::::::::::::;+      .z*x#*+`z:::;;i;;;*xx*;;i*+```    `*.`#:;i,+#;#,
+  *.zn#@i+*    `ii::::::::::::::i*``    ;#z#@iz.#::::;*;;;in+;;;;z,``     `;:`#:i;;iz;#z,
+  *.##Mniz,    `#;::::::::::::::;*```   ,z*Wn*+i*::::;*;;;;;;;;;;#``      `i:.+:*+*;##i;i
+  ;:.z#+zi``  `,#::::::::::::::::z``     *z++z,z:::::;*;;;;;;;;;#:``      ,+`:*:#z#+*z:i;
+  `+``:;.`` ` .+;:;::::::::::::::**``    `,i;,zi::::::*;;;;;;;*#n``      ,*` ;i:z*iz:z:+,
+   ,*` `    `.+i:;+:ii::::::::::::++.`  ```,+z;:::::::*;;;;;;inxz       ;i`  i;:nii;*+:#`
+    ,+,````.i#i:;#i:#;:::::::::::::i##+++###i::*::::::i;;;;;;zxx+     `#xnnnnM;:z:;;+:ii
+     .#z##zz*::;zi::z:::::::::::::::ii;;;;:::i+i;::;i:;*i;;;innx#   `;nz#+###x;;+*#:::#`
+      `#z+i;::izi::i#:::::::::::::::;*++***++*;:ii:;i::;ii;;+nnnx:,iz++#####+x;:iz;::+:
+        ;+::;##::::#;:::::::::::::::::;;;;;;::::;;;i::::;i;;+xnnxn#*i:;nxx#xMMi:+*::**
+        `*###i::::;#::::::::::::::::::::::::::::::;;:::::;i;*xnnn*;;;;;ii+*+:nz:;;:*M#
+       `+z*;:::::;#;:::::::::::::::::::::::::::::::::::::;i;;nxx#;;;;;;;;+i..nMz*+nMxM`
+       i*::::::::+*:i*::::::::::::;::::::::::::::::::::::;i;;i+*;;;;*#;;;+,..#M@@Wxxxxi
+       +;::::::;*+::i+::::::::::::::::;::::::::::::::::::;*;;;;;;;;;nx*;;#...iMW@@xxxxn
+       +::::::;++:::*+::::::::::;*znxxxxn+;:::::::::::::::ii;;;;;;;ixx*;;+...,MM#@xxxxM.
+       :#;::;*#*::::;i::::::::inWWWMMMMMWW#:::::::::::::::;i**;;;;;;nn;;;+;...nM##xxxxx*
+        ,+##n#;:::::::::::::;nWWMWMWMMWWWM+:::::::::::;:::::;;*;;;;;;;;;;;+...+M@@Mxxxx#
+            *;:::::::::::::+MWMMMMWWMn#*i;:::::::;i*++++*;:::;;i;;;;;;;;;;#...;MW#WxxMxi
+            *;:::::::::::;nWWMMMWMz*;::::::;::::;++++###++;:::;*;;;;;;;;;i*...,xMWxxn;
+            *;::::::::::;xWWWWWn*;::::::;*#z;:::i#+++#++#+;::::*;;;;;;;;;i*....zxxM*`
+            *;:::::::::;z*MWWzi:::::;*#zz+i::::::*++++++*;:::::ii;;;;;;;;i+....iMn,
+            *;::::::::;n*:nz;::::i#z#*;;:::::::::::;;:::::;ii;:;i**ii;;;;;#,...iz`
+            ii::::::::+izn*:::i#z+i::::::::::::::::::::::i+##+;:;:::*;;;i;*;.;+i.
+            ;+:::::::*:z;;::*nzi:::::::::::::::::::::::::i##++;:::::;**ii*i##i`
+            `z:::::::*`z;;*#;.i*i;:::::::::::::::::::::::;iii;:::::::;;;;;i*`
+             *i:::::*, .+#i`   `,i*i;:::::::::::::::::::::::::::::::;;i+zi.
+             `#:::::+             `zxz+*;;:::::::::::::::::::::;i*+#zxxxM`
+              ;*:::i:            `zMxxxxxnz#+**iiii;;iii***iiixxxxxxxxxxn
+               +;::+             #Mxxxxxxxxxn``..,,,,,,.``   +xxxxxxxxxx+
+               `+;:i            `MMMMMxxxxxMi                xxMMMMxxxxM:
+                .#+.             iMM#izMxxxM`                xMM#:zMMxxx`
+                 `*              `z*:inMxxMi                 ,#M;:xxMxMi
+                                `+i:*+znxx*                   `#:in##+;
+                               `+;:+i                         ,*:+:
+                               ;i,in.                         *;:z`
+                               .#i+*#+.                       #:;#
+                               `iMx+i;+i`                    .+:in:`   ,*,
+                              `n@@@@M;.:#:                   `#:#i+z+::@#@;
+                              i####@@@n*#@+                   ,#+*;:,izW##@;
+                              x##WW#######n                     :+z:.`.i###@.
+                              x##@@#######n                       `i#*,+####*
+                              +###########+                         `+W@####:
+                              `M#####xWWx*`                      `,,.i#####z
+                               .z@@W+`                          ,M@#@@###@x`
+                                 ``                             x#@W#####n`
+                                                                W#@@#####i
+                                                                n######@#`
+                                                                `+xWWn+.'''
+
 
 def sensitivity_n(model, attribs, X, n_subsets=100, max_feats=0.8,
                   n_samples=None, n_points=None, aggregate=True,
@@ -116,7 +202,17 @@ def sensitivity_n(model, attribs, X, n_subsets=100, max_feats=0.8,
             pbar_x.set_description('Call model (permuted)')
 
             all_y_s0s = model(all_x_s0s)
-            assert all_y_s0s.squeeze().ndim == 1
+            # Handle the cases where output may be multi-class
+            if all_y_s0s.ndim == 2:
+                n_class = all_y_s0s.shape[1]
+                if n_class == 1:
+                    all_y_s0s = all_y_s0s.squeeze(axis=1)
+                else:
+                    y_shape = np.shape(y_i)
+                    predicted_idx = np.argmax(y_i)
+
+                    y_i = y_i[predicted_idx]
+                    all_y_s0s = all_y_s0s[:, predicted_idx]
 
             invalid_mask = np.isnan(all_y_s0s) | np.isinf(all_y_s0s)
 
@@ -146,7 +242,7 @@ def sensitivity_n(model, attribs, X, n_subsets=100, max_feats=0.8,
     if len(bad_n):
         all_n = np.delete(all_n, bad_n)
 
-    if aggregate:  # AUC
+    if aggregate:  # AUC normalized to [-1,1]
         if not len(all_pccs):
             return np.nan
         if len(all_pccs) == 1:
@@ -155,3 +251,124 @@ def sensitivity_n(model, attribs, X, n_subsets=100, max_feats=0.8,
         return np.trapz(x=all_n, y=all_pccs) / (all_n[-1] - 1)
     else:
         return all_n, all_pccs
+
+
+def faithfulness_melis(model, attribs, X, ref_val=0, aggregate=None,
+                       drops_only=None, verbose=False):
+    """
+    TODO: ref_val=mean version of this, values computed from X
+
+    FaItHfULnEsS
+
+    Naming of this metric is adapted from paper and questionable
+    TODO- maybe rename this...
+
+    No NaN removal is performed unless aggregating to a scalar
+
+    References:
+        .. [#] `David Alvarez Melis and Tommi Jaakkola. Towards robust
+           interpretability with self-explaining neural networks. In S. Bengio,
+           H. Wallach, H. Larochelle, K. Grauman, N. Cesa-Bianchi, and R.
+           Garnett, editors, Advances in Neural Information Processing Systems
+           31, pages 7775-7784. 2018.
+           <https://papers.nips.cc/paper/8003-towards-robust-interpretability-with-self-explaining-neural-networks.pdf>`_
+
+    Args:
+        model: callable model
+        X (numpy.ndarray): data.
+        attribs (numpy.ndarray): attributions of features per sample of X
+        ref_val ((numpy.ndarray): array or scalar (default=0)
+    Returns:
+        float: correlation between attribute importance weights and
+            corresponding effect on classifier.
+    """
+    # TODO: note that this is pretty much identical to sensitivity-n with minor
+    #  changes, e.g., not taking mean of each feature corr, otherwise
+    #  sensitivity-n can really be thought of as a superseding function
+    if verbose:
+        print('"FaItHfULnEsS"')
+        print(FaItHfULnEsS)
+
+    if aggregate is None:  # nothing specified
+        if drops_only:  # no aggregation at all, return prob drops
+            aggregate = False
+        else:
+            # The default setting - take means of PCCs
+            aggregate = True
+            drops_only = False
+    elif aggregate:  # we will aggregate PCCs using mean
+        if drops_only:
+            raise ValueError('drops_only cannot be True if aggregate is True')
+        else:
+            drops_only = False
+    else:  # we will not fully aggregate
+        if drops_only is None:  # by default just return PCCs
+            drops_only = False
+        # otherwise we take mean or return prob drops according to drops_only
+
+    assert X.ndim == 2, 'i lazy gimme 2 dims for X'
+    assert len(X) == len(attribs)
+
+    n_feats = X.shape[1]
+    feats = np.arange(n_feats)
+
+    # make to array
+    ref_val_shape = np.shape(ref_val)
+    if not ref_val_shape:
+        ref_val = np.repeat(ref_val, n_feats)
+    else:
+        assert len(ref_val_shape) == 1 and ref_val_shape[0] == n_feats
+
+    # obtain model outputs
+    y = model(X)
+
+    # Handle the cases where output may be multi-class
+    predicted_idxs = None
+    if y.ndim == 2:
+        n_class = y.shape[1]
+        if n_class == 1:
+            y = y.squeeze(axis=1)
+        else:
+            predicted_idxs = np.argmax(y, axis=1)
+            y = y[predicted_idxs]
+
+    # probability drops per feature
+    prob_drops = []
+
+    for feat_idx in feats:
+
+        X_for_i = X.copy()
+        X_for_i[:, feat_idx] = ref_val[feat_idx]
+
+        y_for_i = model(X_for_i)
+
+        if predicted_idxs is not None:
+            y_for_i = y_for_i[:, predicted_idxs]
+
+        prob_drops.append(y - y_for_i)
+
+    # combine into N x d matrix of prob drops
+    prob_drops = np.stack(prob_drops, axis=1)
+
+    if drops_only:
+        return prob_drops
+
+    # compute PCCs
+    pccs = []
+    invalid_mask = np.isnan(prob_drops) | np.isinf(prob_drops)
+    for row, mask, attribs_row in zip(prob_drops, invalid_mask, attribs):
+        row = row[mask]
+        if len(row) < 2:
+            if not aggregate:
+                pccs.append(np.nan)
+        else:
+            pccs.append(
+                np.corrcoef(row, attribs_row[mask])[0, 1]
+            )
+
+    if aggregate:  # TODO: 2 type of non-agg and 1 type of overall agg
+        if not len(pccs):
+            return np.nan
+        return np.mean(pccs)
+    else:
+        return pccs

@@ -5,6 +5,7 @@ Copyright (C) 2021  Zach Carmichael
 import numpy as np
 
 from posthoceval.expl_eval.metrics import sensitivity_n
+from posthoceval.expl_eval.metrics import faithfulness_melis
 from posthoceval.explainers.local.lime import LIMEExplainer
 from posthoceval.model_generation import AdditiveModel
 
@@ -38,6 +39,13 @@ def test_sensitivity_n():
         verbose=True,
         aggregate=False,
     )
+
+    print(faithfulness_melis(
+        model=model,
+        attribs=attribs,
+        X=X,
+        verbose=True,
+    ))
 
     import matplotlib.pyplot as plt
     print(ns, pccs)
