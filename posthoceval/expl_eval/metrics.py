@@ -367,9 +367,13 @@ def faithfulness_melis(model, attribs, X, ref_val=0, aggregate=None,
             if not aggregate:
                 pccs.append(np.nan)
         else:
-            pccs.append(
-                np.corrcoef(row, attribs_row[mask])[0, 1]
-            )
+            try:
+                pccs.append(
+                    np.corrcoef(row, attribs_row[mask])[0, 1]
+                )
+            except FloatingPointError:  # TODO: same as above...
+                if not aggregate:
+                    pccs.append(np.nan)
 
     if aggregate:  # TODO: 2 type of non-agg and 1 type of overall agg
         if not len(pccs):
