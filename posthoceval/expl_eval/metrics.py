@@ -208,7 +208,6 @@ def sensitivity_n(model, attribs, X, n_subsets=100, max_feats=0.8,
                 if n_class == 1:
                     all_y_s0s = all_y_s0s.squeeze(axis=1)
                 else:
-                    y_shape = np.shape(y_i)
                     predicted_idx = np.argmax(y_i)
 
                     y_i = y_i[predicted_idx]
@@ -225,9 +224,12 @@ def sensitivity_n(model, attribs, X, n_subsets=100, max_feats=0.8,
             all_y_diffs = y_i - all_y_s0s
 
             # compute PCC
-            pccs.append(
-                np.corrcoef(all_y_diffs, attrib_sum_subset)[0, 1]
-            )
+            try:  # TODO: sloppy
+                pccs.append(
+                    np.corrcoef(all_y_diffs, attrib_sum_subset)[0, 1]
+                )
+            except FloatingPointError:
+                pass
         pbar_x.refresh()
 
         if not len(pccs):

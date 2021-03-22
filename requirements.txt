@@ -11,7 +11,7 @@ scikit-image
 interpret
 scikit-learn
 fastcache
-tqdm
+tqdm >= 4.56.2
 # https://github.com/NVIDIA/framework-determinism
 tensorflow-gpu >= 2.3.0
 graphviz
