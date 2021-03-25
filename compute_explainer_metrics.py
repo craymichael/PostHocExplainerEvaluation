@@ -53,7 +53,7 @@ def compute_metrics(model, data, pred_expl, n_explained, metric_names=None):
             ('sensitivity-n', metrics.sensitivity_n),
             ('faithfulness_melis', metrics.faithfulness_melis),
     ):
-        if metric_names and name not in metric_names:
+        if metric_names and name.lower() not in metric_names:
             continue
 
         # try:
@@ -94,7 +94,7 @@ def run(expr_filename, explainer_dir, data_dir, out_dir,
         # skip true contributions directory
         if (explainer == TRUE_CONTRIBS_NAME or
                 (explainer_names is not None and
-                 explainer not in explainer_names)):
+                 explainer.lower() not in explainer_names)):
             continue
 
         # skip files
