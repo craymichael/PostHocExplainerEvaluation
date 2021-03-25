@@ -30,7 +30,10 @@ from posthoceval.model_generation import AdditiveModel
 from posthoceval.results import ExprResult
 
 
-def compute_metrics(model, data, pred_expl, n_explained):
+def compute_metrics(model, data, pred_expl, n_explained, metric_names=None):
+    if metric_names is not None:
+        metric_names = [mn.lower() for mn in metric_names]
+
     results = {}
 
     # ensure explanation is compatible with metric
@@ -50,6 +53,9 @@ def compute_metrics(model, data, pred_expl, n_explained):
             ('sensitivity-n', metrics.sensitivity_n),
             ('faithfulness_melis', metrics.faithfulness_melis),
     ):
+        if metric_names and name not in metric_names:
+            continue
+
         # try:
         ret = metric(
             model, expl, data
@@ -67,8 +73,8 @@ def compute_metrics(model, data, pred_expl, n_explained):
     return results
 
 
-def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False,
-        n_jobs=1):
+def run(expr_filename, explainer_dir, data_dir, out_dir,
+        explainer_names=None, metric_names=None, debug=False, n_jobs=1):
     """"""
     np.seterr('raise')  # never trust silent fp in metrics
 
@@ -81,9 +87,14 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False,
 
     all_results = []
 
+    if explainer_names is not None:
+        explainer_names = [en.lower() for en in explainer_names]
+
     for explainer in os.listdir(explainer_dir):
         # skip true contributions directory
-        if explainer == TRUE_CONTRIBS_NAME:
+        if (explainer == TRUE_CONTRIBS_NAME or
+                (explainer_names is not None and
+                 explainer not in explainer_names)):
             continue
 
         # skip files
@@ -124,7 +135,8 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False,
                 return None
 
             tqdm.write('Begin computing metrics.')
-            results = compute_metrics(model, data, pred_expl, n_explained)
+            results = compute_metrics(model, data, pred_expl, n_explained,
+                                      metric_names=metric_names)
             results['model_kwargs'] = expr_result.kwargs
             results['all_symbols'] = expr_result.symbols
             results['expl_id'] = expl_id
@@ -201,6 +213,14 @@ if __name__ == '__main__':
             help='Output directory to save metrics'
         )
         parser.add_argument(
+            '--explainers', '-X', default=None, nargs='+',
+            help='The explainers to evaluate (evaluate all if not provided)'
+        )
+        parser.add_argument(
+            '--metrics', '-M', default=None, nargs='+',
+            help='The metrics to evaluate (evaluate all if not provided)'
+        )
+        parser.add_argument(
             '--n-jobs', '-j', default=-1, type=int,
             help='Number of jobs to use in generation'
         )
@@ -243,6 +263,8 @@ if __name__ == '__main__':
             explainer_dir=explainer_dir,
             data_dir=data_dir,
             n_jobs=args.n_jobs,
+            explainer_names=args.explainers,
+            metric_names=args.metrics,
             debug=args.debug)
 
 

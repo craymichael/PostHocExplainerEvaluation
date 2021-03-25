@@ -349,6 +349,11 @@ def faithfulness_melis(model, attribs, X, ref_val=0, aggregate=None,
         if predicted_idxs is not None:
             y_for_i = y_for_i[:, predicted_idxs]
 
+        print(y)
+        print(y_for_i)
+        print('y', np.isnan(y).sum(), np.isinf(y).sum())
+        print('y_for_i', np.isnan(y_for_i).sum(), np.isinf(y_for_i).sum())
+
         prob_drops.append(y - y_for_i)
 
     # combine into N x d matrix of prob drops
