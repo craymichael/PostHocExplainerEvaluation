@@ -157,7 +157,10 @@ def run(expr_filename, explainer_dir, data_dir, out_dir,
 
         with tqdm_parallel(tqdm(desc=explainer, total=len(explained))) as pbar:
             if n_jobs == 1 or debug:
-                results = [f(*a, **kw) for f, a, kw in pbar(jobs)]
+                results = []
+                for f, a, kw in jobs:
+                    results.append(f(*a, **kw))
+                    pbar.update()
             else:
                 results = Parallel(n_jobs=n_jobs)(jobs)
 
