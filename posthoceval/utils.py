@@ -301,6 +301,15 @@ def nonexistent_filename(filename):
 
 
 @contextmanager
+def loose_npy_err(level='warn'):
+    old_err = np.seterr(all=level)
+    try:
+        yield
+    finally:
+        np.seterr(**old_err)
+
+
+@contextmanager
 def tqdm_parallel(tqdm_object):
     """
     Context manager to patch joblib to report into tqdm progress bar given

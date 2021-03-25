@@ -9,6 +9,7 @@ from tqdm.auto import tqdm
 
 from posthoceval.rand import select_n_combinations
 from posthoceval.rand import as_random_state
+from posthoceval.utils import loose_npy_err
 
 # Credit: http://www.asciify.net/ascii/show/9286
 FaItHfULnEsS = '''                ixzii:`
@@ -349,12 +350,8 @@ def faithfulness_melis(model, attribs, X, ref_val=0, aggregate=None,
         if predicted_idxs is not None:
             y_for_i = y_for_i[:, predicted_idxs]
 
-        print(y)
-        print(y_for_i)
-        print('y', np.isnan(y).sum(), np.isinf(y).sum())
-        print('y_for_i', np.isnan(y_for_i).sum(), np.isinf(y_for_i).sum())
-
-        prob_drops.append(y - y_for_i)
+        with loose_npy_err():
+            prob_drops.append(y - y_for_i)
 
     # combine into N x d matrix of prob drops
     prob_drops = np.stack(prob_drops, axis=1)
