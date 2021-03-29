@@ -9,6 +9,7 @@ seaborn
 statsmodels
 scikit-image
 interpret
+lime
 scikit-learn
 fastcache
 tqdm >= 4.56.2
