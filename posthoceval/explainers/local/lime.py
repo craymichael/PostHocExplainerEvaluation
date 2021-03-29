@@ -116,3 +116,103 @@ class LIMEExplainer(BaseExplainer):
             return contribs_lime, intercepts
 
         return contribs_lime
+
+# aids
+
+# TODO: Make kwargs explicit.
+class LimeTabular(ExplainerMixin):
+
+    available_explanations = ["local"]
+    explainer_type = "blackbox"
+
+    def __init__(
+        self,
+        predict_fn,
+        data,
+        feature_names=None,
+        feature_types=None,
+        **kwargs
+    ):
+        """ Initializes class.
+        Args:
+            predict_fn: Function of blackbox that takes input, and returns prediction.
+            data: Data used to initialize LIME with.
+            feature_names: List of feature names.
+            feature_types: List of feature types.
+            **kwargs: Kwargs that will be sent to lime at initialization time.
+        """
+        from lime.lime_tabular import LimeTabularExplainer
+
+        self.data, _, self.feature_names, self.feature_types = unify_data(
+            data, None, feature_names, feature_types
+        )
+        self.predict_fn = predict_fn
+
+        self.kwargs = kwargs
+        final_kwargs = {"mode": "regression"}
+        if self.feature_names:
+            final_kwargs["feature_names"] = self.feature_names
+        final_kwargs.update(self.kwargs)
+
+        self.lime = LimeTabularExplainer(self.data, **final_kwargs)
+
+    def explain_local(self, X, y=None):
+        """ Generates local explanations for provided instances.
+        Args:
+            X: Numpy array for X to explain.
+            y: Numpy vector for y to explain.
+            name: User-defined explanation name.
+        Returns:
+            An explanation object, visualizing feature-value pairs
+            for each instance as horizontal bar charts.
+        """
+        X, y, _, _ = unify_data(X, y, self.feature_names, self.feature_types)
+
+        pred_fn = self.predict_fn
+
+        data_dicts = []
+        scores_list = []
+        for i, instance in enumerate(X):
+            lime_explanation = self.lime.explain_instance(
+                instance, pred_fn, **self.explain_kwargs
+            )
+
+            names = []
+            scores = []
+            values = []
+            feature_idx_imp_pairs = lime_explanation.as_map()[1]
+            for feat_idx, imp in feature_idx_imp_pairs:
+                names.append(self.feature_names[feat_idx])
+                scores.append(imp)
+                values.append(instance[feat_idx])
+            intercept = lime_explanation.intercept[1]
+
+            scores_list.append(scores)
+
+            data_dict = {
+                "names": names,
+                "scores": scores,
+                "extra": {"names": ["Intercept"], "scores": [intercept], "values": [1]},
+            }
+            data_dicts.append(data_dict)
+
+        internal_obj = {
+            "overall": None,
+            "specific": data_dicts,
+            "mli": [
+                {
+                    "explanation_type": "local_feature_importance",
+                    "value": {
+                        "scores": scores_list,
+                        "intercept": intercept,
+                    },
+                }
+            ],
+        }
+
+        return FeatureValueExplanation(
+            "local",
+            internal_obj,
+            feature_names=self.feature_names,
+            feature_types=self.feature_types,
+        )
