@@ -53,10 +53,14 @@ class KernelSHAPExplainer(BaseExplainer):
                  verbose: Union[int, bool] = 1,
                  **explainer_kwargs):
         """"""
-        self.model = model
+        super().__init__(
+            model=model,
+            seed=seed,
+            task=task,
+            verbose=verbose,
+        )
+
         self.n_background_samples = n_background_samples
-        self.verbose = verbose
-        self.task = task.lower()
         if link is None:
             link = 'identity' if self.task == 'regression' else 'logit'
             logger.info(f'Inferred link as "{link}"')
@@ -85,7 +89,7 @@ class KernelSHAPExplainer(BaseExplainer):
                 # CPUs
                 'batch_size': None,
             } if use_ray else None,
-            seed=seed,
+            seed=self.seed,
             **explainer_kwargs
         )
         # attributes set after fit
@@ -127,74 +131,15 @@ class KernelSHAPExplainer(BaseExplainer):
         # to e.g. `explanation.shap_values[0]`
         if self.task == 'regression':
             assert len(explanation.shap_values) == 1
-            shap_values = explanation.shap_values[0]
+            contribs_shap = explanation.shap_values[0]
         else:
-            shap_values = explanation.shap_values
+            contribs_shap = explanation.shap_values
 
-        # shap_values_g = explanation.raw['importances']['0']
-
-        # TODO: move this logic to super? likely redundant between explainers
         if as_dict:
-            symbols = [*map(standardize_effect, self.model.symbols)]
-            if self.task == 'regression':
-                contribs_shap = dict(zip(symbols, shap_values.T))
-            else:
-                contribs_shap = [dict(zip(symbols, vals_i.T))
-                                 for vals_i in shap_values]
-        else:
-            contribs_shap = shap_values
+            contribs_shap = self._contribs_as_dict(contribs_shap)
 
         if return_y:
             y = explanation.raw['raw_prediction']
 
             return contribs_shap, y
         return contribs_shap
-
-
-# @profile
-# def gshap_explain(model, data_train, data_test, n_background_samples=100):
-#     explainer = KernelShap(
-#         model,
-#         feature_names=model.symbol_names,
-#         task='regression',
-#         distributed_opts={
-#             # https://www.seldon.io/how-seldons-alibi-and-ray-make-model-explainability-easy-and-scalable/
-#             'n_cpus': cpu_count(),
-#             # If batch_size set to `None`, an input array is split in (roughly)
-#             # equal parts and distributed across the available CPUs
-#             'batch_size': None,
-#         }
-#     )
-#     fit_kwargs = {}
-#     if n_background_samples < len(data_train):
-#         print('Intending to summarize background data as n_samples > '
-#               '{}'.format(n_background_samples))
-#         fit_kwargs['summarise_background'] = True
-#         fit_kwargs['n_background_samples'] = n_background_samples
-#
-#     print('Explainer fit')
-#     explainer.fit(data_train, **fit_kwargs)
-#
-#     # Note: explanation.raw['importances'] has aggregated scores per output with
-#     # corresponding keys, e.g., '0' & '1' for two outputs. Also has 'aggregated'
-#     # for the aggregated scores over all outputs
-#     print('Explain')
-#     explanation = explainer.explain(data_train, silent=True)
-#     expected_value = explanation.expected_value.squeeze()
-#     shap_values = explanation.shap_values[0]
-#     outputs_train = explanation.raw['raw_prediction']
-#     shap_values_g = explanation.raw['importances']['0']
-#
-#     print('Global SHAP')
-#     gshap = GlobalKernelSHAP(data_train, shap_values, expected_value)
-#
-#     gshap_preds, gshap_vals = gshap.predict(data_train, return_shap_values=True)
-#     print('RMSE global error train', metrics.rmse(outputs_train, gshap_preds))
-#
-#     gshap_preds, gshap_vals = gshap.predict(data_test, return_shap_values=True)
-#     outputs_test = model(data_test)
-#     print('RMSE global error test', metrics.rmse(outputs_test, gshap_preds))
-#
-#     contribs_gshap = dict(zip(model.symbols, gshap_vals.T))
-#
-#     return contribs_gshap

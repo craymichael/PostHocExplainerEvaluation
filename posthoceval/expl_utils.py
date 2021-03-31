@@ -28,7 +28,7 @@ KNOWN_MEAN_CENTERED = [
 
 
 def is_mean_centered(explainer):
-    return any(explainer.startswith(e) for e in KNOWN_MEAN_CENTERED)
+    return any(explainer.upper().startswith(e) for e in KNOWN_MEAN_CENTERED)
 
 
 def clean_explanations(
@@ -138,3 +138,30 @@ def load_explanation(expl_file: str, true_model: AdditiveModel):
     expl = standardize_contributions(expl)
 
     return expl
+
+
+def apply_matching(matching, true_expl, pred_expl, n_explained,
+                   explainer_name):
+    matches = {}
+    for match_true, match_pred in matching:
+        if match_true:
+            contribs_true = sum(
+                [true_expl[effect] for effect in match_true])
+            contribs_true_mean = np.mean(contribs_true)
+        else:
+            contribs_true = contribs_true_mean = np.zeros(n_explained)
+        if match_pred:
+            # add the mean back for these effects (this will be the
+            #  same sample mean that the explainer saw before)
+            contribs_pred = sum(
+                [pred_expl[effect] for effect in match_pred],
+                start=(contribs_true_mean
+                       if is_mean_centered(explainer_name) else 0)
+            )
+        else:
+            contribs_pred = np.zeros(n_explained)
+
+        match_key = (tuple(match_true), tuple(match_pred))
+        matches[match_key] = (contribs_true, contribs_pred)
+
+    return matches

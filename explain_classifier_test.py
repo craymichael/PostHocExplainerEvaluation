@@ -38,29 +38,25 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # noqa
 import seaborn as sns
 
-from sklearn import datasets
 from sklearn.preprocessing import StandardScaler
 
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Add
 from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Lambda
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
 
 from posthoceval.explainers.local.shap import KernelSHAPExplainer
-from posthoceval.explainers.local.maple import MAPLEExplainer
-from posthoceval.explainers.local.lime import LIMEExplainer
+from posthoceval.expl_utils import apply_matching
 from posthoceval.models.gam import MultiClassLogisticGAM
 from posthoceval.models.gam import LinearGAM
 from posthoceval.models.gam import T
 from posthoceval.models.dnn import DNNRegressor
 from posthoceval.metrics import generous_eval
 from posthoceval.metrics import standardize_contributions
-from posthoceval.utils import atomic_write_exclusive
-from posthoceval.utils import nonexistent_filename
 from posthoceval import metrics
+from posthoceval.utils import nonexistent_filename
 
 sns.set_theme(
     context='paper',
@@ -478,32 +474,6 @@ for expl_i, (explainer_name, explainer) in enumerate(explainer_array):
             )
         else:
             plt.show()
-
-
-    def apply_matching(matching, true_expl, pred_expl, n_explained,
-                       explainer_name):
-        matches = {}
-        for match_true, match_pred in matching:
-            if match_true:
-                contribs_true = sum(
-                    [true_expl[effect] for effect in match_true])
-                contribs_true_mean = np.mean(contribs_true)
-            else:
-                contribs_true = contribs_true_mean = np.zeros(n_explained)
-            if match_pred:
-                # add the mean back for these effects (this will be the
-                #  same sample mean that the explainer saw before)
-                contribs_pred = sum(
-                    [pred_expl[effect] for effect in match_pred],
-                    start=contribs_true_mean if explainer_name == 'SHAP' else 0
-                )
-            else:
-                contribs_pred = np.zeros(n_explained)
-
-            match_key = (tuple(match_true), tuple(match_pred))
-            matches[match_key] = (contribs_true, contribs_pred)
-
-        return matches
 
 
     def make_tex_str(features, start_i, explained=False):

@@ -22,91 +22,6 @@ from posthoceval.explainers._base import BaseExplainer
 from posthoceval.model_generation import AdditiveModel
 
 
-# TODO: abstract model and seed into BaseExplainer (or other abstract...)
-class MAPLEExplainer(BaseExplainer):
-    def __init__(self,
-                 model: AdditiveModel,
-                 train_size: float = 2 / 3,
-                 seed: Optional[int] = None,
-                 task: str = 'regression',
-                 **kwargs):
-        # at 7cecf35621859a9ce915da1947a5fb90ee313f08, MAPLE uses 2/3
-        #  train/val split in Code/Misc.py
-        self.train_size = train_size
-        self.model = model
-
-        self.seed = seed
-        self.task = task
-
-        self.explainer_kwargs = kwargs
-        self._explainer: Optional[_MAPLE] = None
-
-    def fit(self, X, y=None):
-        if y is None:
-            y = self.model(X)
-
-        if self.task == 'regression' and y.ndim == 2:
-            y = np.squeeze(y, axis=1)
-        else:
-            y = np.reshape(y, (len(y), -1))
-
-        # split data
-        X_train, X_val, y_train, y_val = train_test_split(
-            X, y, train_size=self.train_size, random_state=self.seed)
-
-        self._explainer = _MAPLE(
-            X_train=X_train,
-            MR_train=y_train,
-            X_val=X_val,
-            MR_val=y_val,
-            seed=self.seed,
-            **self.explainer_kwargs,
-        )
-
-    def predict(self, X):
-        if self._explainer is None:
-            raise RuntimeError('Must call fit() before predict()')
-
-        return self._explainer.predict(X)
-
-    def feature_contributions(self, X, return_intercepts=False,
-                              return_y=False, as_dict=False):
-        if self._explainer is None:
-            raise RuntimeError('Must call fit() before obtaining feature '
-                               'contributions')
-
-        contribs_maple = []
-        intercepts = []
-        y_maple = []
-        for xi in X:
-            explanation = self._explainer.explain(xi)
-            coefs = explanation['coefs']
-            contribs_maple.append(
-                coefs[1:] * xi
-            )
-            if return_intercepts:
-                intercepts.append(coefs[0])
-            if return_y:
-                y_maple.append(explanation['pred'])
-
-        contribs_maple = np.asarray(contribs_maple)
-        if as_dict:
-            contribs_maple = dict(zip(self.model.symbols, contribs_maple.T))
-
-        if return_y:
-            y_maple = np.concatenate(y_maple, axis=0)
-            if self.task == 'regression':
-                y_maple = y_maple.squeeze(axis=1)
-
-        if return_intercepts:
-            if return_y:
-                return contribs_maple, intercepts, y_maple
-            return contribs_maple, intercepts
-        elif return_y:
-            return contribs_maple, y_maple
-        return contribs_maple
-
-
 class _MAPLE:
     """see header of file for attribution. this class has been modified and
     reformatted without changing any functionality"""
@@ -269,3 +184,95 @@ class _MAPLE:
             pred[i] = lr_model.predict(x)[0]
 
         return pred
+
+
+class MAPLEExplainer(BaseExplainer):
+    _explainer: Optional[_MAPLE]
+
+    def __init__(self,
+                 model: AdditiveModel,
+                 train_size: float = 2 / 3,
+                 seed: Optional[int] = None,
+                 task: str = 'regression',
+                 **kwargs):
+        super().__init__(
+            model=model,
+            seed=seed,
+            task=task,
+            verbose=False,
+        )
+
+        if self.task != 'regression':
+            raise NotImplementedError(self.task)
+
+        # at 7cecf35621859a9ce915da1947a5fb90ee313f08, MAPLE uses 2/3
+        #  train/val split in Code/Misc.py
+        self.train_size = train_size
+
+        self.explainer_kwargs = kwargs
+
+    def fit(self, X, y=None):
+        if y is None:
+            y = self.model(X)
+
+        if self.task == 'regression' and y.ndim == 2:
+            y = np.squeeze(y, axis=1)
+        else:
+            y = np.reshape(y, (len(y), -1))
+
+        # split data
+        X_train, X_val, y_train, y_val = train_test_split(
+            X, y, train_size=self.train_size, random_state=self.seed)
+
+        self._explainer = _MAPLE(
+            X_train=X_train,
+            MR_train=y_train,
+            X_val=X_val,
+            MR_val=y_val,
+            seed=self.seed,
+            **self.explainer_kwargs,
+        )
+
+    def predict(self, X):
+        if self._explainer is None:
+            raise RuntimeError('Must call fit() before predict()')
+
+        return self._explainer.predict(X)
+
+    def feature_contributions(self, X, return_intercepts=False,
+                              return_y=False, as_dict=False):
+        if self._explainer is None:
+            raise RuntimeError('Must call fit() before obtaining feature '
+                               'contributions')
+
+        contribs_maple = []
+        intercepts = []
+        y_maple = []
+        for xi in X:
+            explanation = self._explainer.explain(xi)
+            coefs = explanation['coefs']
+            contribs_maple.append(
+                coefs[1:] * xi
+            )
+            if return_intercepts:
+                intercepts.append(coefs[0])
+            if return_y:
+                y_maple.append(explanation['pred'])
+
+        contribs_maple = np.asarray(contribs_maple)
+
+        if as_dict:
+            contribs_maple = self._contribs_as_dict(contribs_maple)
+
+        if return_y:
+            y_maple = np.concatenate(y_maple, axis=0)
+            if self.task == 'regression':
+                y_maple = y_maple.squeeze(axis=1)
+
+        if return_intercepts:
+            if return_y:
+                return contribs_maple, intercepts, y_maple
+            return contribs_maple, intercepts
+        elif return_y:
+            return contribs_maple, y_maple
+        return contribs_maple
