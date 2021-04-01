@@ -29,7 +29,7 @@ class BaseExplainer(ABC):
         self._explainer = None
 
     @abstractmethod
-    def fit(self, X, y):
+    def fit(self, X, y=None):
         raise NotImplementedError
 
     @abstractmethod
@@ -37,7 +37,7 @@ class BaseExplainer(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def feature_contributions(self, X, return_y=False):
+    def feature_contributions(self, X, return_y=False, as_dict=False):
         raise NotImplementedError
 
     def _contribs_as_dict(self, contribs):

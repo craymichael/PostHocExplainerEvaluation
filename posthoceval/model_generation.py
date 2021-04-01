@@ -1006,6 +1006,14 @@ class AdditiveModel(object):
 
             return np.fromiter(safe_eval_func(), dtype=float)
 
+    def predict(self, x):  # sklearn compat
+        # TODO: classification vs. regression...
+        return self(x)
+
+    def predict_proba(self, x):  # sklearn compat
+        # TODO: classification vs. regression...
+        return self(x)
+
     def make_effects_dict(self,
                           main_effects=True,
                           interaction_effects=True):

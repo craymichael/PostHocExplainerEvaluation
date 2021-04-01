@@ -18,7 +18,7 @@ class ParzenWindowExplainer(BaseExplainer):
     def __init__(self,
                  model: AdditiveModel,
                  seed=None,
-                 task: str = 'regression',
+                 task: str = 'classification',
                  verbose=True):
         super().__init__(
             model=model,
@@ -27,10 +27,14 @@ class ParzenWindowExplainer(BaseExplainer):
             verbose=verbose,
         )
 
+        if self.task != 'classification':
+            raise ValueError(f'The {self.__class__.__name__} only supports '
+                             f'classification tasks, not {self.task}.')
+
         # self.kernel = lambda x, sigma: np.exp(
         #     -.5 * x.dot(x.T)[0, 0] / sigma ** 2) / (
         #                                    np.sqrt(2 * np.pi * sigma ** 2))
-        self.kernel = lambda x, sigma: (
+        self.kernel = lambda x, sigma: np.asarray(
                 np.exp(-.5 * x.power(2).sum(axis=1) / sigma ** 2) /
                 np.sqrt(2 * np.pi * sigma ** 2)).flatten()
 
@@ -51,12 +55,17 @@ class ParzenWindowExplainer(BaseExplainer):
         self.ones = y == 1
         self.zeros = y == 0
 
-    def predict(self, x):
+        n_valid = self.ones.sum() + self.zeros.sum()
+        if n_valid < len(y):
+            raise ValueError(f'{len(y) - n_valid} of {len(y)} labels produced '
+                             f'by the model were not 0/1. These should be '
+                             f'predictions for two-class classification only.')
+
+    def predict(self, x):  # TODO: this is for one instance only
         probs = self.predict_proba(x)
-        print(probs.shape)
         return int(probs[1] > .5)
 
-    def predict_proba(self, x):
+    def predict_proba(self, x):  # TODO: this is for one instance only
         b = sp.sparse.csr_matrix(x - self.X)
         # pr = np.array([self.kernel(z, self.sigma) for z in b])
         pr = self.kernel(b, self.sigma)
@@ -75,16 +84,16 @@ class ParzenWindowExplainer(BaseExplainer):
             for i in range(cv_X.shape[0]):
                 preds.append(self.predict(cv_X[i]))
             mistakes = sum(cv_y != np.array(preds))
-            print(sigma, mistakes)
+            # print(sigma, mistakes)
             if mistakes < best_mistakes:
                 best_mistakes = mistakes
                 best_sigma = sigma
         if self.verbose:
-            print(f'Best sigma achieves {best_mistakes} mistakes. '
-                  f'Disagreement={best_mistakes / cv_X.shape[0]}')
+            print(f'Best sigma ({best_sigma}) achieves {best_mistakes} '
+                  f'mistakes. Disagreement={best_mistakes / cv_X.shape[0]}')
         self.sigma = best_sigma
 
-    def explain_instance(self, x, num_features):
+    def explain_instance(self, x):
         minus = self.X - x
         b = sp.sparse.csr_matrix(minus)
         ker = self.kernel(b, self.sigma)
@@ -98,15 +107,19 @@ class ParzenWindowExplainer(BaseExplainer):
         exp = ((sumk_0 * sumt_1 - sumk_1 * sumt_0) /
                (self.sigma ** 2 * sumk_total ** 2))
         features = x.nonzero()[1]
-        values = np.array(exp[0, x.nonzero()[1]])[0]
-        return sorted(
-            zip(features, values), key=lambda xx: np.abs(xx[1]), reverse=True
-        )[:num_features]
+        # values = np.array(exp[0, features])[0]
+        values = np.array(exp[features])
+        return values
 
-    def feature_contributions(self, X, return_y=False):
+    def feature_contributions(self, X, return_y=False, as_dict=False):
         contribs = []
         for xi in X:
             contribs.append(
-                self.explain_instance(xi, self.model.n_features)
+                self.explain_instance(xi[None, :])
             )
-        return contribs
+
+        contribs = np.asarray(contribs)
+        # TODO: this ([] * 2) is kinda stupid but here for compat...
+        if as_dict:
+            return [self._contribs_as_dict(contribs)] * 2
+        return [contribs] * 2

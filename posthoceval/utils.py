@@ -116,7 +116,7 @@ def assert_shape(a: np.ndarray,
 def assert_same_shape(a: np.ndarray,
                       b: np.ndarray,
                       name_a: Optional[str] = 'a',
-                      name_b: Optional[str] = 'b') -> Tuple[Optional[int]]:
+                      name_b: Optional[str] = 'b') -> Tuple[int, ...]:
     a_shape = np.shape(a)
     b_shape = np.shape(b)
     if not is_shape_equal(a_shape, b_shape):
