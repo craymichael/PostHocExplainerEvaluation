@@ -16,8 +16,8 @@ from posthoceval import utils
 class MultivariateInterpolation(object):
 
     def __init__(self,
-                 x: Union[np.ndarray, List[np.ndarray]],
-                 y: Union[np.ndarray, List[np.ndarray]],
+                 x: np.ndarray,
+                 y: np.ndarray,
                  interpolation: Union[str, Callable] = 'linear'):
         """
 
@@ -35,7 +35,7 @@ class MultivariateInterpolation(object):
         )
         interp_funcs = []
         for i in range(k):
-            x_i, y_i = self._get_feat(x, i), self._get_feat(y, i)
+            x_i, y_i = x[:, i], y[:, i]
             # Handle duplicate values properly. Sort both arrays by feat values
             # ascending. Then take unique feature values with the output being
             # the average value.
@@ -51,13 +51,6 @@ class MultivariateInterpolation(object):
             interp_funcs.append(interpolation(x_i_uniq, y_i_agg))
 
         self.interp_funcs = interp_funcs
-
-    @staticmethod
-    def _get_feat(mat, idx):
-        if isinstance(mat, list):
-            return mat[idx]
-        else:
-            return mat[:, idx]
 
     def interpolate(self, x: np.ndarray):
         utils.assert_shape(x, (None, len(self.interp_funcs)), name='x')

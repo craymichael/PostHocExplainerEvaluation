@@ -938,7 +938,7 @@ class AdditiveModel(object):
             expr = sp.parse_expr(expr)
 
         if symbols is None:
-            symbols = sorted(expr.free_symbols, key=lambda x: x.name)
+            symbols = tuple(sorted(expr.free_symbols, key=lambda x: x.name))
 
         symbols = (symbols,) if isinstance(symbols, sp.Symbol) else symbols
         missing_symbols = set(expr.free_symbols) - set(symbols)
@@ -985,6 +985,7 @@ class AdditiveModel(object):
             x: np.ndarray,
             backend=None,
     ):
+        x = np.asarray(x)
         assert_shape(x, (None, self.n_features))
         if backend is None:
             backend = self.backend

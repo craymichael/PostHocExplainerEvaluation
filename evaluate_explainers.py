@@ -31,6 +31,7 @@ from posthoceval.utils import assert_same_size
 from posthoceval.explainers.local.shap import KernelSHAPExplainer
 from posthoceval.explainers.local.lime import LIMEExplainer
 from posthoceval.explainers.local.maple import MAPLEExplainer
+from posthoceval.explainers.global_.pdp import PDPExplainer
 from posthoceval.utils import tqdm_parallel
 # Needed for pickle loading of this result type
 from posthoceval.results import ExprResult  # noqa
@@ -93,6 +94,8 @@ def run(expr_filename, out_dir, data_dir, max_explain, seed, n_jobs,
         explainer_cls = LIMEExplainer
     elif explainer == 'MAPLE':
         explainer_cls = MAPLEExplainer
+    elif explainer == 'PDP':
+        explainer_cls = PDPExplainer
     else:
         raise ValueError(f'{explainer} is not a valid explainer name')
 
@@ -188,7 +191,7 @@ if __name__ == '__main__':
             help='Data directory where generated data for expr_filename exists'
         )
         parser.add_argument(
-            '--explainer', '-X', choices=['SHAP', 'LIME', 'MAPLE'],
+            '--explainer', '-X', choices=['SHAP', 'LIME', 'MAPLE', 'PDP'],
             default='SHAP', help='The explainer to evaluate'
         )
         parser.add_argument(

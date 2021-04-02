@@ -7,6 +7,7 @@ from typing import Union
 from typing import List
 
 import pandas as pd
+import numpy as np
 
 from pdpbox.pdp import pdp_isolate
 from pdpbox.pdp import pdp_interact
@@ -42,7 +43,8 @@ class PDPExplainer(BaseExplainer):
         self.n_jobs = n_jobs
 
     def fit(self, X, y=None):
-        feature_names = self.model.symbol_names
+        # needs to be list, not tuple
+        feature_names = [*self.model.symbol_names]
 
         # TODO: consider categorical stuff here - PDP sets up groups by having
         #  categorical feature name "foo" suffixed by "_value" - e.g., feature
@@ -77,7 +79,9 @@ class PDPExplainer(BaseExplainer):
 
         if self.task == 'regression':
             self._explainer = MultivariateInterpolation(
-                x=all_x, y=all_y, interpolation=self.interpolation,
+                x=np.asarray(all_x).T,
+                y=np.asarray(all_y).T,
+                interpolation=self.interpolation,
             )
         else:
             n_classes = len(all_x[0])
@@ -85,8 +89,8 @@ class PDPExplainer(BaseExplainer):
                        for fx in chain(all_x[1:], all_y))
 
             self._explainer = [MultivariateInterpolation(
-                x=[all_xf[k] for all_xf in all_x],
-                y=[all_yf[k] for all_yf in all_y],
+                x=np.asarray([all_xf[k] for all_xf in all_x]).T,
+                y=np.asarray([all_yf[k] for all_yf in all_y]).T,
                 interpolation=self.interpolation,
             ) for k in range(n_classes)]
 
