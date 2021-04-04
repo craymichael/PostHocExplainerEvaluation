@@ -24,10 +24,12 @@ TRUE_CONTRIBS_NAME = '__true__'
 # known explainers that give mean-centered contributions in explanation
 KNOWN_MEAN_CENTERED = [
     'SHAP',
+    'SHAPR',
 ]
 
 
 def is_mean_centered(explainer):
+    # TODO: startswith can be dangerous here...maybe underscore split [0] check
     return any(explainer.upper().startswith(e) for e in KNOWN_MEAN_CENTERED)
 
 
