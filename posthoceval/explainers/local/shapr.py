@@ -3,6 +3,7 @@ shapr.py - A PostHocExplainerEvaluation file
 Copyright (C) 2021  Zach Carmichael
 """
 import logging
+import gc
 from collections import OrderedDict
 
 import numpy as np
@@ -82,20 +83,29 @@ class SHAPRExplainer(BaseExplainer):
         if kwargs:
             raise ValueError(f'Unexpected keyword arguments: {kwargs}')
 
+        self.__wrapped_model = None
         # handle shapr compat things
         # TODO: install every instantiation or just after first import?
         # TODO: do not recreate model every time either...
         self._install_shapr_r_compat()
 
     def _install_shapr_r_compat(self):
-        import rpy2.rinterface as ri
         from rpy2.robjects import globalenv
+
+        model_spec_func_name = f'get_model_specs.{self.__r_class_name_model__}'
+        predict_model_func_name = f'predict_model.{self.__r_class_name_model__}'
+
+        if (model_spec_func_name in globalenv and
+                predict_model_func_name in globalenv):
+            return
+
+        import rpy2.rinterface as ri
         from rpy2.robjects import ListVector
         from rpy2.robjects import StrVector
         from rpy2.robjects import NULL
 
         @ri.rternalize
-        def get_model_specs_compat(x):  # noqa
+        def get_model_specs_compat(x):
             """
             labels: character vector with the feature names to compute Shapley
                 values for
@@ -119,54 +129,58 @@ class SHAPRExplainer(BaseExplainer):
             # classes can realistically be "numeric" or "factor" here for
             #  continuous/categorical, respectively. factor_levels will need
             #  to be set properly as well
+            feature_names = [*x.do_slot('feature_names')]
+
+            labels = StrVector(feature_names)
+            classes = StrVector(['numeric'] * len(feature_names))
+            classes.names = labels
+
             feature_list = ListVector({
-                'labels': StrVector(self.model.symbol_names),
-                'classes': ListVector(OrderedDict(zip(
-                    self.model.symbol_names,
-                    ['numeric'] * self.model.n_features
-                ))),
+                'labels': labels,
+                'classes': classes,
                 'factor_levels': ListVector(OrderedDict(zip(
-                    self.model.symbol_names,
-                    [NULL] * self.model.n_features
+                    feature_names, [NULL] * len(feature_names)
                 ))),
             })
             return feature_list
 
-        model_spec_func_name = f'get_model_specs.{self.__r_class_name_model__}'
-        globalenv[model_spec_func_name] = get_model_specs_compat
-
         @ri.rternalize
-        def predict_model_compat(x, newdata):  # noqa
-            """
-            TODO WIP
-            """
-            print(newdata)
-            return self.model(newdata)
+        def predict_model_compat(x, newdata):
+            return x(newdata)
 
-        predict_model_func_name = f'predict_model.{self.__r_class_name_model__}'
+        # install
+        globalenv[model_spec_func_name] = get_model_specs_compat
         globalenv[predict_model_func_name] = predict_model_compat
 
     @property
     def _wrapped_model(self):
+        if self.__wrapped_model is not None:
+            return self.__wrapped_model
+
         import rpy2.rinterface as ri
         from rpy2.robjects import StrVector
+        from rpy2.robjects import numpy2ri
 
         @ri.rternalize
-        def inner(x):  # TODO...
-            raise RuntimeError('This method should never have been called.')
-            return self.model(x)
+        def inner(X):
+            if isinstance(X, ri.ListSexpVector):
+                X = np.asarray(X).T
+            return numpy2ri.py2rpy(self.model(X))
 
-        inner.rclass = StrVector((self.__r_class_name_model__,
-                                  'function'))
+        inner.rclass = StrVector((self.__r_class_name_model__, 'function'))
+        inner.do_slot_assign('feature_names',
+                             StrVector(self.model.symbol_names))
 
+        self.__wrapped_model = inner
         return inner
 
     def fit(self, X, y=None):
         if y is None:
             y = self.model(X)
 
+        X_df = pd.DataFrame(data=X, columns=self.model.symbol_names)
         self._explainer = self.shapr_lib.shapr(
-            X, self._wrapped_model
+            X_df, self._wrapped_model
         )
 
         # expected value - the prediction value for unseen data, typically
@@ -273,14 +287,19 @@ class SHAPRExplainer(BaseExplainer):
               that you'd like to use the ‘"gaussian"’ approach when
               conditioning on ‘i’ features.
         """
-        # TODO: massive WIP
-
         # shapr wants a dataframe...
         X_df = pd.DataFrame(data=X, columns=self.model.symbol_names)
 
-        return self.shapr_lib.explain(
+        explanation = self.shapr_lib.explain(
             X_df,
             explainer=self._explainer,
             approach=self.approach,
             prediction_zero=self.prediction_zero_,
-        ).dt
+        )
+        expl_dict = dict(explanation.items())
+
+        # https://stackoverflow.com/questions/5199334/clearing-memory-used-by-rpy2
+        gc.collect()
+
+        # TODO: don't return this directly map to appropriate dict/array first
+        return expl_dict['dt']

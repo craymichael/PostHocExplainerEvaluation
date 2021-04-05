@@ -6,7 +6,7 @@ import faulthandler
 
 faulthandler.enable()
 
-if MWE := True:
+if MWE := False:
 
     from collections import OrderedDict
 
@@ -36,7 +36,8 @@ if MWE := True:
 
 
     @ri.rternalize
-    def get_model_specs_compat(x):  # noqa
+    def get_model_specs_compat(x):
+        feature_names = [*x.do_slot('feature_names')]
         labels = StrVector(feature_names)
         classes = StrVector(['numeric'] * len(feature_names))
         classes.names = labels
@@ -56,8 +57,14 @@ if MWE := True:
 
     @ri.rternalize
     def predict_model_compat(x, newdata):  # noqa
+        return x(newdata)
+
+        print(x, x.rclass)
+        print('i am calling the model via `x`')
+        print(x(newdata))
         if isinstance(newdata, ri.ListSexpVector):
             newdata = np.asarray(newdata).T
+        print('i am calling the model via `model`')
         return numpy2ri.py2rpy(model(newdata))
 
 
@@ -66,11 +73,17 @@ if MWE := True:
 
 
     @ri.rternalize
-    def inner(_):
+    def inner(X):
+        if isinstance(X, ri.ListSexpVector):
+            X = np.asarray(X).T
+        return numpy2ri.py2rpy(model(X))
+
+        return model(X)
         raise RuntimeError('This method should never have been called.')
 
 
     inner.rclass = StrVector(('mwe', 'function'))
+    inner.do_slot_assign('feature_names', StrVector(feature_names))
     wrapped_model = inner
 
     # Start fit
@@ -93,14 +106,22 @@ if MWE := True:
         approach='empirical',
         prediction_zero=prediction_zero_,
     )
-
-    print('explanation')
-    print(explanation)
     expl_dict = dict(explanation.items())
-    print('expl_dict')
-    print(expl_dict)
+
+    # print('explanation')
+    # print(explanation)
+    # print('expl_dict')
+    # print(expl_dict)
+    print('expl_dict.keys()')
+    print(expl_dict.keys())
     print('explanation.dt')
     print(expl_dict['dt'])
+
+    # TODO: integrate properly in class
+    # https://stackoverflow.com/questions/5199334/clearing-memory-used-by-rpy2
+    import gc
+
+    gc.collect()
 
 else:
 
