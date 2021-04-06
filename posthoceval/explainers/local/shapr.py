@@ -111,6 +111,7 @@ class SHAPRExplainer(BaseExplainer):
                 self._wrapped_model_ref_str
             ] == 0:
                 del globals()[self._wrapped_model_ref_str]
+            gc.collect()
 
     @property
     def _wrapped_model_ref_str(self):
@@ -348,5 +349,10 @@ class SHAPRExplainer(BaseExplainer):
         # https://stackoverflow.com/questions/5199334/clearing-memory-used-by-rpy2
         gc.collect()
 
-        # TODO: don't return this directly map to appropriate dict/array first
-        return expl_dict['dt']
+        expl_df = expl_dict['dt']
+        expl_df.drop(columns='none', inplace=True)  # get rid of prediction_zero col
+        contribs = expl_df.values
+
+        if as_dict:
+            contribs = self._contribs_as_dict(contribs)
+        return contribs

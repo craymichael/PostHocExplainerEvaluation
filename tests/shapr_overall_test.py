@@ -166,17 +166,24 @@ else:
     import numpy as np
     import pandas as pd
     from posthoceval.explainers.local.shapr import SHAPRExplainer
+    from posthoceval.explainers.local.shap import KernelSHAPExplainer
     from posthoceval.model_generation import AdditiveModel
 
     # import gc
 
     # gc.disable()
-    data = np.random.rand(10, 3)
+    data = np.random.rand(20, 3)
 
     model = AdditiveModel.from_expr('x1 + x2 - 2 * x3')
 
-    explainer = SHAPRExplainer(model=model)
-    explainer.fit(data)
-    contribs = explainer.feature_contributions(data, as_dict=True)
+    for explainer_cls in [KernelSHAPExplainer, SHAPRExplainer]:
+        explainer = explainer_cls(model=model)
+        explainer.fit(data)
+        contribs = explainer.feature_contributions(data, as_dict=False)
 
-    print(contribs)
+        print(explainer_cls.__name__)
+        print(contribs)
+        print()
+
+    print('True')
+    print(model.feature_contributions(data))
