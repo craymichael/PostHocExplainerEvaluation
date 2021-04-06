@@ -8,6 +8,38 @@ faulthandler.enable()
 
 if MWE := False:
 
+    # ok this is issue https://github.com/rpy2/rpy2/issues/563
+    print('start i kill it all')
+    import sys
+    import rpy2.rinterface as ri
+    from rpy2.robjects import globalenv
+    from rpy2 import __version__
+
+    print(f'Python version={sys.version}')
+    print(f'rpy2 version={__version__}')
+
+    @ri.rternalize
+    def test_ok():
+        print('I am an okay test')
+        return 0
+
+
+    globalenv['test_ok'] = test_ok
+    globalenv['test_ok']()
+
+    def give_me_test():
+        @ri.rternalize
+        def test_bad():
+            print('I am a bad test')
+            return 1
+        return test_bad
+
+
+    globalenv['test_bad'] = give_me_test()
+    globalenv['test_bad']()
+
+    print('end i kill it all')
+
     from collections import OrderedDict
 
     import numpy as np
@@ -31,66 +63,73 @@ if MWE := False:
     feature_names = [*map(str, range(X.shape[-1]))]
 
 
+    class ShaprDummy:
+        def _install_shapr_r_compat(self):
+            print('balls1')
+            @ri.rternalize
+            def get_model_specs_compat(x):
+                print('balls2')
+                feature_names = [*x.do_slot('feature_names')]
+                labels = StrVector(feature_names)
+                classes = StrVector(['numeric'] * len(feature_names))
+                classes.names = labels
+
+                feature_list = ListVector({
+                    'labels': labels,
+                    'classes': classes,
+                    'factor_levels': ListVector(OrderedDict(zip(
+                        feature_names, [NULL] * len(feature_names)
+                    ))),
+                })
+                return feature_list
+
+            print('balls3')
+            globalenv['get_model_specs.mwe'] = get_model_specs_compat
+            print('balls4')
+
+            @ri.rternalize
+            def predict_model_compat(x, newdata):  # noqa
+                print('balls5')
+                return x(newdata)
+
+            print('balls6')
+            predict_model_func_name = f'predict_model.mwe'
+            globalenv[predict_model_func_name] = predict_model_compat
+            print('balls7')
+
+    print('aids1')
+    obj = ShaprDummy()
+    print('aids2')
+    obj._install_shapr_r_compat()
+    print('aids3')
+
     def model(X):
         return X.sum(axis=1)[..., None]
 
 
-    @ri.rternalize
-    def get_model_specs_compat(x):
-        feature_names = [*x.do_slot('feature_names')]
-        labels = StrVector(feature_names)
-        classes = StrVector(['numeric'] * len(feature_names))
-        classes.names = labels
-
-        feature_list = ListVector({
-            'labels': labels,
-            'classes': classes,
-            'factor_levels': ListVector(OrderedDict(zip(
-                feature_names, [NULL] * len(feature_names)
-            ))),
-        })
-        return feature_list
-
-
-    globalenv['get_model_specs.mwe'] = get_model_specs_compat
-
-
-    @ri.rternalize
-    def predict_model_compat(x, newdata):  # noqa
-        return x(newdata)
-
-        print(x, x.rclass)
-        print('i am calling the model via `x`')
-        print(x(newdata))
-        if isinstance(newdata, ri.ListSexpVector):
-            newdata = np.asarray(newdata).T
-        print('i am calling the model via `model`')
-        return numpy2ri.py2rpy(model(newdata))
-
-
-    predict_model_func_name = f'predict_model.mwe'
-    globalenv[predict_model_func_name] = predict_model_compat
-
-
+    print('aids4')
     @ri.rternalize
     def inner(X):
         if isinstance(X, ri.ListSexpVector):
             X = np.asarray(X).T
         return numpy2ri.py2rpy(model(X))
 
-        return model(X)
-        raise RuntimeError('This method should never have been called.')
 
-
+    print('aids5')
     inner.rclass = StrVector(('mwe', 'function'))
+    print('aids6')
     inner.do_slot_assign('feature_names', StrVector(feature_names))
+    print('aids7')
     wrapped_model = inner
+    print('aids8')
 
     # Start fit
     y = model(X)
 
     X_df = pd.DataFrame(data=X, columns=feature_names)
+    print('aids9')
     _explainer = shapr_lib.shapr(X_df, wrapped_model)
+    print('aids10')
 
     # expected value - the prediction value for unseen data, typically
     #  equal to the mean of the response.
@@ -117,7 +156,6 @@ if MWE := False:
     print('explanation.dt')
     print(expl_dict['dt'])
 
-    # TODO: integrate properly in class
     # https://stackoverflow.com/questions/5199334/clearing-memory-used-by-rpy2
     import gc
 
@@ -133,8 +171,12 @@ else:
     # import gc
 
     # gc.disable()
-    model = AdditiveModel.from_expr('x1 + x2 - 2 * x3')
-    explainer = SHAPRExplainer(model=model)
     data = np.random.rand(10, 3)
+
+    model = AdditiveModel.from_expr('x1 + x2 - 2 * x3')
+
+    explainer = SHAPRExplainer(model=model)
     explainer.fit(data)
-    explainer.feature_contributions(data, as_dict=True)
+    contribs = explainer.feature_contributions(data, as_dict=True)
+
+    print(contribs)

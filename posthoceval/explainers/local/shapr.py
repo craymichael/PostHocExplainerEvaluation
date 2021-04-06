@@ -5,6 +5,7 @@ Copyright (C) 2021  Zach Carmichael
 import logging
 import gc
 from collections import OrderedDict
+from multiprocessing import Lock
 
 import numpy as np
 import pandas as pd
@@ -15,6 +16,17 @@ from posthoceval.model_generation import AdditiveModel
 __all__ = ['SHAPRExplainer']
 
 logger = logging.getLogger(__name__)
+
+# https://github.com/rpy2/rpy2/issues/563
+_ref_get_model_specs_compat = None
+_ref_predict_model_compat = None
+# lock
+_shapr_install_lock = Lock()
+# there can be multiple of these so we update globals AND this for later
+#  deletion
+_ref_make_wrapped_model_r_inner_dict = {}
+# lock
+_make_wrapped_model_r_inner_lock = Lock()
 
 
 class SHAPRExplainer(BaseExplainer):
@@ -85,9 +97,52 @@ class SHAPRExplainer(BaseExplainer):
 
         self.__wrapped_model = None
         # handle shapr compat things
-        # TODO: install every instantiation or just after first import?
-        # TODO: do not recreate model every time either...
-        self._install_shapr_r_compat()
+        with _shapr_install_lock:
+            self._install_shapr_r_compat()
+
+    def __del__(self):
+        with _make_wrapped_model_r_inner_lock:
+            # decrement count by 1
+            _ref_make_wrapped_model_r_inner_dict[
+                self._wrapped_model_ref_str
+            ] -= 1
+            # if no more references then also delete the reference to the model
+            if _ref_make_wrapped_model_r_inner_dict[
+                self._wrapped_model_ref_str
+            ] == 0:
+                del globals()[self._wrapped_model_ref_str]
+
+    @property
+    def _wrapped_model_ref_str(self):
+        return (f'_ref_make_wrapped_model_r_inner_{id(self.model)}_'
+                f'{self.__r_class_name_model__}')
+
+    def _make_wrapped_model_r(self):
+        import rpy2.rinterface as ri
+        from rpy2.robjects import StrVector
+        from rpy2.robjects import numpy2ri
+
+        @ri.rternalize
+        def inner(X):
+            if isinstance(X, ri.ListSexpVector):
+                X = np.asarray(X).T
+            return numpy2ri.py2rpy(self.model(X))
+
+        inner.rclass = StrVector((self.__r_class_name_model__, 'function'))
+        inner.do_slot_assign('feature_names',
+                             StrVector(self.model.symbol_names))
+
+        with _make_wrapped_model_r_inner_lock:
+            # add reference, increment counter for the model by 1
+            cur_count = _ref_make_wrapped_model_r_inner_dict.get(
+                self._wrapped_model_ref_str, 0)
+            _ref_make_wrapped_model_r_inner_dict[
+                self._wrapped_model_ref_str
+            ] = cur_count + 1
+            if cur_count == 0:
+                globals()[self._wrapped_model_ref_str] = inner
+
+        return inner
 
     def _install_shapr_r_compat(self):
         from rpy2.robjects import globalenv
@@ -151,28 +206,20 @@ class SHAPRExplainer(BaseExplainer):
         # install
         globalenv[model_spec_func_name] = get_model_specs_compat
         globalenv[predict_model_func_name] = predict_model_compat
+        # add global references
+        # https://github.com/rpy2/rpy2/issues/563
+        global _ref_get_model_specs_compat, _ref_predict_model_compat
+
+        _ref_get_model_specs_compat = get_model_specs_compat
+        _ref_predict_model_compat = predict_model_compat
 
     @property
     def _wrapped_model(self):
         if self.__wrapped_model is not None:
             return self.__wrapped_model
 
-        import rpy2.rinterface as ri
-        from rpy2.robjects import StrVector
-        from rpy2.robjects import numpy2ri
-
-        @ri.rternalize
-        def inner(X):
-            if isinstance(X, ri.ListSexpVector):
-                X = np.asarray(X).T
-            return numpy2ri.py2rpy(self.model(X))
-
-        inner.rclass = StrVector((self.__r_class_name_model__, 'function'))
-        inner.do_slot_assign('feature_names',
-                             StrVector(self.model.symbol_names))
-
-        self.__wrapped_model = inner
-        return inner
+        self.__wrapped_model = self._make_wrapped_model_r()
+        return self.__wrapped_model
 
     def fit(self, X, y=None):
         if y is None:
