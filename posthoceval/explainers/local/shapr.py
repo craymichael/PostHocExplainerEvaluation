@@ -231,8 +231,18 @@ class SHAPRExplainer(BaseExplainer):
             y = self.model(X)
 
         X_df = pd.DataFrame(data=X, columns=self.model.symbol_names)
+        # From SHAPR:
+        # Due to computational complexity, we recommend setting
+        # n_combinations = 10 000 if the number of features is larger than 13.
+        # Note that you can force the use of the exact method (i.e.
+        # n_combinations = NULL) by setting n_combinations equal to 2^m,
+        # where m is the number of features.
+        kwargs = {}
+        if self.model.n_features > 13:
+            kwargs['n_combinations'] = 10000
+
         self._explainer = self.shapr_lib.shapr(
-            X_df, self._wrapped_model
+            X_df, self._wrapped_model, **kwargs
         )
 
         # expected value - the prediction value for unseen data, typically
