@@ -3,6 +3,12 @@ Python version 3.6+ required!
 Pipenv doesn't allow for Python version range to be specified...may
 change venv system due to that
 
+## SHAPR Installation
+Install R. Then, in an R shell:
+```R
+install.packages("shapr")
+```
+
 ## Debugging environment (internal notes, temporary...)
 
 TensorFlow

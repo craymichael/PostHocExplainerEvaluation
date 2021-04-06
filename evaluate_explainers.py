@@ -29,6 +29,7 @@ import sympy as sp
 from posthoceval.model_generation import AdditiveModel
 from posthoceval.utils import assert_same_size
 from posthoceval.explainers.local.shap import KernelSHAPExplainer
+from posthoceval.explainers.local.shapr import SHAPRExplainer
 from posthoceval.explainers.local.lime import LIMEExplainer
 from posthoceval.explainers.local.maple import MAPLEExplainer
 from posthoceval.explainers.global_.pdp import PDPExplainer
@@ -90,6 +91,10 @@ def run(expr_filename, out_dir, data_dir, max_explain, seed, n_jobs,
     """"""
     if explainer == 'SHAP':
         explainer_cls = KernelSHAPExplainer
+    elif explainer == 'SHAPR':
+        # TODO: SHAPR for each of the conditioned distributions other than
+        #  empirical
+        explainer_cls = SHAPRExplainer
     elif explainer == 'LIME':
         explainer_cls = LIMEExplainer
     elif explainer == 'MAPLE':
@@ -191,7 +196,8 @@ if __name__ == '__main__':
             help='Data directory where generated data for expr_filename exists'
         )
         parser.add_argument(
-            '--explainer', '-X', choices=['SHAP', 'LIME', 'MAPLE', 'PDP'],
+            '--explainer', '-X',
+            choices=['SHAP', 'SHAPR', 'LIME', 'MAPLE', 'PDP'],
             default='SHAP', help='The explainer to evaluate'
         )
         parser.add_argument(

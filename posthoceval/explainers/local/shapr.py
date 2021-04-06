@@ -207,6 +207,7 @@ class SHAPRExplainer(BaseExplainer):
         # install
         globalenv[model_spec_func_name] = get_model_specs_compat
         globalenv[predict_model_func_name] = predict_model_compat
+
         # add global references
         # https://github.com/rpy2/rpy2/issues/563
         global _ref_get_model_specs_compat, _ref_predict_model_compat
@@ -235,7 +236,7 @@ class SHAPRExplainer(BaseExplainer):
         #  equal to the mean of the response.
         self.prediction_zero_ = np.mean(y, axis=0)
 
-    def predict(self, X):
+    def predict(self, X):  # TODO
         pass
 
     def feature_contributions(self, X, return_y=False, as_dict=False):
@@ -350,7 +351,8 @@ class SHAPRExplainer(BaseExplainer):
         gc.collect()
 
         expl_df = expl_dict['dt']
-        expl_df.drop(columns='none', inplace=True)  # get rid of prediction_zero col
+        # get rid of prediction_zero col
+        expl_df.drop(columns='none', inplace=True)
         contribs = expl_df.values
 
         if as_dict:
