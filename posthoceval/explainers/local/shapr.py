@@ -1,6 +1,9 @@
 """
 shapr.py - A PostHocExplainerEvaluation file
 Copyright (C) 2021  Zach Carmichael
+
+Referenced a lot:
+https://github.com/NorskRegnesentral/shapr/blob/master/tests/testthat/manual_test_scripts/test_custom_models.R
 """
 import logging
 import gc
@@ -351,9 +354,15 @@ class SHAPRExplainer(BaseExplainer):
         gc.collect()
 
         expl_df = expl_dict['dt']
-        # get rid of prediction_zero col
-        expl_df.drop(columns='none', inplace=True)
-        contribs = expl_df.values
+        # ignore prediction_zero col "none"
+        # expl_df.drop(columns='none', inplace=True)
+        # contribs = expl_df.values
+        # either a pandas dataframe or a numpy recarray are returned, this
+        #  code should handle both cases...
+        contribs = np.stack(
+            [expl_df[name] for name in self.model.symbol_names],
+            axis=1
+        )
 
         if as_dict:
             contribs = self._contribs_as_dict(contribs)
