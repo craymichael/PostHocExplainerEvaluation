@@ -184,7 +184,7 @@ class SHAPRExplainer(BaseExplainer):
             feature_list$factor_levels[feature_list$classes == "factor"] <- NA
             return(feature_list)
             """
-            # TODO: categorical data...
+            # TODO: categorical data...approach="ctree" supports this only
             # classes can realistically be "numeric" or "factor" here for
             #  continuous/categorical, respectively. factor_levels will need
             #  to be set properly as well
@@ -275,6 +275,7 @@ class SHAPRExplainer(BaseExplainer):
 
             type: Character. Should be equal to either ‘"independence"’,
                   ‘"fixed_sigma"’, ‘"AICc_each_k"’ or ‘"AICc_full"’.
+                  default: fixed_sigma
 
         fixed_sigma_vec: Numeric. Represents the kernel bandwidth. Note
                   that this argument is only applicable when ‘approach =

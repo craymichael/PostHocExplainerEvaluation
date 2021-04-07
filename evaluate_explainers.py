@@ -138,7 +138,7 @@ def run(expr_filename, out_dir, data_dir, max_explain, seed, n_jobs,
     data_files = data_files[indices]
     expr_data = expr_data[indices]
 
-    with tqdm_parallel(tqdm(desc='Data Generation', total=n_results)):
+    with tqdm_parallel(tqdm(desc=f'Evaluating {explainer}', total=n_results)):
 
         def jobs():
             for i, data_file, expr_result in zip(file_ids,
