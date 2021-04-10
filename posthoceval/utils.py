@@ -27,8 +27,11 @@ from collections import defaultdict
 import joblib
 
 import numpy as np
-import mpmath
 import sympy as sp
+import mpmath
+
+import pandas as pd
+from pandas.core.generic import NDFrame as pd_NDFrame
 
 if hasattr(math, 'prod'):  # available in 3.8+
     prod = math.prod
@@ -256,6 +259,25 @@ def _as_dtype_or_cls(v):
         else:
             v = type(v)
     return v
+
+
+def is_dataframe(obj):
+    return isinstance(obj, pd.DataFrame)
+
+
+is_df = is_dataframe
+
+
+def is_series(obj):
+    return isinstance(obj, pd.Series)
+
+
+def is_pandas_ndframe(obj):
+    return isinstance(obj, pd_NDFrame)
+
+
+is_pandas = is_pandas_ndframe
+is_pd = is_pandas_ndframe
 
 
 def atomic_write_exclusive(

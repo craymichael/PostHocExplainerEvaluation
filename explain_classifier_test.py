@@ -295,7 +295,7 @@ if not terms:
 symbols = [*range(1, X.shape[1] + 1)]
 if model_type == 'dnn':
 
-    # TODO..
+    # TODO...
     assert task == 'regression'
 
     x = Input([X.shape[1]])

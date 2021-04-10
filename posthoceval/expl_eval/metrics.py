@@ -126,7 +126,7 @@ def sensitivity_n(model, attribs, X, n_subsets=100, max_feats=0.8,
     :param n_subsets:
     :return:
     """
-    assert X.ndim == 2, 'i lazy gimme 2 dims for X'
+    assert X.ndim == 2, 'expected 2 dims for X'
     assert len(X) == len(attribs)
 
     n_feats = X.shape[1]
@@ -311,7 +311,7 @@ def faithfulness_melis(model, attribs, X, ref_val=0, aggregate=None,
             drops_only = False
         # otherwise we take mean or return prob drops according to drops_only
 
-    assert X.ndim == 2, 'i lazy gimme 2 dims for X'
+    assert X.ndim == 2, 'expected 2 dims for X'
     assert len(X) == len(attribs)
 
     n_feats = X.shape[1]
