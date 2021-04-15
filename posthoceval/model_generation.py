@@ -878,6 +878,8 @@ def symbol_names(n_features, excel_like=False):
 
 
 class AdditiveModel(object):
+    # TODO: AdditiveModel -> SymbolicAdditiveModel
+
     def __init__(self,
                  n_features: int,
                  # TODO: reproducibility...use rs instead...or just remove
