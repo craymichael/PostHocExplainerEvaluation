@@ -6,12 +6,9 @@ from typing import Optional
 from alibi.explainers import KernelShap
 from joblib import cpu_count
 
-from posthoceval import metrics
 from posthoceval.profile import profile
 from posthoceval.model_generation import AdditiveModel
 from posthoceval.explainers._base import BaseExplainer
-from posthoceval.explainers.global_.global_shap import GlobalKernelSHAP
-from posthoceval.metrics import standardize_effect
 
 _HAS_RAY = None
 

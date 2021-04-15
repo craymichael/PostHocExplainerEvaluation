@@ -22,6 +22,7 @@ memory_profiler
 alibi
 alibi[ray]
 -e git+https://github.com/craymichael/sympy.git@2f418a9f9702db0c089efc5af711049ca258f367#egg=sympy
+tf-explain
 
 # r interface (requires R installed)
 rpy2

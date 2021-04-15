@@ -9,7 +9,7 @@ import pandas as pd
 
 import posthoceval
 
-LOCAL_DATA_DIR = Path(posthoceval.__file__).parent.parent / 'data'
+LOCAL_DATA_PATH = Path(posthoceval.__file__).parent.parent / 'data'
 
 
 def show_crop_stats(X, verbose=True):

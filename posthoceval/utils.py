@@ -284,6 +284,7 @@ def atomic_write_exclusive(
         preferred_filename,
         data,
         binary=False,
+        strict=False,
 ):
     # fp: Union[RawIOBase, TextIOBase, BufferedIOBase]
     mode = 'x'
@@ -291,11 +292,16 @@ def atomic_write_exclusive(
         mode += 'b'
 
     while True:
-        filename = nonexistent_filename(preferred_filename)
+        if strict:
+            filename = preferred_filename
+        else:
+            filename = nonexistent_filename(preferred_filename)
         try:
             with open(filename, mode) as fp:
                 fp.write(data)
         except FileExistsError:
+            if strict:
+                raise
             continue  # try again - race condition must've happened
         break
 
@@ -432,3 +438,21 @@ class CustomJSONEncoder(json.JSONEncoder):
             return float(obj)
         # Let the base class default method raise the TypeError
         return json.JSONEncoder.default(self, obj)
+
+
+class UnprovidedType:  # noqa
+    """singleton - unprovided argument default for when `None` means something
+    different than no arg provided"""
+    __slots__ = ()
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        else:
+            raise TypeError(f'cannot create \'{cls.__name__}\' instances')
+        return cls._instance
+
+
+# create singleton
+UNPROVIDED = UnprovidedType()

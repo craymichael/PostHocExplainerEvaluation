@@ -57,6 +57,7 @@ from posthoceval.metrics import generous_eval
 from posthoceval.metrics import standardize_contributions
 from posthoceval import metrics
 from posthoceval.utils import nonexistent_filename
+from posthoceval.datasets.boston import BostonDataset
 
 sns.set_theme(
     context='paper',
@@ -120,6 +121,7 @@ elif 1:
         else:
             numerical_cols.append(col)
 
+    # TODO: note cols can be dataframe names or column indices
     scaler = ColumnTransformer([
         ('num', StandardScaler(), numerical_cols),
         ('cat', OneHotEncoder(sparse=False), categorical_cols),
@@ -139,15 +141,7 @@ elif 1:
             for name in names
         )
 elif 1:
-    task = 'regression'
-    data_df = pd.read_csv('data/boston', delimiter=' ')
-    label_col = 'MEDV'
-
-    X_df = data_df.drop(columns=label_col)
-    X = X_df.values
-    y = data_df[label_col].values
-
-    headers = [*X_df.keys()]
+    dataset_cls = BostonDataset
 else:
     task = 'classification'
     # dataset = datasets.load_iris()
@@ -157,8 +151,12 @@ else:
     X = dataset.data
     y = dataset.target
 
-X = np.asarray(X)
-y = np.asarray(y)
+# load dataset
+dataset = dataset_cls()
+task = dataset.task
+X = dataset.X
+y = dataset.y
+headers = dataset.feature_names
 
 
 def scale_y(y_scaler_func, y):
@@ -225,6 +223,8 @@ features = []
 # terms = [T.te(0, 1), T.te(2, 3), T.s(0, n_splines=50)]
 # terms = [T.te(0, 1), T.te(1, 3, n_splines=5), T.s(2, n_splines=50)]
 
+# TODO: factor terms for categoricals in GAM?
+# TODO: embed categoricals in NN?
 if not terms:
     for order in range(1, max_order + 1):
         if order == 1:

@@ -25,7 +25,7 @@
     },
     "juv_misd_count": {
         "categorical": false,
-        "name": "Juvenile Crime Count (Misdameanor)"
+        "name": "Juvenile Crime Count (Misdemeanor)"
     },
     "juv_other_count": {
         "categorical": false,
