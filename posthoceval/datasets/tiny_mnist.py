@@ -2,9 +2,22 @@
 tiny_mnist.py - A PostHocExplainerEvaluation file
 Copyright (C) 2021  Zach Carmichael
 """
+import os
+import tempfile
+
+from joblib import Memory
+
 import numpy as np
+
 from skimage.transform import resize
-from sklearn.datasets import fetch_openml
+from sklearn.datasets import fetch_openml as uncached_fetch_openml
+
+# Data not actually cached (as of sklearn 0.23.2 at least)
+# https://github.com/scikit-learn/scikit-learn/issues/18783
+# https://github.com/scikit-learn/scikit-learn/pull/14855
+OPENML_CACHE_DIR = os.path.join(tempfile.gettempdir(), 'openml-cache')
+fetch_openml_memory = Memory(OPENML_CACHE_DIR)
+fetch_openml = fetch_openml_memory.cache(uncached_fetch_openml)
 
 
 def load_tiny_mnist(

@@ -38,7 +38,7 @@ def _convert_model_to_keras_model(model: AdditiveModel, data):
     if hasattr(model, '_dnn') and isinstance(model._dnn, Model):
         # TODO: AdditiveModel -> TFAdditiveModel
         tf_model = model._dnn
-        return model._dnn, None, _infer_n_classes(tf_model.output_shape)
+        return tf_model, None, _infer_n_classes(tf_model.output_shape)
 
     if hasattr(model, 'expr') and isinstance(model.expr, sp.Expr):
         # TODO: AdditiveModel -> SymbolicAdditiveModel
