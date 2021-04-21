@@ -2,21 +2,16 @@
 grad_cam.py - A PostHocExplainerEvaluation file
 Copyright (C) 2021  Zach Carmichael
 """
-from tf_explain.core.grad_cam import GradCAM
+import saliency.core as saliency
 
-from posthoceval.explainers.local.tf_explain_compat import TFExplainer
+from posthoceval.explainers.local.saliency_base import SalienceMapExplainer
 
 
-class GradCAMExplainer(TFExplainer):
+class GradCAMExplainer(SalienceMapExplainer):
 
     def __init__(self,
                  *args,
                  **kwargs):
         """"""
-        super().__init__(
-            *args,
-            needs_layer_name=True,
-            **kwargs
-        )
-
-        self._explainer = GradCAM()
+        super().__init__(*args, **kwargs)
+        self._explainer = saliency.GradCam()
