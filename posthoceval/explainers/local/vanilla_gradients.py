@@ -2,21 +2,16 @@
 vanilla_gradients.py - A PostHocExplainerEvaluation file
 Copyright (C) 2021  Zach Carmichael
 """
-from tf_explain.core.vanilla_gradients import VanillaGradients
+import saliency.core as saliency
 
-from posthoceval.explainers.local.tf_explain_compat import TFExplainer
+from posthoceval.explainers.local.saliency_base import SalienceMapExplainer
 
 
-class VanillaGradientsExplainer(TFExplainer):
+class VanillaGradientsExplainer(SalienceMapExplainer):
 
     def __init__(self,
                  *args,
                  **kwargs):
         """"""
-        super().__init__(
-            *args,
-            needs_layer_name=False,
-            **kwargs
-        )
-
-        self._explainer = VanillaGradients()
+        super().__init__(*args, **kwargs)
+        self._explainer = saliency.GradientSaliency()
