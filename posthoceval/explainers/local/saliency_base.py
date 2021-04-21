@@ -142,7 +142,11 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
         with tf.GradientTape() as tape:
             if expected_keys == [saliency.base.INPUT_OUTPUT_GRADIENTS]:
                 tape.watch(data)
-                _, output_layer = self._tf_model(data)
+                model_out = self._tf_model(data)
+                if isinstance(model_out, tuple):
+                    _, output_layer = model_out
+                else:
+                    output_layer = model_out
                 if target_class_idx is not None:
                     output_layer = output_layer[:, target_class_idx]
                 gradients = tape.gradient(output_layer, data).numpy()
