@@ -51,6 +51,10 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
         self._n_classes = None
         self._explain_kwargs = explain_kwargs
 
+    @classmethod
+    def smooth_grad(cls, *args, **kwargs):
+        return cls(*args, smooth=True, **kwargs)
+
     def predict(self, X):
         pass  # TODO: n/a atm
 

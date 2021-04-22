@@ -53,12 +53,18 @@ EXPLAINER_MAP = {
     'MAPLE': MAPLEExplainer,
     'PDP': PDPExplainer,
     'GradCAM': GradCAMExplainer,
+    'GradCAM-Smooth': GradCAMExplainer.smooth_grad,
     'VanillaGradients': VanillaGradientsExplainer,
+    'VanillaGradients-Smooth': VanillaGradientsExplainer.smooth_grad,
     'GradientsXInputs': GradientsXInputsExplainer,
+    'GradientsXInputs-Smooth': GradientsXInputsExplainer.smooth_grad,
     'IntegratedGradients': IntegratedGradientsExplainer,
+    'IntegratedGradients-Smooth': IntegratedGradientsExplainer.smooth_grad,
     'Occlusion': OcclusionExplainer,
     'XRAI': XRAIExplainer,
+    'XRAI-Smooth': XRAIExplainer.smooth_grad,
     'BlurIG': BlurIntegratedGradientsExplainer,
+    'BlurIG-Smooth': BlurIntegratedGradientsExplainer.smooth_grad,
 }
 
 

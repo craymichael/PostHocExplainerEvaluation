@@ -11,6 +11,8 @@ from posthoceval.rand import select_n_combinations
 from posthoceval.rand import as_random_state
 from posthoceval.utils import loose_npy_err
 
+__all__ = ['sensitivity_n', 'faithfulness_melis']
+
 
 def sensitivity_n(model, attribs, X, n_subsets=100, max_feats=0.8,
                   n_samples=None, n_points=None, aggregate=True,
