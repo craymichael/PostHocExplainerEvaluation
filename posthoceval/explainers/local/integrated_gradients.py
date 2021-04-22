@@ -13,3 +13,4 @@ class IntegratedGradientsExplainer(SalienceMapExplainer):
         """"""
         super().__init__(*args, **kwargs)
         self._explainer = saliency.IntegratedGradients()
+        self._expected_keys = saliency.IntegratedGradients.expected_keys

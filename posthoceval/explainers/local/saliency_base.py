@@ -4,6 +4,7 @@ Copyright (C) 2021  Zach Carmichael
 """
 from typing import Union
 from typing import Optional
+from typing import List
 
 from abc import ABCMeta
 
@@ -23,7 +24,7 @@ from posthoceval.evaluate import symbolic_evaluate_func
 
 
 class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
-    _explainer: saliency.base.CoreSaliency
+    _explainer: saliency.CoreSaliency
 
     def __init__(self,
                  model: AdditiveModel,
@@ -41,6 +42,8 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
         )
         self.smooth = smooth
         self.multiply_by_input = multiply_by_input
+        # needs to be set by child
+        self._expected_keys: Optional[List[str]] = None
 
         self._tf_model = None
         self._target_layer = None
@@ -51,6 +54,11 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
         pass  # TODO: n/a atm
 
     def fit(self, X, y=None):
+        if (saliency.CONVOLUTION_LAYER_VALUES in self._expected_keys or
+                saliency.CONVOLUTION_OUTPUT_GRADIENTS in self._expected_keys):
+            raise NotImplementedError(
+                'Convolutional-based salience map methods')
+
         if (hasattr(self.model, '_dnn') and
                 isinstance(self.model._dnn, Model)):  # noqa
             # TODO: AdditiveModel -> TFAdditiveModel....
@@ -148,10 +156,38 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
                             data,
                             call_model_args=None,
                             expected_keys=None):
+        """
+
+        # Output of the last convolution layer for the given input, including
+        #  the batch dimension.
+        CONVOLUTION_LAYER_VALUES = 'CONVOLUTION_LAYER_VALUES'
+        # Gradients of the output being explained (the logit/softmax value)
+        #  with respect to the last convolution layer, including the batch
+        #  dimension.
+        CONVOLUTION_OUTPUT_GRADIENTS = 'CONVOLUTION_OUTPUT_GRADIENTS'
+        # Gradients of the output being explained (the logit/softmax value)
+        #  with respect to the input. Shape should be the same shape as
+        #  x_value_batch.
+        INPUT_OUTPUT_GRADIENTS = 'INPUT_OUTPUT_GRADIENTS'
+        # Value of the output being explained (the logit/softmax value).
+        OUTPUT_LAYER_VALUES = 'OUTPUT_LAYER_VALUES'
+
+        :param data:
+        :param call_model_args:
+        :param expected_keys:
+        :return:
+        """
+        assert self._tf_model is not None
+        if (saliency.CONVOLUTION_LAYER_VALUES in self._expected_keys or
+                saliency.CONVOLUTION_OUTPUT_GRADIENTS in self._expected_keys):
+            raise NotImplementedError(
+                'Convolutional-based salience map methods')
+
         target_class_idx = call_model_args.get('target_class_idx')
         data = tf.convert_to_tensor(data)
-        with tf.GradientTape() as tape:
-            if expected_keys == [saliency.base.INPUT_OUTPUT_GRADIENTS]:
+
+        if saliency.INPUT_OUTPUT_GRADIENTS in expected_keys:
+            with tf.GradientTape() as tape:
                 tape.watch(data)
                 model_out = self._tf_model(data)
                 if isinstance(model_out, tuple):
@@ -160,14 +196,31 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
                     output_layer = model_out
                 if target_class_idx is not None:
                     output_layer = output_layer[:, target_class_idx]
-                gradients = tape.gradient(output_layer, data).numpy()
-                return {saliency.base.INPUT_OUTPUT_GRADIENTS: gradients}
-            else:
-                raise NotImplementedError('Methods requiring a conv_layer...')
+                gradients = tape.gradient(output_layer, data)
+                ret = {saliency.INPUT_OUTPUT_GRADIENTS: gradients.numpy()}
+                if saliency.OUTPUT_LAYER_VALUES in expected_keys:
+                    assert len(expected_keys) == 1
+                    ret[saliency.OUTPUT_LAYER_VALUES] = output_layer.numpy()
+                else:
+                    assert len(expected_keys) == 2
+                return ret
                 # TODO: infer conv layer from model. raise TypeError for sympy
                 #  models?
                 # TODO: use _target_layer here?
-                conv_layer, output_layer = self._tf_model(data)
-                gradients = tape.gradient(output_layer, conv_layer).numpy()
-                return {saliency.base.CONVOLUTION_LAYER_VALUES: conv_layer,
-                        saliency.base.CONVOLUTION_OUTPUT_GRADIENTS: gradients}
+                # conv_layer, output_layer = self._tf_model(data)
+                # gradients = tape.gradient(output_layer, conv_layer).numpy()
+                # return {saliency.CONVOLUTION_LAYER_VALUES: conv_layer,
+                #         saliency.CONVOLUTION_OUTPUT_GRADIENTS: gradients}
+        elif saliency.OUTPUT_LAYER_VALUES in expected_keys:
+            assert len(expected_keys) == 1
+
+            model_out = self._tf_model(data)
+            if isinstance(model_out, tuple):
+                _, output = model_out
+            else:
+                output = model_out
+            if target_class_idx is not None:
+                output = output[:, target_class_idx]
+            return {saliency.OUTPUT_LAYER_VALUES: output.numpy()}
+
+        raise ValueError(f'Unexpected keys: {expected_keys}')

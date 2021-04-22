@@ -13,3 +13,4 @@ class OcclusionExplainer(SalienceMapExplainer):
         """"""
         super().__init__(*args, **kwargs)
         self._explainer = Occlusion()
+        self._expected_keys = Occlusion.expected_keys

@@ -15,3 +15,4 @@ class GradCAMExplainer(SalienceMapExplainer):
         """"""
         super().__init__(*args, **kwargs)
         self._explainer = saliency.GradCam()
+        self._expected_keys = saliency.GradCam.expected_keys
