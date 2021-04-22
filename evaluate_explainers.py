@@ -44,6 +44,23 @@ from posthoceval.utils import tqdm_parallel
 # Needed for pickle loading of this result type
 from posthoceval.results import ExprResult  # noqa
 
+EXPLAINER_MAP = {
+    'SHAP': KernelSHAPExplainer,
+    # TODO: SHAPR for each of the conditioned distributions other than
+    #  empirical
+    'SHAPR': SHAPRExplainer,
+    'LIME': LIMEExplainer,
+    'MAPLE': MAPLEExplainer,
+    'PDP': PDPExplainer,
+    'GradCAM': GradCAMExplainer,
+    'VanillaGradients': VanillaGradientsExplainer,
+    'GradientsXInputs': GradientsXInputsExplainer,
+    'IntegratedGradients': IntegratedGradientsExplainer,
+    'Occlusion': OcclusionExplainer,
+    'XRAI': XRAIExplainer,
+    'BlurIG': BlurIntegratedGradientsExplainer,
+}
+
 
 def explain(explainer_cls, out_filename, expr_result, data_file, max_explain,
             seed):
@@ -97,22 +114,7 @@ def run(expr_filename, out_dir, data_dir, max_explain, seed, n_jobs,
         start_at=1, step_size=1, explainer='SHAP', debug=False):
     """"""
     try:
-        explainer_cls = {
-            'SHAP': KernelSHAPExplainer,
-            # TODO: SHAPR for each of the conditioned distributions other than
-            #  empirical
-            'SHAPR': SHAPRExplainer,
-            'LIME': LIMEExplainer,
-            'MAPLE': MAPLEExplainer,
-            'PDP': PDPExplainer,
-            'GradCAM': GradCAMExplainer,
-            'VanillaGradients': VanillaGradientsExplainer,
-            'GradientsXInputs': GradientsXInputsExplainer,
-            'IntegratedGradients': IntegratedGradientsExplainer,
-            'Occlusion': OcclusionExplainer,
-            'XRAI': XRAIExplainer,
-            'BlurIG': BlurIntegratedGradientsExplainer,
-        }[explainer]
+        explainer_cls = EXPLAINER_MAP[explainer]
     except KeyError:
         raise ValueError(
             f'{explainer} is not a valid explainer name') from None
@@ -210,7 +212,7 @@ if __name__ == '__main__':
         )
         parser.add_argument(
             '--explainer', '-X',
-            choices=['SHAP', 'SHAPR', 'LIME', 'MAPLE', 'PDP'],
+            choices=[*EXPLAINER_MAP.keys()],
             default='SHAP', help='The explainer to evaluate'
         )
         parser.add_argument(
