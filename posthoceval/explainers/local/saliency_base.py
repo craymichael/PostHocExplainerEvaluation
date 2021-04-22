@@ -127,7 +127,7 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
                     np.atleast_2d(x_i) if self._atleast_2d else x_i,
                     self._saliency_call_func,
                     call_model_args={'target_class_idx': k,
-                                     'orig_shape': x_i},
+                                     'orig_shape': x_i.shape},
                     **self._explain_kwargs,
                 )
                 for x_i in X
