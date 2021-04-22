@@ -203,10 +203,10 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
                 gradients = tape.gradient(output_layer, data)
                 ret = {saliency.INPUT_OUTPUT_GRADIENTS: gradients.numpy()}
                 if saliency.OUTPUT_LAYER_VALUES in expected_keys:
-                    assert len(expected_keys) == 1
+                    assert len(expected_keys) == 2
                     ret[saliency.OUTPUT_LAYER_VALUES] = output_layer.numpy()
                 else:
-                    assert len(expected_keys) == 2
+                    assert len(expected_keys) == 1
                 return ret
                 # TODO: infer conv layer from model. raise TypeError for sympy
                 #  models?
