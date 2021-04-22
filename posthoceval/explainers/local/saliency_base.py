@@ -1,5 +1,5 @@
 """
-tf_explain_compat.py - A PostHocExplainerEvaluation file
+saliency_base.py - A PostHocExplainerEvaluation file
 Copyright (C) 2021  Zach Carmichael
 """
 from typing import Union
@@ -30,6 +30,7 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
                  task: str = 'regression',
                  verbose: Union[int, bool] = 1,
                  smooth: bool = False,
+                 multiply_by_input: bool = False,
                  **explain_kwargs):
         super().__init__(
             model=model,
@@ -38,6 +39,7 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
             verbose=verbose,
         )
         self.smooth = smooth
+        self.multiply_by_input = multiply_by_input
 
         self._tf_model = None
         self._target_layer = None
@@ -125,6 +127,11 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
             contribs = explanation
 
         contribs = np.asarray(contribs)
+        if self.multiply_by_input:
+            if self.task == 'regression':
+                contribs *= X
+            else:
+                contribs *= X[None, ...]
 
         if as_dict:
             contribs = self._contribs_as_dict(contribs)

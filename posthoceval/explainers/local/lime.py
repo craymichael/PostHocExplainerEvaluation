@@ -9,7 +9,7 @@ from typing import Union
 
 import numpy as np
 
-from lime.lime_tabular import LimeTabularExplainer
+from lime.lime_tabular import LimeTabularExplainer as _LimeTabularExplainer
 
 from posthoceval.profile import profile
 from posthoceval.explainers._base import BaseExplainer
@@ -18,9 +18,9 @@ from posthoceval.model_generation import AdditiveModel
 logger = logging.getLogger(__name__)
 
 
-class LIMEExplainer(BaseExplainer):
+class LIMETabularExplainer(BaseExplainer):
     """"""
-    _explainer: Optional[LimeTabularExplainer]
+    _explainer: Optional[_LimeTabularExplainer]
 
     def __init__(self,
                  model: AdditiveModel,
@@ -53,7 +53,7 @@ class LIMEExplainer(BaseExplainer):
         #    categorical_names[x][y] represents the name of the yth value of
         #    column x.
 
-        self._explainer = LimeTabularExplainer(
+        self._explainer = _LimeTabularExplainer(
             training_data=X,
             feature_names=range(self.model.n_features),
             mode=self.task,
@@ -160,3 +160,6 @@ class LIMEExplainer(BaseExplainer):
             return contribs_lime, intercepts
 
         return contribs_lime
+
+
+LIMEExplainer = LIMETabularExplainer

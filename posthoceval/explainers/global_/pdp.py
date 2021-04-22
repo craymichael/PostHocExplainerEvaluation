@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 
 from pdpbox.pdp import pdp_isolate
-from pdpbox.pdp import pdp_interact
+# from pdpbox.pdp import pdp_interact  # TODO- future work...
 
 from posthoceval.explainers._base import BaseExplainer
 from posthoceval.explainers.global_.global_util import MultivariateInterpolation

@@ -2,7 +2,8 @@
 parzen.py - A PostHocExplainerEvaluation file
 Copyright (C) 2021  Zach Carmichael
 
-Adapted from https://github.com/marcotcr/lime-experiments/blob/master/parzen_windows.py
+Adapted from:
+https://github.com/marcotcr/lime-experiments/blob/master/parzen_windows.py
 at 1d7c19f
 """
 import numpy as np
@@ -20,6 +21,11 @@ class ParzenWindowExplainer(BaseExplainer):
                  seed=None,
                  task: str = 'classification',
                  verbose=True):
+        import warnings
+        warnings.warn(
+            f'This class ({self.__class__.__name__}) was never finished...'
+            f'use at your own risk'
+        )
         super().__init__(
             model=model,
             seed=seed,

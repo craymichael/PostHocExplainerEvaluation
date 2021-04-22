@@ -33,6 +33,13 @@ from posthoceval.explainers.local.shapr import SHAPRExplainer
 from posthoceval.explainers.local.lime import LIMEExplainer
 from posthoceval.explainers.local.maple import MAPLEExplainer
 from posthoceval.explainers.global_.pdp import PDPExplainer
+from posthoceval.explainers import GradCAMExplainer
+from posthoceval.explainers import VanillaGradientsExplainer
+from posthoceval.explainers import GradientsXInputsExplainer
+from posthoceval.explainers import IntegratedGradientsExplainer
+from posthoceval.explainers import OcclusionExplainer
+from posthoceval.explainers import XRAIExplainer
+from posthoceval.explainers import BlurIntegratedGradientsExplainer
 from posthoceval.utils import tqdm_parallel
 # Needed for pickle loading of this result type
 from posthoceval.results import ExprResult  # noqa
@@ -89,20 +96,26 @@ def explain(explainer_cls, out_filename, expr_result, data_file, max_explain,
 def run(expr_filename, out_dir, data_dir, max_explain, seed, n_jobs,
         start_at=1, step_size=1, explainer='SHAP', debug=False):
     """"""
-    if explainer == 'SHAP':
-        explainer_cls = KernelSHAPExplainer
-    elif explainer == 'SHAPR':
-        # TODO: SHAPR for each of the conditioned distributions other than
-        #  empirical
-        explainer_cls = SHAPRExplainer
-    elif explainer == 'LIME':
-        explainer_cls = LIMEExplainer
-    elif explainer == 'MAPLE':
-        explainer_cls = MAPLEExplainer
-    elif explainer == 'PDP':
-        explainer_cls = PDPExplainer
-    else:
-        raise ValueError(f'{explainer} is not a valid explainer name')
+    try:
+        explainer_cls = {
+            'SHAP': KernelSHAPExplainer,
+            # TODO: SHAPR for each of the conditioned distributions other than
+            #  empirical
+            'SHAPR': SHAPRExplainer,
+            'LIME': LIMEExplainer,
+            'MAPLE': MAPLEExplainer,
+            'PDP': PDPExplainer,
+            'GradCAM': GradCAMExplainer,
+            'VanillaGradients': VanillaGradientsExplainer,
+            'GradientsXInputs': GradientsXInputsExplainer,
+            'IntegratedGradients': IntegratedGradientsExplainer,
+            'Occlusion': OcclusionExplainer,
+            'XRAI': XRAIExplainer,
+            'BlurIG': BlurIntegratedGradientsExplainer,
+        }[explainer]
+    except KeyError:
+        raise ValueError(
+            f'{explainer} is not a valid explainer name') from None
 
     basename_experiment = os.path.basename(expr_filename).rsplit('.', 1)[0]
 

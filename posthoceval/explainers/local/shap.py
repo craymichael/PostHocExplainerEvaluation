@@ -140,3 +140,6 @@ class KernelSHAPExplainer(BaseExplainer):
 
             return contribs_shap, y
         return contribs_shap
+
+
+SHAPExplainer = KernelSHAPExplainer
