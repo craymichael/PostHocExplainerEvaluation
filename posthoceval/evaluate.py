@@ -104,12 +104,15 @@ def numexpr_func(expr, symbols):
 
 
 @lru_cache()
-def tensorflow_func(expr, symbols):
+def tensorflow_func(expr, symbols, symbolic=False):
     expr = expr.expand()
     int_atoms = expr.atoms(sp.Integer)
     # To avoid TF typing problems, it's best to cast integers to floats
     expr = expr.subs({int_a: float(int_a) for int_a in int_atoms})
     tf_func = sp.lambdify(symbols, expr, modules='tensorflow')
+
+    if symbolic:
+        return tf_func
 
     @wraps(tf_func)
     def wrapper(*args, **kwargs):
@@ -204,7 +207,7 @@ def replace_unsupported_functions(expr):
     return expr
 
 
-def symbolic_evaluate_func(expr, symbols, x=None, backend=None):
+def symbolic_evaluate_func(expr, symbols, x=None, backend=None, **kwargs):
     if backend is None:
         # if len(symbols) >= 32:
         if len(symbols) >= np.MAXDIMS:
@@ -250,4 +253,4 @@ def symbolic_evaluate_func(expr, symbols, x=None, backend=None):
     # substitute known unsupported functions on most backends
     expr = replace_unsupported_functions(expr)
 
-    return eval_func(expr, tuple(symbols))
+    return eval_func(expr, tuple(symbols), **kwargs)

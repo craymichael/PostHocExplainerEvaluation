@@ -19,6 +19,7 @@ from tensorflow.keras.layers import Lambda
 
 from posthoceval.explainers._base import BaseExplainer
 from posthoceval.model_generation import AdditiveModel
+from posthoceval.evaluate import symbolic_evaluate_func
 
 
 class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
@@ -68,7 +69,10 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
             n_classes = self._infer_n_classes(output_shape)
 
             in_layer = Input([self.model.n_features])
-            f = sp.lambdify(symbols, expr, 'tensorflow')
+            f = symbolic_evaluate_func(expr=expr,
+                                       symbols=symbols,
+                                       backend='tensorflow',
+                                       symbolic=True)
             target_layer = 'target_layer'
             layer = Lambda(
                 (lambda x:
