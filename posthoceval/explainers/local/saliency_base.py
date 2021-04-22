@@ -44,6 +44,7 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
         self.multiply_by_input = multiply_by_input
         # needs to be set by child
         self._expected_keys: Optional[List[str]] = None
+        self._atleast_2d = False
 
         self._tf_model = None
         self._target_layer = None
@@ -123,9 +124,10 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
         explanation = [
             [
                 explain_func(
-                    x_i,
+                    np.atleast_2d(x_i) if self._atleast_2d else x_i,
                     self._saliency_call_func,
-                    call_model_args={'target_class_idx': k},
+                    call_model_args={'target_class_idx': k,
+                                     'orig_shape': x_i},
                     **self._explain_kwargs,
                 )
                 for x_i in X
@@ -183,7 +185,9 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
             raise NotImplementedError(
                 'Convolutional-based salience map methods')
 
-        target_class_idx = call_model_args.get('target_class_idx')
+        target_class_idx = call_model_args['target_class_idx']
+        orig_shape = call_model_args['orig_shape']
+        data = data.reshape(-1, *orig_shape)
         data = tf.convert_to_tensor(data)
 
         if saliency.INPUT_OUTPUT_GRADIENTS in expected_keys:
