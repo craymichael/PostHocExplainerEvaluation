@@ -108,7 +108,19 @@ def tensorflow_func(expr, symbols, symbolic=False):
     expr = expr.expand()
     int_atoms = expr.atoms(sp.Integer)
     # To avoid TF typing problems, it's best to cast integers to floats
-    expr = expr.subs({int_a: float(int_a) for int_a in int_atoms})
+    # while-try-except loop necessary per issue:
+    #  https://github.com/sympy/sympy/issues/21373
+    n_retries = 0
+    while n_retries < 50:
+        try:
+            expr = expr.subs({int_a: float(int_a) for int_a in int_atoms})
+        except sp.PolynomialError:
+            n_retries += 1
+        else:
+            break
+    else:
+        raise RuntimeError('Too many `PolynomialError`s while trying to cast '
+                           f'integer atoms for tensorflow_func! Expr:\n{expr}')
     tf_func = sp.lambdify(symbols, expr, modules='tensorflow')
 
     if symbolic:
