@@ -6,7 +6,8 @@ import faulthandler
 
 faulthandler.enable()
 
-if MWE := False:
+# if MWE := False:
+if False:
 
     if False:
         # ok this is issue https://github.com/rpy2/rpy2/issues/563
