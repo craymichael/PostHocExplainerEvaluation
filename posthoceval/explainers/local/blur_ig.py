@@ -14,6 +14,7 @@ class BlurIntegratedGradientsExplainer(SalienceMapExplainer):
         super().__init__(*args, **kwargs)
         self._explainer = saliency.BlurIG()
         self._expected_keys = saliency.BlurIG.expected_keys
+        self._atleast_3d = True
 
 
 BlurIGExplainer = BlurIntegratedGradientsExplainer

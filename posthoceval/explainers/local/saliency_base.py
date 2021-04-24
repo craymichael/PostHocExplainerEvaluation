@@ -45,6 +45,7 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
         # needs to be set by child
         self._expected_keys: Optional[List[str]] = None
         self._atleast_2d = False
+        self._atleast_3d = False
 
         self._tf_model = None
         self._target_layer = None
@@ -121,6 +122,11 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
                              f'model: {len(output_shape)}')
         return n_classes
 
+    def _shape_handler(self, x):
+        return (np.atleast_3d(x) if self._atleast_3d else
+                np.atleast_2d(x) if self._atleast_2d else
+                x)
+
     def feature_contributions(self, X, return_y=False, as_dict=False):
         explain_func = (self._explainer.GetSmoothedMask if self.smooth else
                         self._explainer.GetMask)
@@ -128,7 +134,7 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
         explanation = [
             [
                 explain_func(
-                    np.atleast_2d(x_i) if self._atleast_2d else x_i,
+                    self._shape_handler(x_i),
                     self._saliency_call_func,
                     call_model_args={'target_class_idx': k,
                                      'orig_shape': x_i.shape},
