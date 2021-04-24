@@ -197,6 +197,7 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
 
         target_class_idx = call_model_args['target_class_idx']
         orig_shape = call_model_args['orig_shape']
+        grad_shape = data.shape  # grads need to be same shape as input
         data = data.reshape(-1, *orig_shape)
         data = tf.convert_to_tensor(data)
 
@@ -211,7 +212,8 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
                 if target_class_idx is not None:
                     output_layer = output_layer[:, target_class_idx]
                 gradients = tape.gradient(output_layer, data)
-                ret = {saliency.INPUT_OUTPUT_GRADIENTS: gradients.numpy()}
+                gradients = gradients.numpy().reshape(grad_shape)
+                ret = {saliency.INPUT_OUTPUT_GRADIENTS: gradients}
                 if saliency.OUTPUT_LAYER_VALUES in expected_keys:
                     assert len(expected_keys) == 2
                     ret[saliency.OUTPUT_LAYER_VALUES] = output_layer.numpy()
