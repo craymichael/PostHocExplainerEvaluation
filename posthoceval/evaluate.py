@@ -110,6 +110,7 @@ def tensorflow_func(expr, symbols, symbolic=False):
     # To avoid TF typing problems, it's best to cast integers to floats
     # while-try-except loop necessary per issue:
     #  https://github.com/sympy/sympy/issues/21373
+    # TODO: switch this to `sp.nfloat()` with appropriate n
     n_retries = 0
     while n_retries < 50:
         try:
