@@ -2,9 +2,6 @@
 dataset.py - A PostHocExplainerEvaluation file
 Copyright (C) 2021  Zach Carmichael
 """
-from abc import ABC
-from abc import abstractmethod
-
 from typing import Optional
 from typing import List
 from typing import Any
@@ -13,6 +10,11 @@ from typing import Union
 from typing import Iterable
 from typing import Sequence
 from typing import NoReturn
+
+from abc import ABC
+from abc import abstractmethod
+
+from copy import deepcopy
 
 import logging
 
@@ -31,7 +33,6 @@ logger = logging.getLogger(__name__)
 
 
 def _needs_load(f):
-
     def inner(self: 'Dataset', *args, **kwargs):
         # Call _load() if not called before
         if not self.__load_called__:
@@ -46,6 +47,10 @@ def _needs_load(f):
 
 
 class Dataset(ABC):
+    """"""
+
+    __expect_keys = ['label_col', 'grouped_feature_names', 'feature_names',
+                     'feature_types', 'X', 'y', 'data']
 
     def __init__(self, task: str):
         # TODO: standardize tasks between data and models
@@ -88,6 +93,9 @@ class Dataset(ABC):
         dataset.__load_called__ = True
         Dataset._load(dataset, *args, **kwargs)
         return dataset
+
+    def copy(self) -> 'Dataset':
+        return deepcopy(self)
 
     @property
     def is_classification(self) -> bool:
@@ -315,13 +323,11 @@ class Dataset(ABC):
             load_dict = args[0]
 
         loaded_keys = set(load_dict.keys())
-        expect_keys = ['label_col', 'grouped_feature_names', 'feature_names',
-                       'feature_types', 'X', 'y', 'data']
-        assert not (loaded_keys - set(expect_keys)), (
+        assert not (loaded_keys - set(self.__expect_keys)), (
             f'unknown keys in load_dict: {loaded_keys}')
 
         # set in the correct order
-        for key in expect_keys:
+        for key in self.__expect_keys:
             loaded_val = load_dict.get(key)
             if loaded_val is None:
                 continue
