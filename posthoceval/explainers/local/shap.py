@@ -57,6 +57,35 @@ class KernelSHAPExplainer(BaseExplainer):
             verbose=verbose,
         )
 
+        # start cat TODO
+        #  prolly move this to where data(set) comes in...
+        #  maybe take in the hierarchical feature names from a Dataset as
+        #   optional kwarg
+        if categories is not None:
+            groups = [[i] for i in range(len(self._numerical_features))]
+
+            start = len(groups)
+
+            # column index -> categories
+            category_map = dict(zip(
+                range(start, start + len(categories)), categories
+            ))
+
+            for cat in categories:
+                end = start + len(cat)
+                groups.append([*range(start, end)])
+                start = end
+
+            group_names = self._numerical_features + self._categorical_features
+
+            # TODO: these are both SHAP-only
+            expl_init_kwargs = dict(categorical_names=category_map)
+            expl_fit_kwargs = dict(group_names=group_names, groups=groups)
+        else:
+            expl_init_kwargs = {}
+            expl_fit_kwargs = {}
+        # end cat TODO
+
         self.n_background_samples = n_background_samples
         if link is None:
             link = 'identity' if self.task == 'regression' else 'logit'

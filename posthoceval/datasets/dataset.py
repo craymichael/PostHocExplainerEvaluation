@@ -7,6 +7,7 @@ from abc import abstractmethod
 
 from typing import Optional
 from typing import List
+from typing import Dict
 from typing import Tuple
 from typing import Union
 from typing import Iterable
@@ -16,18 +17,13 @@ import logging
 import numpy as np
 import pandas as pd
 
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.preprocessing import StandardScaler
-from sklearn.preprocessing import LabelEncoder
-from sklearn.base import TransformerMixin
-
-from posthoceval.utils import UNPROVIDED
+from posthoceval.utils import prod
 from posthoceval.utils import is_float
 from posthoceval.utils import is_int
-from posthoceval.utils import prod
 from posthoceval.utils import is_pandas
 from posthoceval.utils import is_df
+
+__all__ = ['Dataset', 'CustomDataset']
 
 logger = logging.getLogger(__name__)
 
@@ -59,22 +55,13 @@ class Dataset(ABC):
         self._X: Optional[np.ndarray] = None
         self._y: Optional[np.ndarray] = None
         self._data: Optional[pd.DataFrame] = None
+        self._grouped_feature_names: Optional[
+            List[Union[str, Dict[str, List[str]]]]] = None
         self._feature_names: Optional[List[str]] = None
         self._feature_types: Optional[List[str]] = None
         self._label_col: Optional[str] = None
         # These will be set lazily and a function of those provided in _load
         self._X_df: Optional[pd.DataFrame] = None
-
-        # Transformers
-        self.data_transformer: Optional[TransformerMixin] = None
-        self.label_encoder: Optional[TransformerMixin] = None
-        # TODO: do not transform the entire dataset....only training....
-        #  this maybe shouldn't be embedded here....or support get_item and len
-        #  for train test split then transform + transform support DataSet
-        #  objects
-        # TODO: nah we are just going to make a transformer class that works
-        #  with Dataset objects
-        self._untransformed = {}
 
     def __len__(self) -> int:
         # return length without triggering lazy-loading, if possible
@@ -86,9 +73,10 @@ class Dataset(ABC):
             return len(self.data)
 
     @classmethod
-    def from_data(cls, task, *args, **kwargs):
+    def from_data(cls, task: str, *args, **kwargs) -> 'Dataset':
         dataset = cls(task=task)
-        dataset._load(*args, **kwargs)
+        # >:)
+        Dataset._load(dataset, *args, **kwargs)
         return dataset
 
     @property
@@ -221,6 +209,22 @@ class Dataset(ABC):
 
     @property
     @_needs_load
+    def grouped_feature_names(self) -> List[Union[str, Dict[str, List[str]]]]:
+        if self._grouped_feature_names is None:  # infer
+            self.grouped_feature_names = self.feature_names.copy()
+        return self._grouped_feature_names
+
+    @grouped_feature_names.setter
+    def grouped_feature_names(
+            self,
+            val: Iterable[Union[str, Dict[str, List[str]]]]
+    ):
+        val = [*val]
+        self._grouped_feature_names = val
+        self._validate_sizes()
+
+    @property
+    @_needs_load
     def feature_types(self) -> List[str]:
         if self._feature_types is None:  # infer
             # TODO: dtypes do
@@ -263,13 +267,20 @@ class Dataset(ABC):
             if self._feature_types is not None:
                 assert self.n_features == len(self._feature_types), (
                     'n_features differs from # feat types')
+            if self._grouped_feature_names is not None:
+                tot_grouped_names = sum(
+                    1 if isinstance(name, str) else len(name.keys())
+                    for name in self._grouped_feature_names
+                )
+                assert self.n_features == tot_grouped_names, (
+                    'n_features differs from total # of grouped_feature_names')
         elif self._y is not None:
             if self._data is not None:
                 assert len(self._y) == len(self._data), (
                     'y and data lengths differ')
 
     @abstractmethod
-    def _load(self, *args, **kwargs):
+    def _load(self, *args, **kwargs) -> None:
         if not args:
             assert kwargs, 'need kwargs if no load_dict'
             maybe_load_dict = kwargs.get('load_dict')
@@ -283,10 +294,10 @@ class Dataset(ABC):
             load_dict = args[0]
 
         loaded_keys = set(load_dict.keys())
-        expect_keys = ['label_col', 'feature_names', 'feature_types', 'X', 'y',
-                       'data']
+        expect_keys = ['label_col', 'grouped_feature_names', 'feature_names',
+                       'feature_types', 'X', 'y', 'data']
         assert not (loaded_keys - set(expect_keys)), (
-            f'unknown keys in load_dict {loaded_keys}')
+            f'unknown keys in load_dict: {loaded_keys}')
 
         # set in the correct order
         for key in expect_keys:
@@ -295,95 +306,17 @@ class Dataset(ABC):
                 continue
             setattr(self, key, loaded_val)
 
-    def transform(
-            self,
-            numerical_transformer: Optional[TransformerMixin] = UNPROVIDED,
-            categorical_transformer: Optional[TransformerMixin] = UNPROVIDED,
-            label_encoder: Optional[TransformerMixin] = UNPROVIDED,
-    ):
-        numerical_cols = self.numerical_features
-        categorical_cols = self.categorical_features
 
-        column_transformers = []
+class CustomDataset(Dataset):
+    """
+    Usage:
+    >>> ds1 = CustomDataset(task='classification', X=X, y=y)
+    >>> ds2 = CustomDataset(task='regression', data=df, label_col='target')
+    """
 
-        if numerical_transformer is not None:
-            if numerical_transformer is UNPROVIDED:
-                numerical_transformer = StandardScaler()
-            column_transformers.append(
-                ('numerical', numerical_transformer, numerical_cols)
-            )
+    def __init__(self, task, *args, **kwargs):
+        super().__init__(task)
+        self._load(*args, **kwargs)
 
-        if categorical_transformer is not None:
-            if categorical_transformer is UNPROVIDED:
-                categorical_transformer = OneHotEncoder(sparse=False)
-            column_transformers.append(
-                ('categorical', categorical_transformer, categorical_cols)
-            )
-
-        if column_transformers:
-            data_transformer = ColumnTransformer(column_transformers)
-
-            X = data_transformer.fit_transform(self.X_df)
-        else:
-            data_transformer = None
-            X = self.X
-
-        if label_encoder is None:
-            if label_encoder is UNPROVIDED:
-                label_encoder = LabelEncoder()
-            y = label_encoder.fit_transform(self.y)
-        else:
-            y = self.y
-
-        transformed_feature_names = numerical_cols.copy()
-        if 'categorical' in data_transformer.named_transformers_:
-            categories = \
-                data_transformer.named_transformers_['categorical'].categories_
-
-            for cat, names in zip(categorical_cols, categories):
-                transformed_feature_names.extend(
-                    cat + f' = {name}'
-                    for name in names
-                )
-        else:
-            categories = None
-            transformed_feature_names += categorical_cols
-
-        if categories is not None:
-            groups = [[i] for i in range(len(numerical_cols))]
-
-            start = len(groups)
-
-            # column index -> categories
-            category_map = dict(zip(
-                range(start, start + len(categories)), categories
-            ))
-
-            for cat in categories:
-                end = start + len(cat)
-                groups.append([*range(start, end)])
-                start = end
-
-            group_names = numerical_cols + categorical_cols
-
-            # TODO: these are both SHAP-only
-            expl_init_kwargs = dict(categorical_names=category_map)
-            expl_fit_kwargs = dict(group_names=group_names, groups=groups)
-        else:
-            expl_init_kwargs = {}
-            expl_fit_kwargs = {}
-
-        # store transformers
-        self.data_transformer = data_transformer
-        self.label_encoder = label_encoder
-
-        # store untransformed data
-        self.X
-        self.y
-        self.X_df
-        self.data
-        self.feature_names
-        self.feature_types
-
-    def inverse_transform(self):
-        pass
+    def _load(self, *args, **kwargs):
+        super()._load(*args, **kwargs)
