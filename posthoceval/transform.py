@@ -14,6 +14,7 @@ from typing import Union
 import warnings
 
 import numpy as np
+import pandas as pd
 
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder
@@ -163,23 +164,10 @@ class Transformer(TransformerMixin):
 
         return self
 
-    def transform(
-            self,
-            dataset: Dataset,
-    ) -> Dataset:
-        """"""
-        if self.transforms_data:
-            X = self._data_transformer.transform(dataset.X_df)
-        else:
-            X = dataset.X
-
-        if self.transforms_target:
-            y = self._handle_y_transformer(
-                self._target_transformer.transform, dataset.y
-            )
-        else:
-            y = dataset.y
-
+    def _get_transformed_feature_names(
+            self
+    ) -> Tuple[List[str],
+               List[Union[str, Tuple[str, Sequence[Any]]]]]:
         transformed_feature_names = self._numerical_features.copy()
         if self.transforms_categorical:
             # safely get the categorical transformer (possibly could differ
@@ -206,16 +194,84 @@ class Transformer(TransformerMixin):
         else:
             transformed_feature_names += self._categorical_features
             grouped_feature_names = transformed_feature_names.copy()
+        return transformed_feature_names, grouped_feature_names
 
-        dataset_transformed = dataset.from_data(
-            task=dataset.task,
-            X=X,
-            y=y,
-            label_col=dataset.label_col,
-            feature_names=transformed_feature_names,
-            grouped_feature_names=grouped_feature_names,
-        )
-        return dataset_transformed
+    def transform(
+            self,
+            dataset: Optional[Dataset] = None,
+            X_df: Optional[pd.DataFrame] = None,
+            y: Optional[np.ndarray] = None,
+    ) -> Union[Dataset,
+               pd.DataFrame,
+               np.ndarray,
+               Tuple[pd.DataFrame, np.ndarray]]:
+        """Must provide either 1) dataset alone or 2) X_df and/or y.
+
+        :param dataset:
+        :param X_df:
+        :param y:
+        :return: The transformed input(s):
+            dataset -> Dataset
+            X_df    -> pd.DataFrame
+            y       -> np.ndarray
+            X_df, y -> Tuple[pd.DataFrame, np.ndarray]
+        """
+        # input validation
+        ds_missing = dataset is None
+        X_missing = (ds_missing and X_df is None)
+        y_missing = (ds_missing and y is None)
+        non_ds_missing = (X_df is None and y is None)
+        if ds_missing:
+            assert not non_ds_missing, (
+                'X_df or y should be provided if dataset is not')
+        else:
+            assert non_ds_missing, (
+                'X_df and y should not be provided if dataset is')
+
+        if not X_missing:
+            if self.transforms_data:
+                X = self._data_transformer.transform(
+                    X_df if ds_missing else dataset.X_df)
+            else:
+                X = X_df.values if ds_missing else dataset.X
+
+        if not y_missing:
+            if self.transforms_target:
+                y = self._handle_y_transformer(
+                    self._target_transformer.transform,
+                    y if ds_missing else dataset.y,
+                )
+            elif not ds_missing:
+                y = dataset.y
+
+            if X_missing:  # nothing else to do here
+                return y
+
+        (transformed_feature_names,
+         grouped_feature_names) = self._get_transformed_feature_names()
+
+        if ds_missing:
+            # X guaranteed at this point, y not
+            # noinspection PyUnboundLocalVariable
+            X_df_transformed = pd.DataFrame(
+                data=X,  # not unbound
+                columns=transformed_feature_names,
+            )
+            if y_missing:
+                return X_df_transformed
+            else:
+                return X_df_transformed, y
+        else:
+            # noinspection PyUnboundLocalVariable
+            dataset_transformed = dataset.from_data(
+                task=dataset.task,
+                X=X,  # not unbound
+                y=y,
+                label_col=dataset.label_col,
+                feature_names=transformed_feature_names,
+                grouped_feature_names=grouped_feature_names,
+            )
+            return dataset_transformed
 
     def inverse_transform(self):
         raise NotImplementedError
