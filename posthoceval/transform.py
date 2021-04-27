@@ -6,7 +6,9 @@ from typing import Optional
 from typing import Callable
 from typing import Protocol
 from typing import List
-from typing import Dict
+from typing import Tuple
+from typing import Sequence
+from typing import Any
 from typing import Union
 
 import warnings
@@ -25,12 +27,15 @@ from posthoceval.utils import UNPROVIDED
 __all__ = ['Transformer']
 
 
-class SklearnTransformer(Protocol[TransformerMixin]):
-    def fit(self, X: np.ndarray) -> 'SklearnTransformer': pass
+class SklearnBaseTransformer(Protocol):
+    def fit(self, X: np.ndarray) -> 'SklearnBaseTransformer': pass
 
     def transform(self, X: np.ndarray) -> np.ndarray: pass
 
     def inverse_transform(self, X: np.ndarray) -> np.ndarray: pass
+
+
+class SklearnTransformer(SklearnBaseTransformer, TransformerMixin): pass
 
 
 class Transformer(TransformerMixin):
@@ -103,9 +108,9 @@ class Transformer(TransformerMixin):
             else:
                 self._target_transformer = StandardScaler()
 
-    @staticmethod
-    def _transform_y(
-            transform_func: Callable,
+    def _handle_y_transformer(
+            self,
+            transformer_func: Callable,
             y: np.ndarray,
     ) -> np.ndarray:
         shape_orig = y.shape
@@ -118,8 +123,9 @@ class Transformer(TransformerMixin):
             warnings.filterwarnings(
                 'ignore', message='A column-vector y was passed when a 1d '
                                   'array was expected')
-            y = transform_func(y)
-
+            y = transformer_func(y)
+        if isinstance(y, TransformerMixin):
+            return y
         y = y.reshape(shape_orig)
         return y
 
@@ -151,7 +157,9 @@ class Transformer(TransformerMixin):
             self._data_transformer.fit(dataset.X_df)
 
         if self.transforms_target:
-            self._target_transformer.fit(dataset.y)
+            self._handle_y_transformer(
+                self._target_transformer.fit, dataset.y
+            )
 
         return self
 
@@ -166,7 +174,7 @@ class Transformer(TransformerMixin):
             X = dataset.X
 
         if self.transforms_target:
-            y = self._transform_y(
+            y = self._handle_y_transformer(
                 self._target_transformer.transform, dataset.y
             )
         else:
@@ -184,7 +192,7 @@ class Transformer(TransformerMixin):
             # record grouped feature names, retaining flat features with
             #  mappings to unique categorical values (new columns in
             #  transformed data)
-            grouped_feature_names: List[Union[str, Dict[str, List[str]]]]
+            grouped_feature_names: List[Union[str, Tuple[str, Sequence[Any]]]]
             grouped_feature_names = transformed_feature_names.copy()
 
             for cat, names in zip(self._categorical_features, categories):
@@ -194,15 +202,16 @@ class Transformer(TransformerMixin):
                     cat + f' = {name}'
                     for name in names
                 )
-                grouped_feature_names.append({cat: names})
+                grouped_feature_names.append((cat, names))
         else:
             transformed_feature_names += self._categorical_features
             grouped_feature_names = transformed_feature_names.copy()
 
-        dataset_transformed = Dataset.from_data(
+        dataset_transformed = dataset.from_data(
             task=dataset.task,
             X=X,
             y=y,
+            label_col=dataset.label_col,
             feature_names=transformed_feature_names,
             grouped_feature_names=grouped_feature_names,
         )

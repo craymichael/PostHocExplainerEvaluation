@@ -247,6 +247,24 @@ def is_int(v):
     return np.issubdtype(v, np.integer)
 
 
+def as_int(v):
+    if is_int(v):
+        return v
+    if is_float(v):
+        if hasattr(v, 'astype'):
+            v_i = v.astype(int)
+        elif isinstance(v, float):
+            v_i = int(v)
+        else:
+            v_i = np.asarray(v, dtype=int)
+        if not np.all(v_i == v):
+            raise ValueError(f'Provided value cannot be cast to an integer '
+                             f'losslessly: {v}')
+        return v_i
+
+    raise TypeError(f'Cannot cast {_as_dtype_or_cls(v)} to integer type')
+
+
 def is_float(v):
     v = _as_dtype_or_cls(v)
     return np.issubdtype(v, np.floating)

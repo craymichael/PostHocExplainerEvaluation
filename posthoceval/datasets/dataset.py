@@ -7,10 +7,11 @@ from abc import abstractmethod
 
 from typing import Optional
 from typing import List
-from typing import Dict
+from typing import Any
 from typing import Tuple
 from typing import Union
 from typing import Iterable
+from typing import Sequence
 
 import logging
 
@@ -18,8 +19,8 @@ import numpy as np
 import pandas as pd
 
 from posthoceval.utils import prod
+from posthoceval.utils import as_int
 from posthoceval.utils import is_float
-from posthoceval.utils import is_int
 from posthoceval.utils import is_pandas
 from posthoceval.utils import is_df
 
@@ -29,12 +30,11 @@ logger = logging.getLogger(__name__)
 
 
 def _needs_load(f):
-    called_name = '__loaded_called__'
 
     def inner(self, *args, **kwargs):
         # Call _load() if not called before
-        if not getattr(self, called_name, False):
-            setattr(self, called_name, True)
+        if not self.__load_called__:
+            self.__load_called__ = True
             self._load()
         # Call wrapped function
         return f(self, *args, **kwargs)
@@ -56,12 +56,14 @@ class Dataset(ABC):
         self._y: Optional[np.ndarray] = None
         self._data: Optional[pd.DataFrame] = None
         self._grouped_feature_names: Optional[
-            List[Union[str, Dict[str, List[str]]]]] = None
+            List[Union[str, Tuple[str, Sequence[Any]]]]] = None
         self._feature_names: Optional[List[str]] = None
         self._feature_types: Optional[List[str]] = None
         self._label_col: Optional[str] = None
         # These will be set lazily and a function of those provided in _load
         self._X_df: Optional[pd.DataFrame] = None
+
+        self.__load_called__ = False
 
     def __len__(self) -> int:
         # return length without triggering lazy-loading, if possible
@@ -76,6 +78,7 @@ class Dataset(ABC):
     def from_data(cls, task: str, *args, **kwargs) -> 'Dataset':
         dataset = cls(task=task)
         # >:)
+        dataset.__load_called__ = True
         Dataset._load(dataset, *args, **kwargs)
         return dataset
 
@@ -134,7 +137,11 @@ class Dataset(ABC):
         else:
             val = np.asarray(val)
         assert val.ndim > 1, 'X needs to have ndim > 1'
-        val = val.astype(np.float32)
+        try:
+            val = val.astype(np.float32)
+        except ValueError:
+            logger.debug(f'{self.__class__.__name__} X contains non-float '
+                         f'column(s)')
         self._X = val
         self._validate_sizes()
 
@@ -155,7 +162,11 @@ class Dataset(ABC):
         if self.is_regression and not is_float(self._y):
             val = val.astype(np.float32)
         else:
-            assert is_int(val), 'for classification y must be integers'
+            try:
+                val = as_int(val)
+            except (ValueError, TypeError):
+                logger.debug(f'{self.__class__.__name__} y is of type '
+                             f'{val.dtype} and not integer for {self.task}')
 
         # ensure it is a vector
         val = val.squeeze(axis=tuple(range(1, val.ndim)))
@@ -209,7 +220,8 @@ class Dataset(ABC):
 
     @property
     @_needs_load
-    def grouped_feature_names(self) -> List[Union[str, Dict[str, List[str]]]]:
+    def grouped_feature_names(
+            self) -> List[Union[str, Tuple[str, List[Any]]]]:
         if self._grouped_feature_names is None:  # infer
             self.grouped_feature_names = self.feature_names.copy()
         return self._grouped_feature_names
@@ -217,9 +229,10 @@ class Dataset(ABC):
     @grouped_feature_names.setter
     def grouped_feature_names(
             self,
-            val: Iterable[Union[str, Dict[str, List[str]]]]
+            val: Iterable[Union[str, Tuple[str, Sequence[Any]]]]
     ):
-        val = [*val]
+        val = [v if isinstance(v, str) else (v[0], [*v[1]])
+               for v in val]
         self._grouped_feature_names = val
         self._validate_sizes()
 
@@ -259,7 +272,7 @@ class Dataset(ABC):
             if self._data is not None:
                 assert len(self._X) == len(self._data), (
                     'X and data lengths differ')
-                assert self.n_features >= (len(self._data.columns) - 1), (
+                assert self.n_features <= (len(self._data.columns) - 1), (
                     'n_features differs from # data columns')
             if self._feature_names is not None:
                 assert self.n_features == len(self._feature_names), (
@@ -269,7 +282,7 @@ class Dataset(ABC):
                     'n_features differs from # feat types')
             if self._grouped_feature_names is not None:
                 tot_grouped_names = sum(
-                    1 if isinstance(name, str) else len(name.keys())
+                    1 if isinstance(name, str) else len(name[1])
                     for name in self._grouped_feature_names
                 )
                 assert self.n_features == tot_grouped_names, (
@@ -316,6 +329,7 @@ class CustomDataset(Dataset):
 
     def __init__(self, task, *args, **kwargs):
         super().__init__(task)
+        self.__load_called__ = True
         self._load(*args, **kwargs)
 
     def _load(self, *args, **kwargs):
