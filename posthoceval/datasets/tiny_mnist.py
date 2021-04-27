@@ -21,25 +21,26 @@ __all__ = ['load_tiny_mnist', 'TinyMNISTDataset']
 # https://github.com/scikit-learn/scikit-learn/issues/18783
 # https://github.com/scikit-learn/scikit-learn/pull/14855
 OPENML_CACHE_DIR = os.path.join(get_data_home(), 'openml-cache')
-fetch_openml_memory = Memory(OPENML_CACHE_DIR)
+fetch_openml_memory = Memory(OPENML_CACHE_DIR, verbose=False)
 fetch_openml = fetch_openml_memory.cache(uncached_fetch_openml)
 
 
-# TODO: https://youtrack.jetbrains.com/issue/PY-24273
 class TinyMNISTDataset(Dataset):
 
     def __init__(self, task='classification', *args, **kwargs):
-        super().__init__(task='classification')
+        super().__init__(task=task)
         if not self.is_classification:
-            # TODO: https://youtrack.jetbrains.com/issue/PY-24273
             self._raise_bad_task()
+        self._load_args = args
+        self._load_kwargs = kwargs
 
     def _load(self, *args, **kwargs) -> None:
-        pass
+        X, y = load_tiny_mnist(*self._load_args, **self._load_kwargs)
+        super()._load(X=X, y=y, label_col='digit')
 
 
 def load_tiny_mnist(
-        class_subset=None,
+        class_subset=UNPROVIDED,
         crop_top_rows=3,
         crop_bottom_rows=2,
         crop_left_cols=5,
@@ -47,6 +48,9 @@ def load_tiny_mnist(
         downscale=0.5,
 ):
     """"""
+    if class_subset is UNPROVIDED:
+        class_subset = [0, 1, 5, 8]
+
     # load MNIST
     X, y = fetch_openml('mnist_784', version=1, return_X_y=True,
                         as_frame=False)

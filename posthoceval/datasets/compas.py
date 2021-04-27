@@ -10,7 +10,6 @@ from posthoceval.datasets.dataset import Dataset
 from posthoceval.datasets.dataset_utils import LOCAL_DATA_PATH
 
 
-# TODO: https://youtrack.jetbrains.com/issue/PY-24273
 class COMPASDataset(Dataset):
     def __init__(self, task='regression'):
         super().__init__(task=task)

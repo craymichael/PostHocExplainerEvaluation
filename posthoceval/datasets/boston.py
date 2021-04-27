@@ -8,7 +8,6 @@ from posthoceval.datasets.dataset import Dataset
 from posthoceval.datasets.dataset_utils import LOCAL_DATA_PATH
 
 
-# TODO: https://youtrack.jetbrains.com/issue/PY-24273
 class BostonDataset(Dataset):
     def __init__(self, task='regression', medv_threshold=None):
         super().__init__(

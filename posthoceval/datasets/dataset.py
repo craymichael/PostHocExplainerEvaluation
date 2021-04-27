@@ -32,11 +32,13 @@ logger = logging.getLogger(__name__)
 
 def _needs_load(f):
 
-    def inner(self, *args, **kwargs):
+    def inner(self: 'Dataset', *args, **kwargs):
         # Call _load() if not called before
         if not self.__load_called__:
+            logger.info(f'Loading bas begun for {self.__class__.__name__}')
             self.__load_called__ = True
             self._load()
+            logger.info(f'Loading has finished for {self.__class__.__name__}')
         # Call wrapped function
         return f(self, *args, **kwargs)
 
@@ -67,8 +69,8 @@ class Dataset(ABC):
         self.__load_called__ = False
 
     def _raise_bad_task(self) -> NoReturn:
-        raise NotImplementedError(f'{self.task} is not supported for '
-                                  f'{self.__class__.__name__}')
+        raise ValueError(f'{self.task} is not supported for '
+                         f'{self.__class__.__name__}')
 
     def __len__(self) -> int:
         # return length without triggering lazy-loading, if possible
@@ -184,9 +186,10 @@ class Dataset(ABC):
     @_needs_load
     def data(self) -> pd.DataFrame:
         if self._data is None:  # infer
+            print('w')
             data = pd.DataFrame(
                 columns=self.feature_names,
-                data=self.X,
+                data=self.X.reshape(-1, self.n_features),
             )
             data[self.label_col] = self.y
             self.data = data
