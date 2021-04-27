@@ -8,6 +8,7 @@ from posthoceval.datasets.dataset import Dataset
 from posthoceval.datasets.dataset_utils import LOCAL_DATA_PATH
 
 
+# TODO: https://youtrack.jetbrains.com/issue/PY-24273
 class BostonDataset(Dataset):
     def __init__(self, task='regression', medv_threshold=None):
         super().__init__(
@@ -19,7 +20,7 @@ class BostonDataset(Dataset):
         elif self.is_regression:
             assert medv_threshold is None
         else:
-            raise NotImplementedError(self.task)
+            self._raise_bad_task()
 
         self.medv_threshold = medv_threshold
 
@@ -34,10 +35,14 @@ class BostonDataset(Dataset):
         elif self.is_regression:
             to_drop = label_col = 'MEDV'
         else:
-            raise NotImplementedError(self.task)
+            self._raise_bad_task()
 
+        # noinspection PyUnboundLocalVariable
+        # TODO: https://youtrack.jetbrains.com/issue/PY-24273
         feature_names = data_df.columns.drop(to_drop).to_list()
 
+        # noinspection PyUnboundLocalVariable
+        # TODO: https://youtrack.jetbrains.com/issue/PY-24273
         super()._load(
             data=data_df,
             feature_names=feature_names,

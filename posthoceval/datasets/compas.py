@@ -10,6 +10,7 @@ from posthoceval.datasets.dataset import Dataset
 from posthoceval.datasets.dataset_utils import LOCAL_DATA_PATH
 
 
+# TODO: https://youtrack.jetbrains.com/issue/PY-24273
 class COMPASDataset(Dataset):
     def __init__(self, task='regression'):
         super().__init__(task=task)
@@ -35,8 +36,10 @@ class COMPASDataset(Dataset):
             label_col = 'score_text'
             alt_label = 'decile_score'
         else:
-            raise NotImplementedError(self.task)
+            self._raise_bad_task()
 
+        # TODO: https://youtrack.jetbrains.com/issue/PY-24273
+        # noinspection PyUnboundLocalVariable
         feature_names = data_df.columns.drop(
             [label_col, 'age_cat', alt_label])
         feature_types = [
@@ -48,12 +51,8 @@ class COMPASDataset(Dataset):
         feature_names = pretty_name(feature_names)
         label_col = pretty_name(label_col)
 
-        # TODO: handle column transformations and categorical encoding
-        #  properly...
-
         super()._load(
             data=data_df,
-            # X=X_df.values,  # TODO - some values are strings still....
             feature_names=feature_names,
             feature_types=feature_types,
             label_col=label_col,

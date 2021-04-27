@@ -12,6 +12,7 @@ from typing import Tuple
 from typing import Union
 from typing import Iterable
 from typing import Sequence
+from typing import NoReturn
 
 import logging
 
@@ -64,6 +65,10 @@ class Dataset(ABC):
         self._X_df: Optional[pd.DataFrame] = None
 
         self.__load_called__ = False
+
+    def _raise_bad_task(self) -> NoReturn:
+        raise NotImplementedError(f'{self.task} is not supported for '
+                                  f'{self.__class__.__name__}')
 
     def __len__(self) -> int:
         # return length without triggering lazy-loading, if possible
