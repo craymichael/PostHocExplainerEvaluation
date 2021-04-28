@@ -7,10 +7,10 @@ import warnings
 from tensorflow.keras.models import Model
 from tensorflow.keras.utils import plot_model
 
-from posthoceval.model_generation import AdditiveModel
+from posthoceval.model_generation import SyntheticModel
 
 
-class DNNRegressor(AdditiveModel):
+class DNNRegressor(SyntheticModel):
     def __init__(self, dnn: Model, pre_sum_map, symbols, symbol_names=None):
         # TODO: re-abstract AdditiveModel...this is quite sloppy
 

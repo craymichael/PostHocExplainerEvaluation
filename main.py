@@ -20,7 +20,7 @@ import seaborn as sns
 from posthoceval.explainers.global_.ebm import ebm_explain
 from posthoceval.explainers.global_.linear import linear_explain
 from posthoceval.explainers.local.shap import gshap_explain
-from posthoceval.model_generation import AdditiveModel
+from posthoceval.model_generation import SyntheticModel
 from posthoceval.model_generation import tsang_iclr18_models
 from posthoceval.profile import set_profile
 from posthoceval.expl_utils import standardize_effect
@@ -325,7 +325,7 @@ def evaluate_explainers(debug=False):
     if dummy_model_with_interactions:
         expr += x1 * x2
 
-    model = AdditiveModel.from_expr(expr, symbols)
+    model = SyntheticModel.from_expr(expr, symbols)
 
     if dummy_model_with_interactions:  # TODO
         model = tsang_iclr18_models('f1')

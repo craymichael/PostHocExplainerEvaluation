@@ -25,7 +25,7 @@ from joblib import delayed
 import numpy as np
 import sympy as sp
 
-from posthoceval.model_generation import AdditiveModel
+from posthoceval.model_generation import SyntheticModel
 from posthoceval.utils import assert_same_size
 from posthoceval.expl_utils import save_explanation
 from posthoceval.expl_utils import CompatUnpickler
@@ -78,7 +78,7 @@ def explain(explainer_cls, out_filename, expr_result, data_file, max_explain,
         return
 
     tqdm.write('Generating model')
-    model = AdditiveModel.from_expr(
+    model = SyntheticModel.from_expr(
         expr=expr_result.expr,
         symbols=expr_result.symbols,
     )

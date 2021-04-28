@@ -3,12 +3,11 @@ from typing import Optional
 from typing import Dict
 from typing import Tuple
 from typing import Union
+from typing import List
+from typing import Any
 
-import string
-import random
 import warnings
 
-from functools import partial
 from functools import lru_cache
 from itertools import repeat
 from itertools import combinations
@@ -35,6 +34,7 @@ from posthoceval.utils import is_int
 from posthoceval.utils import is_float
 from posthoceval.evaluate import symbolic_evaluate_func
 from posthoceval.expression_tree import RandExprTree
+from posthoceval.models.model import AdditiveModel
 
 from posthoceval.profile import profile
 from posthoceval.profile import mem_profile
@@ -857,28 +857,12 @@ def valid_variable_domains(terms, assumptions=None, no_empty_set=True,
     return domains
 
 
-def symbol_names(n_features, excel_like=False):
-    """Generate Excel-like names for symbols"""
-    assert n_features >= 1, 'Invalid number of features < 1: %d' % n_features
-    if excel_like:
-        alphabet = string.ascii_uppercase
-        ret = []
-        for d in range(1, n_features + 1):
-            ret_i = ''
-            while d > 0:
-                d, m = divmod(d - 1, 26)
-                ret_i = alphabet[m] + ret_i
-            ret.append(ret_i)
-        return ret
-    else:
-        return [f'x{i}' for i in range(1, n_features + 1)]
-
-
-class AdditiveModel(object):
-    # TODO: AdditiveModel -> SymbolicAdditiveModel
+class SyntheticModel(AdditiveModel):
 
     def __init__(self,
-                 n_features: int,
+                 symbol_names: Optional[List[str]] = None,
+                 n_features: Optional[int] = None,
+                 symbols: Optional[List[Any]] = None,
                  backend=None):
         """
 
@@ -889,18 +873,16 @@ class AdditiveModel(object):
             extended_nonpositive extended_positive complex composite
             See [sympy assumptions](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.assumptions)  # noqa
         """
+        super().__init__(
+            n_features=n_features,
+            symbols=symbols,
+            symbol_names=symbol_names,
+        )
 
-
-        self.n_features = n_features
-
-        # Generate n_features symbols with unique names from domain
-        self.symbol_names = symbol_names(self.n_features)
-        self.symbols = sp.symbols(self.symbol_names, real=True)
-        self.expr = generate_additive_expression(symbols)
+        if symbols is None:
+            self.symbols = sp.symbols(self.symbol_names, real=True)
+        self.expr = generate_additive_expression(self.symbols)
         self.backend = backend
-
-        # Set later
-        self._symbol_map = None
 
     @classmethod
     def from_expr(
@@ -933,11 +915,6 @@ class AdditiveModel(object):
 
         return model
 
-    def get_symbol(self, symbol_name: str) -> sp.Symbol:
-        if self._symbol_map is None:
-            self._symbol_map = dict(zip(self.symbol_names, self.symbols))
-        return self._symbol_map[symbol_name]
-
     @property
     def main_effects(self) -> Tuple[sp.Expr, ...]:
         main_effects, _ = split_effects(self.expr, self.symbols)
@@ -958,21 +935,21 @@ class AdditiveModel(object):
 
     def __call__(
             self,
-            x: np.ndarray,
+            X: np.ndarray,
             backend=None,
     ):
-        x = np.asarray(x)
-        assert_shape(x, (None, self.n_features))
+        X = np.asarray(X)
+        assert_shape(X, (None, self.n_features))
         if backend is None:
             backend = self.backend
         eval_func = symbolic_evaluate_func(self.expr, self.symbols,
-                                           x=x, backend=backend)
+                                           x=X, backend=backend)
         try:
-            return eval_func(*(x[:, i] for i in range(self.n_features)))
+            return eval_func(*(X[:, i] for i in range(self.n_features)))
         except FloatingPointError:
 
             def safe_eval_func():
-                for x_i in x:
+                for x_i in X:
                     x_i = x_i[None, ...]
                     try:
                         yield eval_func(*(x_i[:, i]
@@ -983,13 +960,13 @@ class AdditiveModel(object):
 
             return np.fromiter(safe_eval_func(), dtype=float)
 
-    def predict(self, x):  # sklearn compat
+    def predict(self, X):  # sklearn compat
         # TODO: classification vs. regression...
-        return self(x)
+        return self(X)
 
-    def predict_proba(self, x):  # sklearn compat
+    def predict_proba(self, X):  # sklearn compat
         # TODO: classification vs. regression...
-        return self(x)
+        return self(X)
 
     def make_effects_dict(self,
                           main_effects=True,
@@ -1017,7 +994,7 @@ class AdditiveModel(object):
 
     def feature_contributions(
             self,
-            x: np.ndarray,
+            X: np.ndarray,
             main_effects=True,
             interaction_effects=True,
             return_effects=False,
@@ -1045,13 +1022,13 @@ class AdditiveModel(object):
             effect_symbols = sorted(effect.free_symbols, key=lambda s: s.name)
             effect_symbols = tuple(effect_symbols)
             # Index x matrix (order of features)
-            related_features = [x[:, self.symbols.index(s)]
+            related_features = [X[:, self.symbols.index(s)]
                                 for s in effect_symbols]
             if effect == 0:
                 continue  # skip zero-effects
             eval_func = symbolic_evaluate_func(effect,
                                                effect_symbols,
-                                               x=x,  # TODO(x)
+                                               x=X,  # TODO(x)
                                                backend=backend)
             contribution = eval_func(*related_features)
             contributions[effect_symbols] = contribution
@@ -1071,7 +1048,7 @@ class AdditiveModel(object):
 
 def tsang_iclr18_models(
         name=None
-) -> Union[Dict[str, AdditiveModel], Tuple[AdditiveModel], AdditiveModel]:
+) -> Union[Dict[str, SyntheticModel], Tuple[SyntheticModel], SyntheticModel]:
     """"""
     # TODO: https://github.com/sympy/sympy/issues/11027
     #  Min/Max functions don't vectorize as expected. Here is a "beautiful" fix
@@ -1091,7 +1068,7 @@ def tsang_iclr18_models(
     f7_int = x3 * x4 + x6
 
     synthetic_functions = dict(
-        f1=AdditiveModel.from_expr(
+        f1=SyntheticModel.from_expr(
             sp.pi ** (x1 * x2) * sp.sqrt(2 * x3)
             - sp.asin(x4)
             + sp.log(x3 + x5)
@@ -1099,7 +1076,7 @@ def tsang_iclr18_models(
             - x2 * x7,
             all_symbols
         ),
-        f2=AdditiveModel.from_expr(
+        f2=SyntheticModel.from_expr(
             sp.pi ** (x1 * x2) * sp.sqrt(2 * abs(x3))
             - sp.asin(x4 / 2)
             + sp.log(abs(x3 + x5) + 1)
@@ -1107,7 +1084,7 @@ def tsang_iclr18_models(
             - x2 * x7,
             all_symbols
         ),
-        f3=AdditiveModel.from_expr(
+        f3=SyntheticModel.from_expr(
             sp.exp(abs(x1 - x2))
             + abs(x2 * x3)
             - x3 ** (2 * abs(x4))
@@ -1116,7 +1093,7 @@ def tsang_iclr18_models(
             + 1 / (1 + x10 ** 2),
             all_symbols
         ),
-        f4=AdditiveModel.from_expr(
+        f4=SyntheticModel.from_expr(
             sp.exp(abs(x1 - x2))
             + abs(x2 * x3)
             - x3 ** (2 * abs(x4))
@@ -1126,21 +1103,21 @@ def tsang_iclr18_models(
             + 1 / (1 + x10 ** 2),
             all_symbols
         ),
-        f5=AdditiveModel.from_expr(
+        f5=SyntheticModel.from_expr(
             1 / (1 + x1 ** 2 + x2 ** 2 + x3 ** 2)
             + sp.sqrt(sp.exp(x4 + x5))
             + abs(x6 + x7)
             + x8 * x9 * x10,
             all_symbols
         ),
-        f6=AdditiveModel.from_expr(
+        f6=SyntheticModel.from_expr(
             sp.exp(abs(x1 * x2) + 1)
             - sp.exp(abs(x3 + x4) + 1)
             + sp.cos(x5 + x6 - x8)
             + sp.sqrt(x8 ** 2 + x9 ** 2 + x10 ** 2),
             all_symbols
         ),
-        f7=AdditiveModel.from_expr(
+        f7=SyntheticModel.from_expr(
             (sp.atan(x1) + sp.atan(x2)) ** 2
             # Ha! You think you could do this but nooooo
             # + sym.Max(x3 * x4 + x6, 0)
@@ -1152,7 +1129,7 @@ def tsang_iclr18_models(
             + sum(all_symbols),
             all_symbols
         ),  # sum(all_symbols) = \sum_{i=1}^{10} x_i
-        f8=AdditiveModel.from_expr(
+        f8=SyntheticModel.from_expr(
             x1 * x2
             + 2 ** (x3 + x5 + x6)
             + 2 ** (x3 + x4 + x5 + x7)
@@ -1160,7 +1137,7 @@ def tsang_iclr18_models(
             + sp.acos(sp.Integer(9) / sp.Integer(10) * x10),
             all_symbols
         ),
-        f9=AdditiveModel.from_expr(
+        f9=SyntheticModel.from_expr(
             sp.tanh(x1 * x2 + x3 * x4) * sp.sqrt(abs(x5))
             + sp.exp(x5 + x6)
             + sp.log((x6 * x7 * x8) ** 2 + 1)
@@ -1168,7 +1145,7 @@ def tsang_iclr18_models(
             + 1 / (1 + abs(x10)),
             all_symbols
         ),
-        f10=AdditiveModel.from_expr(
+        f10=SyntheticModel.from_expr(
             sp.sinh(x1 + x2)
             + sp.acos(sp.tanh(x3 + x5 + x7))
             + sp.cos(x4 + x5)

@@ -10,7 +10,7 @@ import pandas as pd
 
 from posthoceval.expl_utils import apply_matching, standardize_contributions
 from posthoceval.metrics import generous_eval
-from posthoceval.model_generation import AdditiveModel
+from posthoceval.model_generation import SyntheticModel
 
 
 def scale_y(y_scaler_func, y):
@@ -25,7 +25,7 @@ def scale_y(y_scaler_func, y):
     return y
 
 
-def gather_viz_data(model: AdditiveModel,
+def gather_viz_data(model: SyntheticModel,
                     data,
                     true_contribs,
                     pred_contribs,

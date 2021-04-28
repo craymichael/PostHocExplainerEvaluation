@@ -18,7 +18,7 @@ from posthoceval import utils
 # def gshap_explain(model, data_train, data_test, n_background_samples=100):
 #     explainer = KernelShap(
 #         model,
-#         feature_names=model.symbol_names,
+#         feature_names=model.gen_symbol_names,
 #         task='regression',
 #         distributed_opts={
 #             # https://www.seldon.io/how-seldons-alibi-and-ray-make-model-explainability-easy-and-scalable/

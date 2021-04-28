@@ -14,7 +14,7 @@ from pdpbox.pdp import pdp_isolate
 
 from posthoceval.explainers._base import BaseExplainer
 from posthoceval.explainers.global_.global_util import MultivariateInterpolation
-from posthoceval.model_generation import AdditiveModel
+from posthoceval.model_generation import SyntheticModel
 
 
 class PDPExplainer(BaseExplainer):
@@ -25,7 +25,7 @@ class PDPExplainer(BaseExplainer):
                       List[MultivariateInterpolation]]
 
     def __init__(self,
-                 model: AdditiveModel,
+                 model: SyntheticModel,
                  seed=None,
                  task: str = 'regression',
                  n_grid_points: int = 100,

@@ -22,7 +22,7 @@ from posthoceval.utils import tqdm_parallel
 from posthoceval.utils import CustomJSONEncoder
 from posthoceval.utils import atomic_write_exclusive
 from posthoceval.expl_eval import metrics
-from posthoceval.model_generation import AdditiveModel
+from posthoceval.model_generation import SyntheticModel
 from posthoceval.results import ExprResult
 
 
@@ -110,7 +110,7 @@ def run(expr_filename, explainer_dir, data_dir, out_dir,
             tqdm.write('Loading predicted explanation')
             pred_expl_file = os.path.join(explainer_path, f'{expl_id}.npz')
 
-            model = AdditiveModel.from_expr(
+            model = SyntheticModel.from_expr(
                 expr=expr_result.expr,
                 symbols=expr_result.symbols,
             )

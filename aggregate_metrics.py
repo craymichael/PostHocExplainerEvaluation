@@ -23,7 +23,7 @@ from posthoceval.expl_utils import load_explanation
 from posthoceval.expl_utils import save_explanation
 from posthoceval.expl_utils import CompatUnpickler
 from posthoceval import metrics
-from posthoceval.model_generation import AdditiveModel
+from posthoceval.model_generation import SyntheticModel
 from posthoceval.utils import tqdm_parallel, CustomJSONEncoder
 from posthoceval.utils import at_high_precision
 from posthoceval.utils import atomic_write_exclusive
@@ -162,7 +162,7 @@ def compute_metrics(true_expl, pred_expl, n_explained, true_means):
 
 def compute_true_contributions(expr_result, data_file, explainer_dir, expl_id):
     tqdm.write('Generating model')
-    model = AdditiveModel.from_expr(
+    model = SyntheticModel.from_expr(
         expr=expr_result.expr,
         symbols=expr_result.symbols,
     )

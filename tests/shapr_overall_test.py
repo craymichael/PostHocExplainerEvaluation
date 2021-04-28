@@ -157,14 +157,14 @@ else:
     import pandas as pd
     from posthoceval.explainers.local.shapr import SHAPRExplainer
     from posthoceval.explainers.local.shap import KernelSHAPExplainer
-    from posthoceval.model_generation import AdditiveModel
+    from posthoceval.model_generation import SyntheticModel
 
     # import gc
 
     # gc.disable()
     data = np.random.rand(20, 3)
 
-    model = AdditiveModel.from_expr('x1 + x2 - 2 * x3')
+    model = SyntheticModel.from_expr('x1 + x2 - 2 * x3')
 
     for explainer_cls in [KernelSHAPExplainer, SHAPRExplainer]:
         explainer = explainer_cls(model=model)

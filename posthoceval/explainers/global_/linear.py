@@ -9,6 +9,7 @@ from sklearn.model_selection import KFold
 
 from interpret.glassbox import LinearRegression
 
+import posthoceval.models.model
 from posthoceval import metrics
 
 
@@ -21,7 +22,7 @@ def linear_explain(model, data_train, data_test):
     # Common linear regressor parameters
     lr_params = dict(
         max_iter=10_000,
-        feature_names=model.symbol_names,
+        feature_names=posthoceval.models.model.gen_symbol_names,
         feature_types=['continuous'] * model.n_features,  # TODO
         fit_intercept=False,  # TODO(easier to deal with...)
     )

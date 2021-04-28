@@ -19,7 +19,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 
 from posthoceval.explainers._base import BaseExplainer
-from posthoceval.model_generation import AdditiveModel
+from posthoceval.model_generation import SyntheticModel
 
 
 class _MAPLE:
@@ -190,7 +190,7 @@ class MAPLEExplainer(BaseExplainer):
     _explainer: Optional[_MAPLE]
 
     def __init__(self,
-                 model: AdditiveModel,
+                 model: SyntheticModel,
                  train_size: float = 2 / 3,
                  seed: Optional[int] = None,
                  task: str = 'regression',

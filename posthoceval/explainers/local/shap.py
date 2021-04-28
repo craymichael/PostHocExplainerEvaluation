@@ -13,7 +13,7 @@ from alibi.explainers import KernelShap
 from joblib import cpu_count
 
 from posthoceval.profile import profile
-from posthoceval.model_generation import AdditiveModel
+from posthoceval.model_generation import SyntheticModel
 from posthoceval.explainers._base import BaseExplainer
 from posthoceval.datasets.dataset import Dataset
 
@@ -48,7 +48,7 @@ class KernelSHAPExplainer(BaseExplainer):
     """
 
     def __init__(self,
-                 model: AdditiveModel,
+                 model: SyntheticModel,
                  n_background_samples: int = 100,
                  n_cpus: int = 1,
                  task: str = 'regression',

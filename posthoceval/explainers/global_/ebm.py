@@ -6,6 +6,7 @@ from collections import defaultdict
 
 from interpret.glassbox import ExplainableBoostingRegressor
 
+import posthoceval.models.model
 from posthoceval import metrics
 
 
@@ -14,7 +15,7 @@ def ebm_explain(model, data_train, data_test):
     y_test = model(data_test)
 
     ebm = ExplainableBoostingRegressor(
-        feature_names=model.symbol_names,
+        feature_names=posthoceval.models.model.gen_symbol_names,
         feature_types=['continuous'] * model.n_features,  # TODO
         interactions=0,  # TODO
     )

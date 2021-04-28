@@ -21,7 +21,7 @@ from pygam import terms
 
 from posthoceval.expl_utils import standardize_effect
 from posthoceval.utils import at_high_precision
-from posthoceval.model_generation import AdditiveModel
+from posthoceval.model_generation import SyntheticModel
 
 __all__ = ['GAM', 'InvGaussGAM', 'PoissonGAM', 'ExpectileGAM', 'GammaGAM',
            'LogisticGAM', 'LinearGAM', 'MultiClassLogisticGAM', 'Terms', 'T']
@@ -44,7 +44,7 @@ class LogisticGAM(_LogisticGAM):
         return np.stack([1 - probas, probas], axis=1)
 
 
-class BaseGAM(AdditiveModel):
+class BaseGAM(SyntheticModel):
     def __init__(self, symbols, symbol_names=None, **kwargs):
         self.fit_with_gridsearch = kwargs.pop('fit_with_gridsearch', False)
 
