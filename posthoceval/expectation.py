@@ -6,7 +6,6 @@ Unused code (atm) for expectation computation...sympy has many issues with this
 so there is some naive assumptions made here to efficiently get answers and no
 errors...still a WIP
 """
-import sympy as sp
 
 
 def naive_reduce_domain(domain, parent_is_complement=False):
@@ -66,10 +65,9 @@ def naive_reduce_domain(domain, parent_is_complement=False):
 
 import sympy as sp
 from sympy import stats
-from sympy.utilities.lambdify import lambdify
 from posthoceval.evaluate import symbolic_evaluate_func
 from posthoceval.evaluate import replace_unsupported_functions
-from posthoceval.model_generation import independent_terms
+from posthoceval.models.synthetic import independent_terms
 from posthoceval.utils import prod
 from tqdm.auto import tqdm
 import numpy as np

@@ -19,7 +19,7 @@ from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Lambda
 
 from posthoceval.explainers._base import BaseExplainer
-from posthoceval.model_generation import SyntheticModel
+from posthoceval.models.synthetic import SyntheticModel
 from posthoceval.evaluate import symbolic_evaluate_func
 
 

@@ -7,6 +7,7 @@ from typing import List
 from typing import Any
 
 import warnings
+import logging
 
 from functools import lru_cache
 from itertools import repeat
@@ -38,6 +39,8 @@ from posthoceval.models.model import AdditiveModel
 
 from posthoceval.profile import profile
 from posthoceval.profile import mem_profile
+
+logger = logging.getLogger(__name__)
 
 # Custom typing
 Symbol1orMore = Union[sp.Symbol, Sequence[sp.Symbol]]
@@ -299,9 +302,11 @@ def generate_additive_expression(
         assert (min(1, n_interaction) <= n_uniq_interaction <=
                 max_possible_int_uniq)
 
-    if n_uniq_interaction == 0:
-        print(f'Warning: n_interaction={n_interaction} but zero interactions '
-              f'are possible. Not including interactions for this expression.')
+    if n_interaction > 0 and n_uniq_interaction == 0:
+        warnings.warn(
+            f'Warning: n_interaction={n_interaction} but zero interactions '
+            f'are possible. Not including interactions for this expression.'
+        )
         n_interaction = 0
 
     # Seed uses beyond this point
@@ -863,10 +868,10 @@ class SyntheticModel(AdditiveModel):
                  symbol_names: Optional[List[str]] = None,
                  n_features: Optional[int] = None,
                  symbols: Optional[List[Any]] = None,
-                 backend=None):
+                 backend=None,
+                 **gen_kwargs):
         """
-
-        domain:
+        other symbol domains:
             negative nonnegative commutative imaginary nonzero real finite
             extended_real nonpositive extended_negative extended_nonzero
             hermitian positive extended_nonnegative zero prime infinite
@@ -878,10 +883,9 @@ class SyntheticModel(AdditiveModel):
             symbols=symbols,
             symbol_names=symbol_names,
         )
-
         if symbols is None:
             self.symbols = sp.symbols(self.symbol_names, real=True)
-        self.expr = generate_additive_expression(self.symbols)
+        self.expr = generate_additive_expression(self.symbols, **gen_kwargs)
         self.backend = backend
 
     @classmethod
@@ -892,25 +896,30 @@ class SyntheticModel(AdditiveModel):
             backend=None,
     ):
         """Symbols needs to be ordered properly"""
-        # Ensure expr symbols are a subset of symbols
         if isinstance(expr, str):
             expr = sp.parse_expr(expr)
 
         if symbols is None:
-            symbols = tuple(sorted(expr.free_symbols, key=lambda x: x.name))
+            symbols = sorted(expr.free_symbols, key=lambda x: x.name)
+            warnings.warn(
+                f'{cls.__name__}.from_expr(...) was not provided symbols. '
+                f'Following order of symbols will be used: {symbols}'
+            )
 
-        symbols = (symbols,) if isinstance(symbols, sp.Symbol) else symbols
+        symbols = [symbols] if isinstance(symbols, sp.Symbol) else symbols
+        # Ensure expr symbols are a subset of symbols
         missing_symbols = set(expr.free_symbols) - set(symbols)
         if missing_symbols:
             raise ValueError('expr contains symbols not specified in symbols: '
                              '{}'.format(missing_symbols))
-
-        model = cls.__new__(cls)
+        symbol_names = [s.name for s in symbols]
+        model = cls.__new__(
+            cls,
+            symbols=symbols,
+            symbol_names=symbol_names,
+            n_features=len(symbols),
+        )
         model.expr = expr
-        model.symbols = symbols
-        model.symbol_names = tuple(s.name for s in symbols)
-        model.n_features = len(symbols)
-        model._symbol_map = None
         model.backend = backend
 
         return model

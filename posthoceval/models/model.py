@@ -56,7 +56,7 @@ class AdditiveModel(ABC):
             symbol_names: Optional[List[str]] = None,
             n_features: Optional[int] = None,
             symbols: Optional[List[T]] = None,
-    ):
+    ) -> 'AdditiveModel':
         obj = super().__new__(cls)
         AdditiveModel.__init__(
             obj,

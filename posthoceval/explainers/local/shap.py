@@ -13,7 +13,7 @@ from alibi.explainers import KernelShap
 from joblib import cpu_count
 
 from posthoceval.profile import profile
-from posthoceval.model_generation import SyntheticModel
+from posthoceval.models.synthetic import SyntheticModel
 from posthoceval.explainers._base import BaseExplainer
 from posthoceval.datasets.dataset import Dataset
 

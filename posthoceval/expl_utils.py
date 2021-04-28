@@ -16,7 +16,7 @@ import numpy as np
 import sympy as sp
 from tqdm.auto import tqdm
 
-from posthoceval.model_generation import SyntheticModel
+from posthoceval.models.synthetic import SyntheticModel
 from posthoceval.utils import safe_parse_tuple
 
 Explanation = Dict[Tuple[sp.Symbol], np.ndarray]

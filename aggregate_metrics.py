@@ -23,7 +23,7 @@ from posthoceval.expl_utils import load_explanation
 from posthoceval.expl_utils import save_explanation
 from posthoceval.expl_utils import CompatUnpickler
 from posthoceval import metrics
-from posthoceval.model_generation import SyntheticModel
+from posthoceval.models.synthetic import SyntheticModel
 from posthoceval.utils import tqdm_parallel, CustomJSONEncoder
 from posthoceval.utils import at_high_precision
 from posthoceval.utils import atomic_write_exclusive

@@ -4,7 +4,7 @@ import traceback
 
 import numpy as np
 
-from posthoceval.model_generation import tsang_iclr18_models
+from posthoceval.models.synthetic import tsang_iclr18_models
 
 
 def make_data(n_samples, n_features):

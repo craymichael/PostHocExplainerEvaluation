@@ -19,7 +19,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 
 from posthoceval.explainers._base import BaseExplainer
-from posthoceval.model_generation import SyntheticModel
+from posthoceval.models.synthetic import SyntheticModel
 
 
 class _MAPLE:

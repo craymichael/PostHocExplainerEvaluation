@@ -7,7 +7,7 @@ import numpy as np
 from posthoceval.expl_eval.metrics import sensitivity_n
 from posthoceval.expl_eval.metrics import faithfulness_melis
 from posthoceval.explainers.local.lime import LIMEExplainer
-from posthoceval.model_generation import SyntheticModel
+from posthoceval.models.synthetic import SyntheticModel
 
 
 def test_sensitivity_n():

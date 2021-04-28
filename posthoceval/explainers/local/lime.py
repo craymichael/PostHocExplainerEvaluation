@@ -13,7 +13,7 @@ from lime.lime_tabular import LimeTabularExplainer as _LimeTabularExplainer
 
 from posthoceval.profile import profile
 from posthoceval.explainers._base import BaseExplainer
-from posthoceval.model_generation import SyntheticModel
+from posthoceval.models.synthetic import SyntheticModel
 
 logger = logging.getLogger(__name__)
 

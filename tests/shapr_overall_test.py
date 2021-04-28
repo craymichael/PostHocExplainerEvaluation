@@ -157,7 +157,7 @@ else:
     import pandas as pd
     from posthoceval.explainers.local.shapr import SHAPRExplainer
     from posthoceval.explainers.local.shap import KernelSHAPExplainer
-    from posthoceval.model_generation import SyntheticModel
+    from posthoceval.models.synthetic import SyntheticModel
 
     # import gc
 

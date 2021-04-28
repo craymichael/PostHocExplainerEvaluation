@@ -22,7 +22,7 @@ from posthoceval.utils import tqdm_parallel
 from posthoceval.utils import CustomJSONEncoder
 from posthoceval.utils import atomic_write_exclusive
 from posthoceval.expl_eval import metrics
-from posthoceval.model_generation import SyntheticModel
+from posthoceval.models.synthetic import SyntheticModel
 from posthoceval.results import ExprResult
 
 

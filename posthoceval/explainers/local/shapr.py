@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 from posthoceval.explainers._base import BaseExplainer
-from posthoceval.model_generation import SyntheticModel
+from posthoceval.models.synthetic import SyntheticModel
 
 __all__ = ['SHAPRExplainer']
 

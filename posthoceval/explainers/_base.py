@@ -11,7 +11,7 @@ from typing import Tuple
 import numpy as np
 
 from posthoceval.expl_utils import standardize_effect
-from posthoceval.model_generation import SyntheticModel
+from posthoceval.models.synthetic import SyntheticModel
 from posthoceval.datasets.dataset import Dataset
 
 Contribs = Union[np.ndarray, List[np.ndarray],

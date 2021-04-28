@@ -14,7 +14,7 @@ from pdpbox.pdp import pdp_isolate
 
 from posthoceval.explainers._base import BaseExplainer
 from posthoceval.explainers.global_.global_util import MultivariateInterpolation
-from posthoceval.model_generation import SyntheticModel
+from posthoceval.models.synthetic import SyntheticModel
 
 
 class PDPExplainer(BaseExplainer):

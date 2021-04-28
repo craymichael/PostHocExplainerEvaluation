@@ -25,7 +25,7 @@ from joblib import delayed
 import numpy as np
 import sympy as sp
 
-from posthoceval.model_generation import SyntheticModel
+from posthoceval.models.synthetic import SyntheticModel
 from posthoceval.utils import assert_same_size
 from posthoceval.expl_utils import save_explanation
 from posthoceval.expl_utils import CompatUnpickler

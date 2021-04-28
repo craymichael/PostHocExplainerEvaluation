@@ -13,7 +13,7 @@ import scipy as sp
 import scipy.sparse
 
 from posthoceval.explainers._base import BaseExplainer
-from posthoceval.model_generation import SyntheticModel
+from posthoceval.models.synthetic import SyntheticModel
 
 
 class ParzenWindowExplainer(BaseExplainer):

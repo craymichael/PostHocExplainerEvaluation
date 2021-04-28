@@ -7,7 +7,7 @@ import warnings
 from tensorflow.keras.models import Model
 from tensorflow.keras.utils import plot_model
 
-from posthoceval.model_generation import SyntheticModel
+from posthoceval.models.synthetic import SyntheticModel
 
 
 class DNNRegressor(SyntheticModel):

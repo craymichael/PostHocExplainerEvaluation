@@ -4,10 +4,8 @@ import sys
 import threading
 import random
 import pickle
-import math
 import traceback
 from functools import wraps
-from collections import namedtuple
 from datetime import datetime
 
 from multiprocessing import TimeoutError
@@ -19,9 +17,9 @@ from joblib import delayed
 import sympy as sp
 import numpy as np
 
-from posthoceval.model_generation import generate_additive_expression
-from posthoceval.model_generation import valid_variable_domains
-from posthoceval.model_generation import as_random_state
+from posthoceval.models.synthetic import generate_additive_expression
+from posthoceval.models.synthetic import valid_variable_domains
+from posthoceval.models.synthetic import as_random_state
 from posthoceval.utils import tqdm_parallel
 from posthoceval.utils import dict_product
 from posthoceval.utils import prod
@@ -32,8 +30,7 @@ from posthoceval.profile import mem_profile
 from posthoceval.profile import set_profile
 # === DEBUG ===
 
-# Needed for pickle loading of this result type
-from posthoceval.results import ExprResult  # noqa
+from posthoceval.results import ExprResult
 
 _RUNNING_PERIODICITY_IDS = {}
 

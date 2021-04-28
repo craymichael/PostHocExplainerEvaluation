@@ -1,5 +1,4 @@
 import unittest
-from posthoceval.model_generation import generate_additive_expression
 
 
 class RandomModelGenerationTestCase(unittest.TestCase):
