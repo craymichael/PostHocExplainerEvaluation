@@ -2,11 +2,15 @@
 expl_utils.py - A PostHocExplainerEvaluation file
 Copyright (C) 2021  Zach Carmichael
 """
-import os
 from typing import Dict
 from typing import Tuple
 from typing import Optional
 from typing import Union
+from typing import Any
+
+import os
+
+import pickle
 
 import numpy as np
 import sympy as sp
@@ -196,3 +200,17 @@ def standardize_contributions(contribs_dict):
     return {standardize_effect(k): v
             for k, v in contribs_dict.items()
             if not np.allclose(v, 0., atol=1e-5)}
+
+
+class CompatUnpickler(pickle.Unpickler):
+
+    def find_class(self, module_name: str, global_name: str) -> Any:
+        if module_name == '__main__' and global_name == 'ExprResult':
+            from posthoceval.results import ExprResult
+            return ExprResult
+
+        if (module_name == 'posthoceval.model_generation' and
+                global_name == 'AdditiveModel'):
+            pass  # TODO
+
+        return super().find_class(module_name, global_name)

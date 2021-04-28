@@ -42,8 +42,7 @@ from posthoceval.explainers import OcclusionExplainer
 from posthoceval.explainers import XRAIExplainer
 from posthoceval.explainers import BlurIntegratedGradientsExplainer
 from posthoceval.utils import tqdm_parallel
-# Needed for pickle loading of this result type
-from posthoceval.results import ExprResult  # noqa
+from posthoceval.results import ExprResult
 
 EXPLAINER_MAP = {
     'SHAP': KernelSHAPExplainer,

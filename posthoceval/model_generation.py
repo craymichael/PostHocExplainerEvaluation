@@ -1,13 +1,13 @@
-import string
-import random
-# import logging
-import warnings
-from collections.abc import Callable
 from typing import Sequence
 from typing import Optional
 from typing import Dict
 from typing import Tuple
 from typing import Union
+
+import string
+import random
+import warnings
+
 from functools import partial
 from functools import lru_cache
 from itertools import repeat
@@ -30,7 +30,6 @@ from posthoceval.rand import select_n_combinations
 from posthoceval.rand import as_random_state
 from posthoceval.rand import choice_objects
 from posthoceval.utils import assert_shape
-from posthoceval.utils import as_iterator_of_size
 from posthoceval.utils import assert_same_size
 from posthoceval.utils import is_int
 from posthoceval.utils import is_float
@@ -39,8 +38,6 @@ from posthoceval.expression_tree import RandExprTree
 
 from posthoceval.profile import profile
 from posthoceval.profile import mem_profile
-
-# logger = logging.getLogger(__name__)
 
 # Custom typing
 Symbol1orMore = Union[sp.Symbol, Sequence[sp.Symbol]]
@@ -882,17 +879,12 @@ class AdditiveModel(object):
 
     def __init__(self,
                  n_features: int,
-                 # TODO: reproducibility...use rs instead...or just remove
-                 #  this crap
                  coefficients=partial(random.uniform, -1, +1),
-                 interactions=None,
                  domain: Union[str, Sequence[str]] = 'real',
                  backend=None):
         """
 
-        :param n_features:
-        :param coefficients: first coef is the bias term
-        :param domain:
+        domain:
             negative nonnegative commutative imaginary nonzero real finite
             extended_real nonpositive extended_negative extended_nonzero
             hermitian positive extended_nonnegative zero prime infinite
@@ -915,17 +907,6 @@ class AdditiveModel(object):
         self._symbol_map = None
 
         self.backend = backend
-
-        self._check()
-
-    def _check(self):
-        # TODO: these messages are absolutely annoying...maybe check other
-        #  things?
-        # if not isinstance(self.expr, sp.Add):
-        #     warnings.warn('Expression is not additive! Output is dependent
-        #                   'on all input variables: '
-        #                   'optype {}'.format(type(self.expr)))
-        pass
 
     @classmethod
     def from_expr(
@@ -956,7 +937,6 @@ class AdditiveModel(object):
         model._symbol_map = None
         model.backend = backend
 
-        model._check()
         return model
 
     def get_symbol(self, symbol_name: str) -> sp.Symbol:
@@ -965,17 +945,17 @@ class AdditiveModel(object):
         return self._symbol_map[symbol_name]
 
     @property
-    def main_effects(self) -> Tuple[sp.Expr]:
+    def main_effects(self) -> Tuple[sp.Expr, ...]:
         main_effects, _ = split_effects(self.expr, self.symbols)
         return main_effects
 
     @property
-    def interaction_effects(self) -> Tuple[sp.Expr]:
+    def interaction_effects(self) -> Tuple[sp.Expr, ...]:
         _, interaction_effects = split_effects(self.expr, self.symbols)
         return interaction_effects
 
     @property
-    def independent_terms(self) -> Tuple[sp.Expr]:
+    def independent_terms(self) -> Tuple[sp.Expr, ...]:
         return independent_terms(self.expr)
 
     def valid_variable_domains(self, **kwargs):
@@ -1093,11 +1073,6 @@ class AdditiveModel(object):
 
     def __repr__(self):
         return str(self.expr)
-
-
-class LinearModel(AdditiveModel):
-    def __init__(self, *args, **kwargs):
-        super(LinearModel, self).__init__(*args, interactions=None, **kwargs)
 
 
 def tsang_iclr18_models(
