@@ -28,15 +28,14 @@ from posthoceval.utils import UNPROVIDED
 __all__ = ['Transformer']
 
 
-class SklearnBaseTransformer(Protocol):
-    def fit(self, X: np.ndarray) -> 'SklearnBaseTransformer': pass
+class SklearnTransformer(Protocol):
+    def fit(self, X: np.ndarray) -> 'SklearnTransformer': pass
 
     def transform(self, X: np.ndarray) -> np.ndarray: pass
 
+    def fit_transform(self, X: np.ndarray) -> np.ndarray: pass
+
     def inverse_transform(self, X: np.ndarray) -> np.ndarray: pass
-
-
-class SklearnTransformer(SklearnBaseTransformer, TransformerMixin): pass
 
 
 class Transformer(TransformerMixin):
@@ -109,11 +108,13 @@ class Transformer(TransformerMixin):
             else:
                 self._target_transformer = StandardScaler()
 
+    # noinspection PyMethodMayBeStatic
     def _handle_y_transformer(
             self,
             transformer_func: Callable,
             y: np.ndarray,
-    ) -> np.ndarray:
+    ) -> Union[np.ndarray, TransformerMixin]:
+        """"""
         shape_orig = y.shape
         if y.ndim == 1:  # vector
             y = y[:, np.newaxis]
@@ -125,7 +126,7 @@ class Transformer(TransformerMixin):
                 'ignore', message='A column-vector y was passed when a 1d '
                                   'array was expected')
             y = transformer_func(y)
-        if isinstance(y, TransformerMixin):
+        if not isinstance(y, np.ndarray):
             return y
         y = y.reshape(shape_orig)
         return y

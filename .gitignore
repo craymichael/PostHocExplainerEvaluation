@@ -1,5 +1,19 @@
 libgpuarray/
 
+# MNIST test info
+data/mnist_*
+
+# UCI data
+archive.ics.uci.edu/
+
+# data
+*.npz
+*.pkl
+experiment_data/**/*.json
+
+# paper figures
+figures/
+
 # profiling files
 *.pstat
 

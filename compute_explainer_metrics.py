@@ -6,13 +6,10 @@ Copyright (C) 2021  Zach Carmichael
 import os
 import sys
 import json
-import pickle
-import traceback
 
 from tqdm.auto import tqdm
 
 import numpy as np
-import sympy as sp
 
 from joblib import Parallel
 from joblib import delayed
@@ -20,13 +17,12 @@ from joblib import delayed
 from posthoceval.expl_utils import TRUE_CONTRIBS_NAME
 from posthoceval.expl_utils import clean_explanations
 from posthoceval.expl_utils import load_explanation
+from posthoceval.expl_utils import CompatUnpickler
 from posthoceval.utils import tqdm_parallel
 from posthoceval.utils import CustomJSONEncoder
-# from posthoceval.utils import at_high_precision
 from posthoceval.utils import atomic_write_exclusive
 from posthoceval.expl_eval import metrics
 from posthoceval.model_generation import AdditiveModel
-# Needed for pickle loading of this result type
 from posthoceval.results import ExprResult
 
 
@@ -83,7 +79,7 @@ def run(expr_filename, explainer_dir, data_dir, out_dir,
 
     tqdm.write(f'Loading {expr_filename}, (this may take a while)')
     with open(expr_filename, 'rb') as f:
-        expr_data = pickle.load(f)
+        expr_data = CompatUnpickler(f).load()
 
     all_results = []
 

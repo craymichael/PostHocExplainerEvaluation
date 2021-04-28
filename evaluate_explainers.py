@@ -13,7 +13,6 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = "2"
 #
 # _ = LazyLoader('tensorflow')
 
-import pickle
 from glob import glob
 
 import traceback
@@ -29,6 +28,7 @@ import sympy as sp
 from posthoceval.model_generation import AdditiveModel
 from posthoceval.utils import assert_same_size
 from posthoceval.expl_utils import save_explanation
+from posthoceval.expl_utils import CompatUnpickler
 from posthoceval.explainers.local.shap import KernelSHAPExplainer
 from posthoceval.explainers.local.shapr import SHAPRExplainer
 from posthoceval.explainers.local.lime import LIMEExplainer
@@ -132,7 +132,7 @@ def run(expr_filename, out_dir, data_dir, max_explain, seed, n_jobs,
 
     print('Loading', expr_filename, '(this may take a while)')
     with open(expr_filename, 'rb') as f:
-        expr_data = pickle.load(f)
+        expr_data = CompatUnpickler(f).load()
 
     print('Loading data')
     data_files = glob(os.path.join(data_dir, '*.npz'))

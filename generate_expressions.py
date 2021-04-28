@@ -130,7 +130,6 @@ def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
     # reproducibility, reseeded per job
     rs = as_random_state(seed)
 
-    # TODO: yeah this shouldn't have much longevity:
     interval = sp.Interval(-1, +1)
     validate_kwargs = {'interval': interval, 'timeout': timeout,
                        'verbose': verbose}

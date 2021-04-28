@@ -4,7 +4,6 @@ Copyright (C) 2020  Zach Carmichael
 """
 import warnings
 import os
-import pickle
 
 from math import sqrt
 
@@ -17,11 +16,9 @@ import sympy as sp
 from sympy import stats
 import numpy as np
 
+from posthoceval.expl_utils import CompatUnpickler
 from posthoceval.data_generation import sample
 from posthoceval.utils import tqdm_parallel
-
-# Needed for pickle loading of this result type
-from posthoceval.results import ExprResult  # noqa
 
 
 def generate_data(out_filename, symbols, domains, n_samples, seed):
@@ -108,7 +105,7 @@ def run(out_dir, expr_filename, n_samples, scale_samples, n_jobs, seed):
 
     print('Loading', expr_filename, '(this may take a while)')
     with open(expr_filename, 'rb') as f:
-        expr_data = pickle.load(f)
+        expr_data = CompatUnpickler(f).load()
 
     print('Will save compressed numpy arrays to', out_dir_full)
 

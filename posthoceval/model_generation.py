@@ -879,8 +879,6 @@ class AdditiveModel(object):
 
     def __init__(self,
                  n_features: int,
-                 coefficients=partial(random.uniform, -1, +1),
-                 domain: Union[str, Sequence[str]] = 'real',
                  backend=None):
         """
 
@@ -891,22 +889,18 @@ class AdditiveModel(object):
             extended_nonpositive extended_positive complex composite
             See [sympy assumptions](https://docs.sympy.org/latest/modules/core.html#module-sympy.core.assumptions)  # noqa
         """
-        self.n_features = n_features
 
-        kwargs = dict()
-        if isinstance(domain, str):
-            kwargs[domain] = True
-        else:  # assume iterable of str
-            for d in domain:
-                kwargs[d] = True
+
+        self.n_features = n_features
 
         # Generate n_features symbols with unique names from domain
         self.symbol_names = symbol_names(self.n_features)
-        self.symbols = sp.symbols(self.symbol_names, **kwargs)
-        self.expr = self._generate_model(coefficients)  # TODO interactions
-        self._symbol_map = None
-
+        self.symbols = sp.symbols(self.symbol_names, real=True)
+        self.expr = generate_additive_expression(symbols)
         self.backend = backend
+
+        # Set later
+        self._symbol_map = None
 
     @classmethod
     def from_expr(

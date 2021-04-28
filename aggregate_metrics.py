@@ -6,7 +6,6 @@ Copyright (C) 2021  Zach Carmichael
 import os
 import sys
 import json
-import pickle
 import traceback
 
 from tqdm.auto import tqdm
@@ -22,12 +21,12 @@ from posthoceval.expl_utils import is_mean_centered
 from posthoceval.expl_utils import clean_explanations
 from posthoceval.expl_utils import load_explanation
 from posthoceval.expl_utils import save_explanation
+from posthoceval.expl_utils import CompatUnpickler
 from posthoceval import metrics
 from posthoceval.model_generation import AdditiveModel
 from posthoceval.utils import tqdm_parallel, CustomJSONEncoder
 from posthoceval.utils import at_high_precision
 from posthoceval.utils import atomic_write_exclusive
-# Needed for pickle loading of this result type
 from posthoceval.results import ExprResult
 
 
@@ -209,7 +208,7 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False,
 
     print('Loading', expr_filename, '(this may take a while)')
     with open(expr_filename, 'rb') as f:
-        expr_data = pickle.load(f)
+        expr_data = CompatUnpickler(f).load()
 
     true_explanations = {}
     true_effects_all = {}
