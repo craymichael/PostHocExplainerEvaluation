@@ -211,6 +211,7 @@ class CompatUnpickler(pickle.Unpickler):
 
         if (module_name == 'posthoceval.model_generation' and
                 global_name == 'AdditiveModel'):
-            pass  # TODO
+            from posthoceval.models.synthetic import SyntheticModel
+            return SyntheticModel
 
         return super().find_class(module_name, global_name)
