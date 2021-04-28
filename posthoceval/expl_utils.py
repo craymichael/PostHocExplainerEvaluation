@@ -12,7 +12,6 @@ import numpy as np
 import sympy as sp
 from tqdm.auto import tqdm
 
-from posthoceval.metrics import standardize_contributions
 from posthoceval.model_generation import AdditiveModel
 from posthoceval.utils import safe_parse_tuple
 
@@ -108,12 +107,12 @@ def clean_explanations(
     return pred_expl, n_pred
 
 
-def load_explanation(expl_file: str, true_model: AdditiveModel):
+def load_explanation(expl_path: str, true_model: AdditiveModel):
     # TODO: intercept loading...
-    if not os.path.exists(expl_file):
-        raise FileNotFoundError(f'{expl_file} does not exist!')
+    if not os.path.exists(expl_path):
+        raise FileNotFoundError(f'{expl_path} does not exist!')
 
-    expl_dict = np.load(expl_file)
+    expl_dict = np.load(expl_path)
 
     if len(expl_dict) == 1 and 'data' in expl_dict:
         expl = expl_dict['data']
@@ -142,6 +141,22 @@ def load_explanation(expl_file: str, true_model: AdditiveModel):
     return expl
 
 
+def save_explanation(expl_path: str, contribs):
+    if isinstance(contribs, list):
+        raise NotImplementedError('Explanations for classification tasks.')
+
+    if isinstance(contribs, dict):
+        save_kwargs = {
+            str(effect_symbols): contribution
+            for effect_symbols, contribution in contribs.items()
+        }
+        np.savez_compressed(expl_path, **save_kwargs)
+    elif isinstance(contribs, np.ndarray):
+        np.savez_compressed(expl_path, data=contribs)
+    else:
+        raise TypeError(f'invalid explanation type: {type(contribs)}')
+
+
 def apply_matching(matching, true_expl, pred_expl, n_explained,
                    explainer_name):
     matches = {}
@@ -167,3 +182,17 @@ def apply_matching(matching, true_expl, pred_expl, n_explained,
         matches[match_key] = (contribs_true, contribs_pred)
 
     return matches
+
+
+def standardize_effect(e):
+    """sorted by str for consistency"""
+    e = tuple(sorted({*e}, key=str)) if isinstance(e, (tuple, list)) else (e,)
+    assert e, 'received empty effect'
+    return e
+
+
+def standardize_contributions(contribs_dict):
+    """standardize each effect tuple and remove effects that are 0-effects"""
+    return {standardize_effect(k): v
+            for k, v in contribs_dict.items()
+            if not np.allclose(v, 0., atol=1e-5)}

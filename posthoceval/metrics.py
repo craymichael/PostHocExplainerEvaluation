@@ -13,6 +13,8 @@ from sklearn.metrics import pairwise
 
 import numpy as np
 
+from posthoceval.expl_utils import standardize_effect
+
 logger = logging.getLogger(__name__)
 
 __all__ = [
@@ -26,15 +28,7 @@ __all__ = [
     'nrmse_interquartile', 'nrmse_mean',
     'accuracy', 'balanced_accuracy',
     'cosine_distances', 'euclidean_distances',
-    'standardize_effect', 'standardize_contributions',
 ]
-
-
-def standardize_effect(e):
-    """sorted by str for consistency"""
-    e = tuple(sorted({*e}, key=str)) if isinstance(e, (tuple, list)) else (e,)
-    assert e, 'received empty effect'
-    return e
 
 
 def strict_eval(y_true: Iterable, y_pred: Iterable):
@@ -370,10 +364,3 @@ else:
         return np.average(output_errors, weights=multioutput)
 
 mape = mean_absolute_percentage_error
-
-
-def standardize_contributions(contribs_dict):
-    """standardize each effect tuple and remove effects that are 0-effects"""
-    return {standardize_effect(k): v
-            for k, v in contribs_dict.items()
-            if not np.allclose(v, 0., atol=1e-5)}

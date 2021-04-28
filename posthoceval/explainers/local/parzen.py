@@ -6,6 +6,8 @@ Adapted from:
 https://github.com/marcotcr/lime-experiments/blob/master/parzen_windows.py
 at 1d7c19f
 """
+from typing import Optional
+
 import numpy as np
 import scipy as sp
 import scipy.sparse
@@ -41,14 +43,19 @@ class ParzenWindowExplainer(BaseExplainer):
         #     -.5 * x.dot(x.T)[0, 0] / sigma ** 2) / (
         #                                    np.sqrt(2 * np.pi * sigma ** 2))
         self.kernel = lambda x, sigma: np.asarray(
-                np.exp(-.5 * x.power(2).sum(axis=1) / sigma ** 2) /
-                np.sqrt(2 * np.pi * sigma ** 2)).flatten()
+            np.exp(-.5 * x.power(2).sum(axis=1) / sigma ** 2) /
+            np.sqrt(2 * np.pi * sigma ** 2)).flatten()
 
         self.verbose = verbose
 
         self.X = self.y = self.ones = self.zeros = self.sigma = None
 
-    def fit(self, X, y=None):
+    def _fit(
+            self,
+            X: np.ndarray,
+            y: Optional[np.ndarray] = None,
+            grouped_feature_names=None,
+    ):
         self.X = X.toarray() if sp.sparse.issparse(X) else X
         if y is None:
             y = self.model(self.X)
@@ -117,7 +124,7 @@ class ParzenWindowExplainer(BaseExplainer):
         values = np.array(exp[features])
         return values
 
-    def feature_contributions(self, X, return_y=False, as_dict=False):
+    def _call_explainer(self, X):
         contribs = []
         for xi in X:
             contribs.append(
@@ -126,6 +133,6 @@ class ParzenWindowExplainer(BaseExplainer):
 
         contribs = np.asarray(contribs)
         # TODO: this ([] * 2) is kinda stupid but here for compat...
-        if as_dict:
-            return [self._contribs_as_dict(contribs)] * 2
-        return [contribs] * 2
+        return {
+            'contribs': [contribs] * 2
+        }

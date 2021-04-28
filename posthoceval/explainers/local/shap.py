@@ -2,6 +2,12 @@ import logging
 
 from typing import Union
 from typing import Optional
+from typing import List
+from typing import Tuple
+from typing import Any
+from typing import Dict
+
+import numpy as np
 
 from alibi.explainers import KernelShap
 from joblib import cpu_count
@@ -9,6 +15,7 @@ from joblib import cpu_count
 from posthoceval.profile import profile
 from posthoceval.model_generation import AdditiveModel
 from posthoceval.explainers._base import BaseExplainer
+from posthoceval.datasets.dataset import Dataset
 
 _HAS_RAY = None
 
@@ -57,35 +64,6 @@ class KernelSHAPExplainer(BaseExplainer):
             verbose=verbose,
         )
 
-        # start cat TODO
-        #  prolly move this to where data(set) comes in...
-        #  maybe take in the hierarchical feature names from a Dataset as
-        #   optional kwarg
-        if categories is not None:
-            groups = [[i] for i in range(len(self._numerical_features))]
-
-            start = len(groups)
-
-            # column index -> categories
-            category_map = dict(zip(
-                range(start, start + len(categories)), categories
-            ))
-
-            for cat in categories:
-                end = start + len(cat)
-                groups.append([*range(start, end)])
-                start = end
-
-            group_names = self._numerical_features + self._categorical_features
-
-            # TODO: these are both SHAP-only
-            expl_init_kwargs = dict(categorical_names=category_map)
-            expl_fit_kwargs = dict(group_names=group_names, groups=groups)
-        else:
-            expl_init_kwargs = {}
-            expl_fit_kwargs = {}
-        # end cat TODO
-
         self.n_background_samples = n_background_samples
         if link is None:
             link = 'identity' if self.task == 'regression' else 'logit'
@@ -93,15 +71,35 @@ class KernelSHAPExplainer(BaseExplainer):
         self.link = link
 
         if n_cpus < 0:
-            n_cpus = cpu_count() + n_cpus + 1
+            n_cpus = max(cpu_count() + n_cpus + 1, 1)
 
         self.n_cpus = n_cpus
+        self._explainer_kwargs = explainer_kwargs
+        # attributes set after fit
+        self.expected_value_ = None
 
-        use_ray = n_cpus > 1
+    def _fit(
+            self,
+            X: np.ndarray,
+            y: Optional[np.ndarray] = None,
+            grouped_feature_names: Optional[
+                List[Union[str, Tuple[str, List[Any]]]]] = None,
+            **fit_kwargs,
+    ):
+        """"""
+        explainer_kwargs = self._explainer_kwargs.copy()
+        if grouped_feature_names is not None:
+            init_kwargs, extra_fit_kwargs = self._handle_categorical(
+                grouped_feature_names)
+            explainer_kwargs.update(init_kwargs)
+            fit_kwargs.update(extra_fit_kwargs)
 
+        use_ray = self.n_cpus > 1
         if use_ray:
             use_ray = init_ray()
 
+        # TODO: we have dataset objects with feature names, and models with
+        #  symbol names for each feature. This gap needs to be bridged...
         self._explainer = KernelShap(
             self.model,
             feature_names=self.model.symbol_names,
@@ -109,19 +107,16 @@ class KernelSHAPExplainer(BaseExplainer):
             link=self.link,
             distributed_opts={
                 # https://www.seldon.io/how-seldons-alibi-and-ray-make-model-explainability-easy-and-scalable/
-                'n_cpus': n_cpus,
+                'n_cpus': self.n_cpus,
                 # If batch_size set to `None`, an input array is split in
                 # (roughly) equal parts and distributed across the available
                 # CPUs
                 'batch_size': None,
             } if use_ray else None,
             seed=self.seed,
-            **explainer_kwargs
+            **explainer_kwargs,
         )
-        # attributes set after fit
-        self.expected_value_ = None
 
-    def fit(self, X, y=None, **fit_kwargs):
         if self.n_background_samples < len(X):
             if self.verbose > 1:
                 logger.info(f'Intending to summarize background data as '
@@ -137,13 +132,50 @@ class KernelSHAPExplainer(BaseExplainer):
 
         self.expected_value_ = self._explainer.expected_value
 
+    # noinspection PyMethodMayBeStatic
+    def _handle_categorical(
+            self,
+            grouped_feature_names: List[Union[str, Tuple[str, List[Any]]]],
+    ) -> Tuple[Dict, Dict]:
+        """"""
+        groups: List[List[int]] = []
+        group_names: List[str] = []
+        category_map: Dict[int, List[Any]] = {}
+
+        column_idx = 0  # transformed column index
+        for orig_column_idx, item in enumerate(grouped_feature_names):
+            # orig_column_idx: original index in untransformed data
+            if isinstance(item, str):
+                groups.append([column_idx])
+                group_names.append(item)
+                column_idx += 1
+            else:
+                feature_name, categories = item[1]
+                # groups
+                column_idx_end = column_idx + len(categories)
+                groups.append([*range(column_idx, column_idx_end)])
+                group_names.append(feature_name)
+                column_idx = column_idx_end
+                # category map
+                category_map[orig_column_idx] = categories
+
+        init_kwargs = dict(categorical_names=category_map)
+        fit_kwargs = dict(group_names=group_names, groups=groups)
+        return init_kwargs, fit_kwargs
+
     def predict(self, X):
         pass  # TODO: n/a atm
 
     @profile
-    def feature_contributions(self, X, return_y=False, as_dict=False):
+    def _call_explainer(
+            self,
+            X: Union[Dataset, np.ndarray],
+    ):
         if self.verbose > 0:
             logger.info('Fetching KernelSHAP explanations')
+
+        if isinstance(X, Dataset):
+            X = X.X
 
         # Explain with n_cpus > 1 and silent=False gives awful output
         # unfortunately (multiple processes using tqdm in parallel)
@@ -161,14 +193,11 @@ class KernelSHAPExplainer(BaseExplainer):
         else:
             contribs_shap = explanation.shap_values
 
-        if as_dict:
-            contribs_shap = self._contribs_as_dict(contribs_shap)
+        y = explanation.raw['raw_prediction']
 
-        if return_y:
-            y = explanation.raw['raw_prediction']
-
-            return contribs_shap, y
-        return contribs_shap
+        return {'contribs': contribs_shap, 'y': y,
+                'intercepts': self.expected_value_}
 
 
+# Alias
 SHAPExplainer = KernelSHAPExplainer

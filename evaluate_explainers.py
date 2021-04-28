@@ -28,6 +28,7 @@ import sympy as sp
 
 from posthoceval.model_generation import AdditiveModel
 from posthoceval.utils import assert_same_size
+from posthoceval.expl_utils import save_explanation
 from posthoceval.explainers.local.shap import KernelSHAPExplainer
 from posthoceval.explainers.local.shapr import SHAPRExplainer
 from posthoceval.explainers.local.lime import LIMEExplainer
@@ -113,7 +114,7 @@ def explain(explainer_cls, out_filename, expr_result, data_file, max_explain,
         return
     # save things in parallel
     tqdm.write('Saving explanation')
-    np.savez_compressed(out_filename, data=explanation)
+    save_explanation(out_filename, explanation)
 
 
 def run(expr_filename, out_dir, data_dir, max_explain, seed, n_jobs,

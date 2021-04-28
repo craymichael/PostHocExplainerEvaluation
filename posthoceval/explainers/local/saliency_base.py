@@ -59,7 +59,12 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
     def predict(self, X):
         pass  # TODO: n/a atm
 
-    def fit(self, X, y=None):
+    def _fit(
+            self,
+            X: np.ndarray,
+            y: Optional[np.ndarray] = None,
+            grouped_feature_names=None,
+    ):
         if (saliency.CONVOLUTION_LAYER_VALUES in self._expected_keys or
                 saliency.CONVOLUTION_OUTPUT_GRADIENTS in self._expected_keys):
             raise NotImplementedError(
@@ -127,7 +132,7 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
                 np.atleast_2d(x) if self._atleast_2d else
                 x)
 
-    def feature_contributions(self, X, return_y=False, as_dict=False):
+    def _call_explainer(self, X):
         explain_func = (self._explainer.GetSmoothedMask if self.smooth else
                         self._explainer.GetMask)
 
@@ -157,12 +162,7 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
             else:
                 contribs *= X[None, ...]
 
-        if as_dict:
-            contribs = self._contribs_as_dict(contribs)
-
-        if return_y:
-            return contribs, self.model(X)
-        return contribs
+        return {'contribs': contribs}
 
     def _saliency_call_func(self,
                             data,

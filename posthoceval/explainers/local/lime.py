@@ -41,7 +41,12 @@ class LIMETabularExplainer(BaseExplainer):
         self._mean = None
         self._scale = None
 
-    def fit(self, X, y=None):
+    def _fit(
+            self,
+            X: np.ndarray,
+            y: Optional[np.ndarray] = None,
+            grouped_feature_names=None,  # TODO: use for cat stuff
+    ):
         if self.verbose > 0:
             logger.info('Fitting LIME')
 
@@ -84,12 +89,11 @@ class LIMETabularExplainer(BaseExplainer):
         return contribs_i
 
     @profile
-    def feature_contributions(self, X: np.ndarray, as_dict=False,
-                              return_intercepts=False):
+    def _call_explainer(self, X: np.ndarray):
         # Note that LIME must have sample_around_instance=False otherwise
         #  the inverse normalization is invalid
 
-        if self._explainer is None:
+        if self._explainer is None:  # TODO: to base...
             raise RuntimeError('Must call fit() before obtaining feature '
                                'contributions')
 
@@ -120,46 +124,30 @@ class LIMETabularExplainer(BaseExplainer):
                     # explanation coefs for class k
                     expl_ik = expl_i_map[k]
 
-                    if return_intercepts:
-                        contribs_ik, intercept_ik = self._process_explanation(
-                            expl_ik, xi, intercept_i=expl_i.intercept[k])
-                        intercept_i.append(intercept_ik)
-                    else:
-                        contribs_ik = self._process_explanation(expl_ik, xi)
-
+                    contribs_ik, intercept_ik = self._process_explanation(
+                        expl_ik, xi, intercept_i=expl_i.intercept[k])
+                    intercept_i.append(intercept_ik)
                     contribs_i.append(contribs_ik)
             else:  # regression (one output)
                 expl_i = expl_i_map[1]
 
-                if return_intercepts:
-                    contribs_i, intercept_i = self._process_explanation(
-                        expl_i, xi, intercept_i=expl_i.intercept[1])
-                else:
-                    contribs_i = self._process_explanation(expl_i, xi)
+                contribs_i, intercept_i = self._process_explanation(
+                    expl_i, xi, intercept_i=expl_i.intercept[1])
 
-            # store contributions and maybe intercept(s)
+            # store contributions and intercept(s)
             contribs_lime.append(contribs_i)
-            if return_intercepts:
-                # noinspection PyUnboundLocalVariable
-                intercepts.append(intercept_i)
+            intercepts.append(intercept_i)
 
         contribs_lime = np.asarray(contribs_lime)
+        intercepts = np.asarray(intercepts)
 
         if self.task == 'classification':
             # samples x classes x features --> classes x samples x features
             contribs_lime = np.moveaxis(contribs_lime, 0, 1)
+            # samples x classes --> classes x samples
+            intercepts = intercepts.T
 
-        if as_dict:
-            contribs_lime = self._contribs_as_dict(contribs_lime)
-
-        if return_intercepts:
-            intercepts = np.asarray(intercepts)
-            if self.task == 'classification':
-                # samples x classes --> classes x samples
-                intercepts = intercepts.T
-            return contribs_lime, intercepts
-
-        return contribs_lime
+        return {'contribs': contribs_lime, 'intercepts': intercepts}
 
 
 LIMEExplainer = LIMETabularExplainer

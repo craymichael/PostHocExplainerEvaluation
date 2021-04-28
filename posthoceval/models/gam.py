@@ -19,7 +19,7 @@ from pygam import PoissonGAM
 from pygam import GAM
 from pygam import terms
 
-from posthoceval.metrics import standardize_effect
+from posthoceval.expl_utils import standardize_effect
 from posthoceval.utils import at_high_precision
 from posthoceval.model_generation import AdditiveModel
 

@@ -8,8 +8,7 @@ from itertools import chain
 import numpy as np
 import pandas as pd
 
-from posthoceval.expl_utils import apply_matching
-from posthoceval.metrics import standardize_contributions
+from posthoceval.expl_utils import apply_matching, standardize_contributions
 from posthoceval.metrics import generous_eval
 from posthoceval.model_generation import AdditiveModel
 

@@ -48,13 +48,12 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
 
 from posthoceval.explainers.local.shap import KernelSHAPExplainer
-from posthoceval.expl_utils import apply_matching
+from posthoceval.expl_utils import apply_matching, standardize_contributions
 from posthoceval.models.gam import MultiClassLogisticGAM
 from posthoceval.models.gam import LinearGAM
 from posthoceval.models.gam import T
 from posthoceval.models.dnn import DNNRegressor
 from posthoceval.metrics import generous_eval
-from posthoceval.metrics import standardize_contributions
 from posthoceval import metrics
 from posthoceval.utils import nonexistent_filename
 from posthoceval.datasets.boston import BostonDataset

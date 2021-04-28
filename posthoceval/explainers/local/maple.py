@@ -211,7 +211,12 @@ class MAPLEExplainer(BaseExplainer):
 
         self.explainer_kwargs = kwargs
 
-    def fit(self, X, y=None):
+    def _fit(
+            self,
+            X: np.ndarray,
+            y: Optional[np.ndarray] = None,
+            grouped_feature_names=None,
+    ):
         if y is None:
             y = self.model(X)
 
@@ -239,8 +244,7 @@ class MAPLEExplainer(BaseExplainer):
 
         return self._explainer.predict(X)
 
-    def feature_contributions(self, X, return_intercepts=False,
-                              return_y=False, as_dict=False):
+    def _call_explainer(self, X):
         if self._explainer is None:
             raise RuntimeError('Must call fit() before obtaining feature '
                                'contributions')
@@ -254,25 +258,14 @@ class MAPLEExplainer(BaseExplainer):
             contribs_maple.append(
                 coefs[1:] * xi
             )
-            if return_intercepts:
-                intercepts.append(coefs[0])
-            if return_y:
-                y_maple.append(explanation['pred'])
+            intercepts.append(coefs[0])
+            y_maple.append(explanation['pred'])
 
         contribs_maple = np.asarray(contribs_maple)
 
-        if as_dict:
-            contribs_maple = self._contribs_as_dict(contribs_maple)
+        y_maple = np.concatenate(y_maple, axis=0)
+        if self.task == 'regression':
+            y_maple = y_maple.squeeze(axis=1)
 
-        if return_y:
-            y_maple = np.concatenate(y_maple, axis=0)
-            if self.task == 'regression':
-                y_maple = y_maple.squeeze(axis=1)
-
-        if return_intercepts:
-            if return_y:
-                return contribs_maple, intercepts, y_maple
-            return contribs_maple, intercepts
-        elif return_y:
-            return contribs_maple, y_maple
-        return contribs_maple
+        return {'contribs': contribs_maple, 'y': y_maple,
+                'intercepts': intercepts}

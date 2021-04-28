@@ -17,12 +17,12 @@ import sympy as sp
 from joblib import Parallel
 from joblib import delayed
 
-from posthoceval.expl_utils import TRUE_CONTRIBS_NAME
+from posthoceval.expl_utils import TRUE_CONTRIBS_NAME, standardize_contributions
 from posthoceval.expl_utils import is_mean_centered
 from posthoceval.expl_utils import clean_explanations
 from posthoceval.expl_utils import load_explanation
+from posthoceval.expl_utils import save_explanation
 from posthoceval import metrics
-from posthoceval.metrics import standardize_contributions
 from posthoceval.model_generation import AdditiveModel
 from posthoceval.utils import tqdm_parallel, CustomJSONEncoder
 from posthoceval.utils import at_high_precision
@@ -187,12 +187,8 @@ def compute_true_contributions(expr_result, data_file, explainer_dir, expl_id):
         tqdm.write('Done explaining.')
 
         # cache contribs
-        save_kwargs = {
-            str(effect_symbols): contribution
-            for effect_symbols, contribution in contribs.items()
-        }
         tqdm.write('Saving to disk.')
-        np.savez_compressed(cached_path, **save_kwargs)
+        save_explanation(cached_path, contribs)
 
         # might not be necessary, but `load_explanation` does this (so do it
         # for consistency)

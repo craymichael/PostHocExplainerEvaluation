@@ -5,6 +5,8 @@ Copyright (C) 2021  Zach Carmichael
 Referenced a lot:
 https://github.com/NorskRegnesentral/shapr/blob/master/tests/testthat/manual_test_scripts/test_custom_models.R
 """
+from typing import Optional
+
 import logging
 import gc
 from collections import OrderedDict
@@ -226,7 +228,12 @@ class SHAPRExplainer(BaseExplainer):
         self.__wrapped_model = self._make_wrapped_model_r()
         return self.__wrapped_model
 
-    def fit(self, X, y=None):
+    def _fit(
+            self,
+            X: np.ndarray,
+            y: Optional[np.ndarray] = None,
+            grouped_feature_names=None,
+    ):
         if y is None:
             y = self.model(X)
 
@@ -252,7 +259,7 @@ class SHAPRExplainer(BaseExplainer):
     def predict(self, X):  # TODO
         pass
 
-    def feature_contributions(self, X, return_y=False, as_dict=False):
+    def _call_explainer(self, X):
         """
         Arguments:
 
@@ -375,6 +382,4 @@ class SHAPRExplainer(BaseExplainer):
             axis=1
         )
 
-        if as_dict:
-            contribs = self._contribs_as_dict(contribs)
-        return contribs
+        return {'contribs': contribs, 'intercepts': self.prediction_zero_}

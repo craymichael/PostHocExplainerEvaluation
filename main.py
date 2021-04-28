@@ -23,7 +23,7 @@ from posthoceval.explainers.local.shap import gshap_explain
 from posthoceval.model_generation import AdditiveModel
 from posthoceval.model_generation import tsang_iclr18_models
 from posthoceval.profile import set_profile
-from posthoceval.metrics import standardize_effect
+from posthoceval.expl_utils import standardize_effect
 from posthoceval import metrics
 
 sns.set(
