@@ -51,21 +51,6 @@ class AdditiveModel(ABC):
         self._symbols: Optional[List[T]] = symbols
         self._symbol_map: Optional[Dict[str, T]] = None
 
-    def __new__(
-            cls,
-            symbol_names: Optional[List[str]] = None,
-            n_features: Optional[int] = None,
-            symbols: Optional[List[T]] = None,
-    ) -> 'AdditiveModel':
-        obj = super().__new__(cls)
-        AdditiveModel.__init__(
-            obj,
-            symbol_names=symbol_names,
-            n_features=n_features,
-            symbols=symbols,
-        )
-        return obj
-
     @property
     def symbols(self) -> List[T]:
         if self._symbols is None:

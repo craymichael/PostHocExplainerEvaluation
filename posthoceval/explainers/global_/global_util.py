@@ -5,7 +5,6 @@ Copyright (C) 2021  Zach Carmichael
 from functools import partial
 from typing import Callable
 from typing import Union
-from typing import List
 
 import numpy as np
 from scipy.interpolate import interp1d

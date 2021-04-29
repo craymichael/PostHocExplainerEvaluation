@@ -13,13 +13,13 @@ import scipy as sp
 import scipy.sparse
 
 from posthoceval.explainers._base import BaseExplainer
-from posthoceval.models.synthetic import SyntheticModel
+from posthoceval.models.model import AdditiveModel
 
 
 class ParzenWindowExplainer(BaseExplainer):
 
     def __init__(self,
-                 model: SyntheticModel,
+                 model: AdditiveModel,
                  seed=None,
                  task: str = 'classification',
                  verbose=True):

@@ -2,33 +2,34 @@
 dnn.py - A PostHocExplainerEvaluation file
 Copyright (C) 2021  Zach Carmichael
 """
-import warnings
+import numpy as np
 
 from tensorflow.keras.models import Model
 from tensorflow.keras.utils import plot_model
 
-from posthoceval.models.synthetic import SyntheticModel
+from posthoceval.lazy_loader import LazyLoader
+from posthoceval.models.model import AdditiveModel
+
+LazyLoader('tensorflow')
+LazyLoader('tensorflow.keras')
 
 
-class DNNRegressor(SyntheticModel):
-    def __init__(self, dnn: Model, pre_sum_map, symbols, symbol_names=None):
-        # TODO: re-abstract AdditiveModel...this is quite sloppy
-
+class DNNRegressor(AdditiveModel):
+    def __init__(
+            self,
+            dnn: Model,
+            pre_sum_map,
+            n_features=None,
+            symbols=None,
+            symbol_names=None
+    ):
+        super().__init__(
+            symbol_names=symbol_names,
+            symbols=symbols,
+            n_features=n_features,
+        )
         self._dnn = dnn
         self._pre_sum_map = pre_sum_map
-
-        self.symbols = symbols
-        if symbol_names is None:
-            symbol_names = tuple(s.name if hasattr(s, 'name') else str(s)
-                                 for s in symbols)
-        else:
-            assert len(symbol_names) == len(symbols)
-
-        # for compatibility
-        self.symbol_names = symbol_names
-        self.n_features = len(symbols)
-        self._symbol_map = None
-        self.expr = self.backend = None
 
     def plot_model(self,
                    to_file='model.png',
@@ -47,10 +48,7 @@ class DNNRegressor(SyntheticModel):
                           expand_nested=expand_nested,
                           dpi=dpi)
 
-    def __call__(self, X, backend=None):
-        if backend is not None:
-            warnings.warn(f'{self.__class__} ignores kwarg "backend" '
-                          f'({backend}) - this is N/A here')
+    def __call__(self, X):
         ret = self._dnn(X).numpy()
         if ret.ndim == 2 and ret.shape[1] == 1:
             ret = ret.squeeze(axis=1)
@@ -64,11 +62,7 @@ class DNNRegressor(SyntheticModel):
 
         return self
 
-    def feature_contributions(self, X, **kwargs):
-        if kwargs:
-            warnings.warn(f'Ignoring all kwargs {kwargs} - these are N/A '
-                          f'here.')
-
+    def feature_contributions(self, X):
         all_feats, all_outputs = zip(*self._pre_sum_map.items())
 
         intermediate_model = Model(inputs=self._dnn.input,
@@ -85,3 +79,6 @@ class DNNRegressor(SyntheticModel):
 
     def predict(self, X):
         return self._dnn.predict(X)
+
+    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        return self._dnn(X)

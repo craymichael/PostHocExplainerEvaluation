@@ -13,7 +13,7 @@ from lime.lime_tabular import LimeTabularExplainer as _LimeTabularExplainer
 
 from posthoceval.profile import profile
 from posthoceval.explainers._base import BaseExplainer
-from posthoceval.models.synthetic import SyntheticModel
+from posthoceval.models.model import AdditiveModel
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ class LIMETabularExplainer(BaseExplainer):
     _explainer: Optional[_LimeTabularExplainer]
 
     def __init__(self,
-                 model: SyntheticModel,
+                 model: AdditiveModel,
                  seed: Optional[int] = None,
                  task: str = 'regression',
                  num_samples: int = 5000,

@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 from posthoceval.explainers._base import BaseExplainer
-from posthoceval.models.synthetic import SyntheticModel
+from posthoceval.models.model import AdditiveModel
 
 __all__ = ['SHAPRExplainer']
 
@@ -72,7 +72,7 @@ class SHAPRExplainer(BaseExplainer):
         return obj
 
     def __init__(self,
-                 model: SyntheticModel,
+                 model: AdditiveModel,
                  seed=None,
                  task: str = 'regression',
                  verbose=True,

@@ -4,7 +4,8 @@ Copyright (C) 2021  Zach Carmichael
 """
 import warnings
 
-import abc
+from abc import abstractmethod
+from abc import ABCMeta
 
 import numpy as np
 
@@ -12,19 +13,20 @@ from sklearn.preprocessing import OneHotEncoder
 
 from pygam import LinearGAM as _LinearGAM
 from pygam import LogisticGAM as _LogisticGAM
-from pygam import GammaGAM
-from pygam import ExpectileGAM
-from pygam import InvGaussGAM
-from pygam import PoissonGAM
-from pygam import GAM
+# from pygam import GammaGAM
+# from pygam import ExpectileGAM
+# from pygam import InvGaussGAM
+# from pygam import PoissonGAM
+# from pygam import GAM
 from pygam import terms
 
 from posthoceval.expl_utils import standardize_effect
 from posthoceval.utils import at_high_precision
-from posthoceval.models.synthetic import SyntheticModel
+from posthoceval.models.model import AdditiveModel
 
-__all__ = ['GAM', 'InvGaussGAM', 'PoissonGAM', 'ExpectileGAM', 'GammaGAM',
-           'LogisticGAM', 'LinearGAM', 'MultiClassLogisticGAM', 'Terms', 'T']
+# __all__ = ['GAM', 'InvGaussGAM', 'PoissonGAM', 'ExpectileGAM', 'GammaGAM',
+#            'LogisticGAM', 'LinearGAM', 'MultiClassLogisticGAM', 'Terms', 'T']
+__all__ = ['LinearGAM', 'MultiClassLogisticGAM', 'Terms', 'T']
 
 
 class Terms:
@@ -44,29 +46,25 @@ class LogisticGAM(_LogisticGAM):
         return np.stack([1 - probas, probas], axis=1)
 
 
-class BaseGAM(SyntheticModel):
-    def __init__(self, symbols, symbol_names=None, **kwargs):
+class BaseGAM(AdditiveModel, metaclass=ABCMeta):
+    def __init__(
+            self,
+            n_features=None,
+            symbols=None,
+            symbol_names=None,
+            **kwargs,
+    ):
+        super().__init__(
+            symbol_names=symbol_names,
+            symbols=symbols,
+            n_features=n_features,
+        )
         self.fit_with_gridsearch = kwargs.pop('fit_with_gridsearch', False)
-
         self._estimator_kwargs = kwargs
         self._estimator_ = None
 
-        # TODO: re-abstract AdditiveModel...this is quite sloppy
-        # for compatibility
-        self.symbols = tuple(symbols)
-        if symbol_names is None:
-            symbol_names = tuple(s.name if hasattr(s, 'name') else str(s)
-                                 for s in symbols)
-        else:
-            assert len(symbol_names) == len(symbols)
-
-        self.symbol_names = symbol_names
-        self.n_features = len(symbols)
-        self._symbol_map = None
-        self.expr = self.backend = None
-
     @property
-    @abc.abstractmethod
+    @abstractmethod
     def is_classifier(self):
         raise NotImplementedError
 
@@ -76,20 +74,9 @@ class BaseGAM(SyntheticModel):
                 if isinstance(self._estimator_, (list, tuple)) else
                 (self._estimator_,))
 
-    def __call__(self, X, backend=None):
-        if backend is not None:
-            warnings.warn(f'{self.__class__} ignores kwarg "backend" '
-                          f'({backend}) - this is N/A here')
-        return self.call(X)
-
-    @abc.abstractmethod
-    def call(self, X):
+    @abstractmethod
+    def __call__(self, X):
         raise NotImplementedError
-
-    # TODO this and a bunch of others will have issues per sympy-related
-    #  AdditiveModel methods...
-    def pprint(self):
-        print('I am pretty')
 
     @property
     def _is_fitted(self):
@@ -97,7 +84,7 @@ class BaseGAM(SyntheticModel):
                 all(estimator._is_fitted  # noqa
                     for estimator in self._estimator))
 
-    @abc.abstractmethod
+    @abstractmethod
     def fit(self, X, y, weights=None):
         for i, estimator in enumerate(self._estimator):
             self._do_fit(estimator, i, X, y, weights=weights)
@@ -163,6 +150,12 @@ class BaseGAM(SyntheticModel):
             y_pred = y_pred.argmax(axis=1)
         return y_pred
 
+    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        if self.is_classifier:
+            return self(X)
+        else:
+            raise TypeError('Regression models do not have probabilities')
+
 
 class MultiClassLogisticGAM(BaseGAM):
     def __init__(self, symbols, symbol_names=None, **kwargs):
@@ -175,7 +168,7 @@ class MultiClassLogisticGAM(BaseGAM):
     def is_classifier(self):
         return True
 
-    def call(self, X):
+    def __call__(self, X):
         return self.predict_proba(X)
 
     def _standardize_y(self, y):
@@ -238,7 +231,7 @@ class LinearGAM(BaseGAM):
     def is_classifier(self):
         return False
 
-    def call(self, X):
+    def __call__(self, X):
         return self._estimator_.predict(X)
 
     def fit(self, X, y, weights=None):

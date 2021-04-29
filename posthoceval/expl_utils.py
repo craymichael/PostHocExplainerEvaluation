@@ -16,7 +16,7 @@ import numpy as np
 import sympy as sp
 from tqdm.auto import tqdm
 
-from posthoceval.models.synthetic import SyntheticModel
+from posthoceval.models.model import AdditiveModel
 from posthoceval.utils import safe_parse_tuple
 
 Explanation = Dict[Tuple[sp.Symbol], np.ndarray]
@@ -111,7 +111,7 @@ def clean_explanations(
     return pred_expl, n_pred
 
 
-def load_explanation(expl_path: str, true_model: SyntheticModel):
+def load_explanation(expl_path: str, true_model: AdditiveModel):
     # TODO: intercept loading...
     if not os.path.exists(expl_path):
         raise FileNotFoundError(f'{expl_path} does not exist!')

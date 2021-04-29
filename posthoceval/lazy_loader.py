@@ -2,9 +2,13 @@
 lazy_loader.py - A PostHocExplainerEvaluation file
 Copyright (C) 2020  Zach Carmichael
 """
-import importlib
 import sys
+import logging
+import importlib
+
 from types import ModuleType
+
+logger = logging.getLogger(__name__)
 
 
 class LazyLoader(ModuleType):
@@ -26,6 +30,7 @@ class LazyLoader(ModuleType):
 
     def __getattr__(self, name):
         if self._mod is None:
+            logger.info(f'Triggered lazy-loading of {self.lib_name}')
             _ = sys.modules.pop(self.lib_name, None)
             self._mod = importlib.import_module(self.lib_name)
             sys.modules[self.lib_name] = self._mod

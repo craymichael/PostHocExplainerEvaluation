@@ -19,7 +19,7 @@ from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Lambda
 
 from posthoceval.explainers._base import BaseExplainer
-from posthoceval.models.synthetic import SyntheticModel
+from posthoceval.models.model import AdditiveModel
 from posthoceval.evaluate import symbolic_evaluate_func
 
 
@@ -27,7 +27,7 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
     _explainer: saliency.CoreSaliency
 
     def __init__(self,
-                 model: SyntheticModel,
+                 model: AdditiveModel,
                  seed: Optional[int] = None,
                  task: str = 'regression',
                  verbose: Union[int, bool] = 1,

@@ -913,8 +913,9 @@ class SyntheticModel(AdditiveModel):
             raise ValueError('expr contains symbols not specified in symbols: '
                              '{}'.format(missing_symbols))
         symbol_names = [s.name for s in symbols]
-        model = cls.__new__(
-            cls,
+        model = cls.__new__(cls)
+        AdditiveModel.__init__(
+            model,
             symbols=symbols,
             symbol_names=symbol_names,
             n_features=len(symbols),

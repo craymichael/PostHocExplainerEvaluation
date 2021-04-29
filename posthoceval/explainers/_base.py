@@ -11,7 +11,7 @@ from typing import Tuple
 import numpy as np
 
 from posthoceval.expl_utils import standardize_effect
-from posthoceval.models.synthetic import SyntheticModel
+from posthoceval.models.model import AdditiveModel
 from posthoceval.datasets.dataset import Dataset
 
 Contribs = Union[np.ndarray, List[np.ndarray],
@@ -21,7 +21,7 @@ Contribs = Union[np.ndarray, List[np.ndarray],
 class BaseExplainer(ABC):
 
     def __init__(self,
-                 model: SyntheticModel,
+                 model: AdditiveModel,
                  seed: Optional[int] = None,
                  task: str = 'regression',
                  verbose: Union[int, bool] = 1):

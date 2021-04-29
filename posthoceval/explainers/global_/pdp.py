@@ -2,9 +2,13 @@
 pdp.py - A PostHocExplainerEvaluation file
 Copyright (C) 2021  Zach Carmichael
 """
-from itertools import chain
 from typing import Union
 from typing import List
+from typing import Optional
+from typing import Dict
+from typing import Any
+
+from itertools import chain
 
 import pandas as pd
 import numpy as np
@@ -13,8 +17,9 @@ from pdpbox.pdp import pdp_isolate
 # from pdpbox.pdp import pdp_interact  # TODO- future work...
 
 from posthoceval.explainers._base import BaseExplainer
-from posthoceval.explainers.global_.global_util import MultivariateInterpolation
-from posthoceval.models.synthetic import SyntheticModel
+from posthoceval.explainers.global_.global_util import (
+    MultivariateInterpolation)
+from posthoceval.models.model import AdditiveModel
 
 
 class PDPExplainer(BaseExplainer):
@@ -25,7 +30,7 @@ class PDPExplainer(BaseExplainer):
                       List[MultivariateInterpolation]]
 
     def __init__(self,
-                 model: SyntheticModel,
+                 model: AdditiveModel,
                  seed=None,
                  task: str = 'regression',
                  n_grid_points: int = 100,
@@ -42,7 +47,12 @@ class PDPExplainer(BaseExplainer):
         self.interpolation = interpolation
         self.n_jobs = n_jobs
 
-    def fit(self, X, y=None):
+    def _fit(
+            self,
+            X: np.ndarray,
+            y: Optional[np.ndarray] = None,
+            grouped_feature_names=None,
+    ) -> None:
         # needs to be list, not tuple
         feature_names = [*self.model.symbol_names]
 
@@ -97,16 +107,14 @@ class PDPExplainer(BaseExplainer):
     def predict(self, X):
         pass  # TODO
 
-    def feature_contributions(self, X, return_y=False, as_dict=False):
+    def _call_explainer(
+            self,
+            X: np.ndarray,
+    ) -> Dict[str, Any]:
         if self.task == 'regression':
             contribs = self._explainer.interpolate(X)
         else:
             contribs = [expl.interpolate(X)
                         for expl in self._explainer]
 
-        if as_dict:
-            contribs = self._contribs_as_dict(contribs)
-
-        if return_y:
-            return contribs, self.model(X)
-        return contribs
+        return {'contribs': contribs}
