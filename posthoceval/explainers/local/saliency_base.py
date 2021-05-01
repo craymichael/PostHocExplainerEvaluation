@@ -13,11 +13,6 @@ import sympy as sp
 
 import saliency.core as saliency
 
-import tensorflow as tf
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import Lambda
-
 from posthoceval.explainers._base import BaseExplainer
 from posthoceval.models.model import AdditiveModel
 from posthoceval.evaluate import symbolic_evaluate_func
@@ -79,6 +74,11 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
 
         elif (hasattr(self.model, 'expr') and
               isinstance(self.model.expr, sp.Expr)):
+            # lazy load
+            from tensorflow.keras.models import Model
+            from tensorflow.keras.layers import Input
+            from tensorflow.keras.layers import Lambda
+
             # TODO: AdditiveModel -> SymbolicAdditiveModel
             expr = self.model.expr
             symbols = self.model.symbols
@@ -189,6 +189,9 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
         :param expected_keys:
         :return:
         """
+        # lazy load
+        import tensorflow as tf
+
         assert self._tf_model is not None
         if (saliency.CONVOLUTION_LAYER_VALUES in self._expected_keys or
                 saliency.CONVOLUTION_OUTPUT_GRADIENTS in self._expected_keys):

@@ -4,20 +4,13 @@ Copyright (C) 2021  Zach Carmichael
 """
 import numpy as np
 
-from tensorflow.keras.models import Model
-from tensorflow.keras.utils import plot_model
-
-from posthoceval.lazy_loader import LazyLoader
 from posthoceval.models.model import AdditiveModel
-
-LazyLoader('tensorflow')
-LazyLoader('tensorflow.keras')
 
 
 class DNNRegressor(AdditiveModel):
     def __init__(
             self,
-            dnn: Model,
+            dnn,
             pre_sum_map,
             n_features=None,
             symbols=None,
@@ -28,7 +21,10 @@ class DNNRegressor(AdditiveModel):
             symbols=symbols,
             n_features=n_features,
         )
-        self._dnn = dnn
+        # Lazy-load
+        from tensorflow.keras.models import Model
+
+        self._dnn: Model = dnn
         self._pre_sum_map = pre_sum_map
 
     def plot_model(self,
@@ -39,6 +35,9 @@ class DNNRegressor(AdditiveModel):
                    rankdir='TB',
                    expand_nested=False,
                    dpi=96):
+        # lazy load
+        from tensorflow.keras.utils import plot_model
+
         return plot_model(self._dnn,
                           to_file=to_file,
                           show_shapes=show_shapes,
@@ -63,6 +62,9 @@ class DNNRegressor(AdditiveModel):
         return self
 
     def feature_contributions(self, X):
+        # lazy load
+        from tensorflow.keras.models import Model
+
         all_feats, all_outputs = zip(*self._pre_sum_map.items())
 
         intermediate_model = Model(inputs=self._dnn.input,
@@ -77,7 +79,7 @@ class DNNRegressor(AdditiveModel):
 
         return contribs
 
-    def predict(self, X):
+    def predict(self, X: np.ndarray) -> np.ndarray:
         return self._dnn.predict(X)
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
