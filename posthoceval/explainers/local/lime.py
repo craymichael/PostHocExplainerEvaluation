@@ -73,7 +73,7 @@ class LIMETabularExplainer(BaseExplainer):
         self._scale = self._explainer.scaler.scale_
 
     def predict(self, X):
-        pass  # TODO: n/a
+        return NotImplementedError
 
     def _process_explanation(self, expl_vals_i, xi, intercept_i=None):
         # sort explanation values...
@@ -148,8 +148,14 @@ class LIMETabularExplainer(BaseExplainer):
             contribs_lime = np.moveaxis(contribs_lime, 0, 1)
             # samples x classes --> classes x samples
             intercepts = intercepts.T
+            # predictions
+            y_expl = contribs_lime.sum(axis=2) + intercepts
+        else:
+            # predictions
+            y_expl = contribs_lime.sum(axis=1) + intercepts
 
-        return {'contribs': contribs_lime, 'intercepts': intercepts}
+        return {'contribs': contribs_lime, 'intercepts': intercepts,
+                'predictions': y_expl}
 
 
 LIMEExplainer = LIMETabularExplainer

@@ -265,7 +265,7 @@ class MAPLEExplainer(BaseExplainer):
 
         y_maple = np.concatenate(y_maple, axis=0)
         if self.task == 'regression':
-            # TODO: add return_preds kwarg to base.....
             y_maple = y_maple.squeeze(axis=1)
 
-        return {'contribs': contribs_maple, 'intercepts': intercepts}
+        return {'contribs': contribs_maple, 'intercepts': intercepts,
+                'predictions': y_maple}

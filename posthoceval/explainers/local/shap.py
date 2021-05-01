@@ -15,7 +15,6 @@ from joblib import cpu_count
 from posthoceval.profile import profile
 from posthoceval.models.model import AdditiveModel
 from posthoceval.explainers._base import BaseExplainer
-from posthoceval.datasets.dataset import Dataset
 
 _HAS_RAY = None
 
@@ -166,18 +165,15 @@ class KernelSHAPExplainer(BaseExplainer):
         return init_kwargs, fit_kwargs
 
     def predict(self, X):
-        pass  # TODO: n/a atm
+        raise NotImplementedError
 
     @profile
     def _call_explainer(
             self,
-            X: Union[Dataset, np.ndarray],
+            X: np.ndarray,
     ):
         if self.verbose > 0:
             logger.info('Fetching KernelSHAP explanations')
-
-        if isinstance(X, Dataset):
-            X = X.X
 
         # Explain with n_cpus > 1 and silent=False gives awful output
         # unfortunately (multiple processes using tqdm in parallel)
@@ -192,13 +188,22 @@ class KernelSHAPExplainer(BaseExplainer):
         if self.task == 'regression':
             assert len(explanation.shap_values) == 1
             contribs_shap = explanation.shap_values[0]
+            predictions = np.sum(contribs_shap, axis=1) + self.expected_value_
         else:
             contribs_shap = explanation.shap_values
+            predictions = np.sum(contribs_shap, axis=2) + self.expected_value_
 
         y = explanation.raw['raw_prediction']
 
+        if self.link == 'logit':
+            # noinspection PyProtectedMember
+            link_inv = np.vectorize(self._explainer._explainer.link.finv)
+            y = link_inv(y)
+            predictions = link_inv(y)
+
         return {'contribs': contribs_shap, 'y': y,
-                'intercepts': self.expected_value_}
+                'intercepts': self.expected_value_,
+                'predictions': predictions}
 
 
 # Alias

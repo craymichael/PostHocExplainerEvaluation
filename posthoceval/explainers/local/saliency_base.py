@@ -52,7 +52,8 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
         return cls(*args, smooth=True, **kwargs)
 
     def predict(self, X):
-        pass  # TODO: n/a atm
+        raise TypeError('Salience map explainers are not model-based: '
+                        'predict() is unavailable.')
 
     def _fit(
             self,

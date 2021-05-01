@@ -56,16 +56,19 @@ class PDPExplainer(BaseExplainer):
         # needs to be list, not tuple
         feature_names = [*self.model.symbol_names]
 
-        # TODO: consider categorical stuff here - PDP sets up groups by having
-        #  categorical feature name "foo" suffixed by "_value" - e.g., feature
-        #  "color" with values "red" and "blue" would result in the columns
-        #  "color_red" and "color_blue" and be handled accordingly/
-        #  automatically within PDPBox lib
-
         dataset = pd.DataFrame(
             columns=feature_names,
             data=X,
         )
+
+        # TODO: consider categorical stuff here - PDP sets up groups by having
+        #  categorical feature name "foo" suffixed by "_value" - e.g., feature
+        #  "color" with values "red" and "blue" would result in the columns
+        #  "color_red" and "color_blue" and be handled accordingly/
+        #  automatically within PDPBox lib.
+        #  Looking at source, we maybe should iterate over
+        #  grouped_feature_names here and pass list of features for one-hot
+        #  encoded features...
 
         all_x = []
         all_y = []

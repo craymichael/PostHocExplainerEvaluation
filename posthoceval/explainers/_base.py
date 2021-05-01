@@ -99,6 +99,7 @@ class BaseExplainer(ABC):
             X: Union[np.ndarray, Dataset],
             return_y: bool = False,
             return_intercepts: bool = False,
+            return_predictions: bool = False,
             as_dict: Optional[bool] = None,
     ):
         if not self._fitted:
@@ -121,6 +122,12 @@ class BaseExplainer(ABC):
         if return_intercepts:
             intercepts = call_result.get('intercepts')
             ret += (intercepts,)
+
+        if return_predictions:
+            predictions = call_result.get('predictions')
+            if predictions is None:
+                predictions = self.predict(X)
+            ret += (predictions,)
 
         if len(ret) == 1:
             ret = ret[0]
