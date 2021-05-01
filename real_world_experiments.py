@@ -49,14 +49,16 @@ from tensorflow.keras.callbacks import EarlyStopping
 
 from posthoceval.explainers.local.shap import KernelSHAPExplainer
 from posthoceval.expl_utils import apply_matching, standardize_contributions
+from posthoceval.metrics import generous_eval
+from posthoceval import metrics
 from posthoceval.models.gam import MultiClassLogisticGAM
 from posthoceval.models.gam import LinearGAM
 from posthoceval.models.gam import T
 from posthoceval.models.dnn import DNNRegressor
-from posthoceval.metrics import generous_eval
-from posthoceval import metrics
+from posthoceval.transform import Transformer
 from posthoceval.utils import nonexistent_filename
 from posthoceval.datasets.boston import BostonDataset
+from posthoceval.datasets.compas import COMPASDataset
 
 sns.set_theme(
     context='paper',
@@ -98,47 +100,7 @@ if 0:
 
     headers = [*range(X.shape[1])]
 elif 1:
-    import json
-
-    from sklearn.compose import ColumnTransformer
-    from sklearn.preprocessing import OneHotEncoder
-
-    task = 'regression'
-    data_df = pd.read_csv('data/compas_two_year_filtered.csv')
-
-    with open('data/compas_metadata.json', 'r') as f:
-        compas_meta = json.load(f)
-
-    label_col = 'decile_score'
-    X_df = data_df.drop(columns=[label_col, 'age_cat', 'score_text'])
-
-    numerical_cols = []
-    categorical_cols = []
-    for col in X_df:
-        if compas_meta[col]['categorical']:
-            categorical_cols.append(col)
-        else:
-            numerical_cols.append(col)
-
-    # TODO: note cols can be dataframe names or column indices
-    scaler = ColumnTransformer([
-        ('num', StandardScaler(), numerical_cols),
-        ('cat', OneHotEncoder(sparse=False), categorical_cols),
-    ])
-
-    X = scaler.fit_transform(X_df)
-    y = data_df[label_col].values
-
-    # headers = [*X_df.keys()]
-    headers = [compas_meta[c]['name'] for c in numerical_cols]
-    categories = scaler.named_transformers_['cat'].categories_
-
-    for cat, names in zip(categorical_cols, categories):
-        cat = compas_meta[cat]['name']
-        headers.extend(
-            cat + f' = {name}'
-            for name in names
-        )
+    dataset_cls = COMPASDataset
 elif 1:
     dataset_cls = BostonDataset
 else:
@@ -151,32 +113,15 @@ else:
     y = dataset.target
 
 # load dataset
-dataset = dataset_cls()
+dataset_orig = dataset_cls()
+# transform data
+transformer = Transformer()
+dataset = transformer.fit_transform(dataset_orig)
+# extract data
 task = dataset.task
 X = dataset.X
 y = dataset.y
 headers = dataset.feature_names
-
-
-def scale_y(y_scaler_func, y):
-    shape_orig = y.shape
-    if y.ndim == 1:
-        y = y[:, np.newaxis]
-    elif y.ndim == 0:
-        y = y[np.newaxis, np.newaxis]
-    y = y_scaler_func(y)
-    y = y.reshape(shape_orig)
-    return y
-
-
-if scaler is None:
-    scaler = StandardScaler()
-    X = scaler.fit_transform(X)
-
-y_scaler = None
-if task == 'regression':
-    y_scaler = StandardScaler()
-    y = scale_y(y_scaler.fit_transform, y)
 
 desired_interactions = []
 
@@ -353,32 +298,6 @@ if task == 'regression':
 rows = []
 rows_3d = []
 
-if categorical_cols is not None:
-
-    categories = scaler.named_transformers_['cat'].categories_
-
-    groups = [[i] for i in range(len(numerical_cols))]
-
-    start = len(groups)
-
-    category_map = dict(zip(
-        range(start, start + len(categories)), categories
-    ))
-
-    for cat in categories:
-        end = start + len(cat)
-        groups.append([*range(start, end)])
-        start = end
-
-    group_names = numerical_cols + categorical_cols
-
-    # TODO: these are both SHAP-only
-    expl_init_kwargs = dict(categorical_names=category_map)
-    expl_fit_kwargs = dict(group_names=group_names, groups=groups)
-else:
-    expl_init_kwargs = {}
-    expl_fit_kwargs = {}
-
 explainer_array = (
     # ('LIME',
     #  LIMEExplainer(model, seed=seed, task=task)),
@@ -392,25 +311,10 @@ explainer_array = (
 
 for expl_i, (explainer_name, explainer) in enumerate(explainer_array):
     print('Start explainer', explainer_name)
-
-    if explainer_name == 'SHAP':  # TODO!!
-        explainer.fit(X, **expl_fit_kwargs)  # fit full X
-    else:
-        explainer.fit(X)  # fit full X
-    intercepts = None
+    explainer.fit(X)  # fit full X
     y_expl = None
-    # TODO: unify this ish
-    if explainer_name == 'LIME':
-        explanation, intercepts = explainer.feature_contributions(
-            X_trunc, as_dict=True, return_intercepts=True)
-    elif explainer_name == 'MAPLE':
-        explanation, y_expl = explainer.feature_contributions(
-            X_trunc, as_dict=True, return_y=True)
-    elif explainer_name == 'SHAP':
-        explanation = explainer.feature_contributions(X_trunc, as_dict=True)
-        intercepts = explainer.expected_value_
-    else:
-        raise NotImplementedError
+    explanation, intercepts = explainer.feature_contributions(
+        X_trunc, as_dict=True, return_intercepts=True)
 
     nrmse_func = metrics.nrmse_interquartile
     # nrmse_func = metrics.nrmse_range

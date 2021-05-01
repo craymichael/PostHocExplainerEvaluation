@@ -159,8 +159,10 @@ class KernelSHAPExplainer(BaseExplainer):
                 # category map
                 category_map[orig_column_idx] = categories
 
-        init_kwargs = dict(categorical_names=category_map)
-        fit_kwargs = dict(group_names=group_names, groups=groups)
+        init_kwargs = (dict(categorical_names=category_map)
+                       if category_map else {})
+        fit_kwargs = (dict(group_names=group_names, groups=groups)
+                      if category_map else {})
         return init_kwargs, fit_kwargs
 
     def predict(self, X):

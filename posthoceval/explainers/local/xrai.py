@@ -14,3 +14,4 @@ class XRAIExplainer(SalienceMapExplainer):
         super().__init__(*args, **kwargs)
         self._explainer = saliency.XRAI()
         self._expected_keys = saliency.IntegratedGradients.expected_keys
+        self._atleast_2d = True
