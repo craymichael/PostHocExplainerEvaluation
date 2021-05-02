@@ -50,7 +50,11 @@ def strict_eval(y_true: Iterable, y_pred: Iterable):
     return matching, goodness
 
 
-def generous_eval(y_true: Iterable, y_pred: Iterable, maybe_exact=False):
+def generous_eval(
+        y_true: Iterable,
+        y_pred: Iterable,
+        maybe_exact=False
+) -> List[Tuple[List[Tuple], List[Tuple]]]:
     """
 
     :param y_true:

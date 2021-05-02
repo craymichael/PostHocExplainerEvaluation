@@ -194,7 +194,6 @@ class Dataset(ABC):
     @_needs_load
     def data(self) -> pd.DataFrame:
         if self._data is None:  # infer
-            print('w')
             data = pd.DataFrame(
                 columns=self.feature_names,
                 data=self.X.reshape(-1, self.n_features),

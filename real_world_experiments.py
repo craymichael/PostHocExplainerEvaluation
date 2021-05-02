@@ -309,12 +309,14 @@ explainer_array = (
                          **expl_init_kwargs)),
 )
 
+# TODO: feature_contributions() --> explain()
+# TODO: explain() --> ExplainerMixin (for both models and explainers)
+
 for expl_i, (explainer_name, explainer) in enumerate(explainer_array):
     print('Start explainer', explainer_name)
     explainer.fit(X)  # fit full X
-    y_expl = None
-    explanation, intercepts = explainer.feature_contributions(
-        X_trunc, as_dict=True, return_intercepts=True)
+    explanation, y_expl = explainer.feature_contributions(
+        X_trunc, as_dict=True, return_predictions=True)
 
     nrmse_func = metrics.nrmse_interquartile
     # nrmse_func = metrics.nrmse_range
@@ -343,10 +345,6 @@ for expl_i, (explainer_name, explainer) in enumerate(explainer_array):
 
         print(f'{model_type} vs. Explainer')
         y_pred_trunc = model(X_trunc)
-        if y_expl is None:
-            y_expl = np.asarray([*explanation.values()]).sum(axis=0)
-            if intercepts is not None:
-                y_expl += np.asarray(intercepts)
         print(f' RMSE={metrics.rmse(y_pred_trunc, y_expl)}')
         print(f'NRMSE={nrmse_func(y_pred_trunc, y_expl)}')
 
