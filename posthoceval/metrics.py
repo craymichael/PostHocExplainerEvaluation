@@ -12,6 +12,7 @@ from sklearn import metrics as sk_metrics
 from sklearn.metrics import pairwise
 
 import numpy as np
+import scipy.stats
 
 from posthoceval.expl_utils import standardize_effect
 
@@ -28,11 +29,13 @@ __all__ = [
     'nrmse_interquartile', 'nrmse_mean',
     'accuracy', 'balanced_accuracy',
     'cosine_distances', 'euclidean_distances',
+    'spearmanr', 'spearman_corr', 'spearman_rank_correlation',
+    'pearson_correlation_coef', 'corr', 'corrcoef'
 ]
 
 
 def strict_eval(y_true: Iterable, y_pred: Iterable):
-    """TODO: also return goodness - as arg"""
+    """"""
     y_true = {*map(standardize_effect, y_true)}
     y_pred = {*map(standardize_effect, y_pred)}
 
@@ -54,7 +57,7 @@ def generous_eval(
         y_true: Iterable,
         y_pred: Iterable,
         maybe_exact=False
-) -> List[Tuple[List[Tuple], List[Tuple]]]:
+) -> Tuple[List[Tuple[List[Tuple], List[Tuple]]], List[float]]:
     """
 
     :param y_true:
@@ -291,6 +294,26 @@ nrmse_range = partial(normalized_root_mean_squared_error, normalize='range')
 nrmse_interquartile = partial(normalized_root_mean_squared_error,
                               normalize='interquartile')
 nrmse_std = partial(normalized_root_mean_squared_error, normalize='std')
+
+
+def pearson_correlation_coef(y_true, y_pred):
+    return np.corrcoef(y_true, y_pred)[0, 1]
+
+
+corrcoef = pearson_correlation_coef
+corr = pearson_correlation_coef
+
+
+def spearman_rank_correlation(y_true, y_pred, p_val=False):
+    result = scipy.stats.spearmanr(y_true, y_pred)
+    if p_val:
+        return result
+    else:
+        return result[0]
+
+
+spearmanr = spearman_rank_correlation
+spearman_corr = spearman_rank_correlation
 
 if hasattr(sk_metrics, 'mean_absolute_percentage_error'):
     mean_absolute_percentage_error = sk_metrics.mean_absolute_percentage_error

@@ -162,14 +162,15 @@ def save_explanation(expl_path: str, contribs):
 
 
 def apply_matching(matching, true_expl, pred_expl, n_explained,
-                   explainer_name):
+                   explainer_name, always_numeric=True):
     matches = {}
     for match_true, match_pred in matching:
         if match_true:
             contribs_true = sum(true_expl[effect] for effect in match_true)
             contribs_true_mean = np.mean(contribs_true)
-        else:
-            contribs_true = contribs_true_mean = np.zeros(n_explained)
+        else:  # no corresponding effect(s) from truth
+            contribs_true_mean = np.zeros(n_explained)
+            contribs_true = contribs_true_mean if always_numeric else None
         if match_pred:
             # add the mean back for these effects (this will be the
             #  same sample mean that the explainer saw before)
@@ -178,8 +179,8 @@ def apply_matching(matching, true_expl, pred_expl, n_explained,
                 start=(contribs_true_mean
                        if is_mean_centered(explainer_name) else 0)
             )
-        else:
-            contribs_pred = np.zeros(n_explained)
+        else:  # no corresponding effect(s) from pred
+            contribs_pred = np.zeros(n_explained) if always_numeric else None
 
         match_key = (tuple(match_true), tuple(match_pred))
         matches[match_key] = (contribs_true, contribs_pred)
