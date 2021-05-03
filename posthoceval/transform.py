@@ -73,6 +73,7 @@ class Transformer(TransformerMixin):
             categorical_transformer: Optional[SklearnTransformer] = UNPROVIDED,
             target_transformer: Optional[SklearnTransformer] = UNPROVIDED,
             impute_numerical: Union[str, bool, TransformerMixin] = UNPROVIDED,
+            impute_categorical: Union[str, bool, TransformerMixin] = UNPROVIDED,
     ):
         """"""
         if numerical_transformer is UNPROVIDED:
@@ -87,6 +88,7 @@ class Transformer(TransformerMixin):
         self._target_transformer = target_transformer
 
         self._impute_numerical = impute_numerical
+        self._impute_categorical = impute_categorical
 
         # Set during fit(...)
         self.numerical_features_: List[str]
@@ -105,6 +107,7 @@ class Transformer(TransformerMixin):
 
         imputers = []
 
+        # Handle numerical imputer
         if self._impute_numerical is UNPROVIDED:
             if dataset.X_df[self.numerical_features_].isna().any(axis=None):
                 self._impute_numerical = 'median'
@@ -117,13 +120,34 @@ class Transformer(TransformerMixin):
         elif isinstance(self._impute_numerical, TransformerMixin):
             numerical_imputer = self._impute_numerical
 
+        # Handle categorical imputer
+        if (self._impute_categorical is UNPROVIDED or
+                self._impute_categorical is True):
+            if dataset.X_df[self.categorical_features_].isna().any(axis=None):
+                self._impute_categorical = 'most_frequent'
+
+        categorical_imputer = None
+        if isinstance(self._impute_categorical, str):
+            categorical_imputer = SimpleImputer(
+                strategy=self._impute_categorical)
+        elif isinstance(self._impute_categorical, TransformerMixin):
+            categorical_imputer = self._impute_categorical
+
+        # Add imputers if desired
         if numerical_imputer is not None:
             imputers.append(
                 ('numerical_imputer',
                  numerical_imputer,
                  self.numerical_features_)
             )
+        if categorical_imputer is not None:
+            imputers.append(
+                ('categorical_imputer',
+                 categorical_imputer,
+                 self.categorical_features_)
+            )
 
+        # Add numerical and categorical transformers
         numerical_transformer = (
             self._numerical_transformer if self.transforms_numerical else
             IdentityTransformer()
