@@ -125,8 +125,10 @@ def _gather_viz_data_single_output(
     dfs_3d = []
 
     # shed zero elements
-    true_contribs_k = standardize_contributions(true_contribs_k)
-    pred_contribs_k = standardize_contributions(pred_contribs_k)
+    true_contribs_k = standardize_contributions(
+        true_contribs_k, remove_zeros=False)
+    pred_contribs_k = standardize_contributions(
+        pred_contribs_k, remove_zeros=False)
     # find and apply matching
     components, goodness = metrics.generous_eval(true_contribs_k,
                                                  pred_contribs_k)
@@ -162,6 +164,10 @@ def _gather_viz_data_single_output(
         feature_str = ' & '.join(dataset.feature_names[fi] for fi in f_idxs)
 
         # print some metrics for the matched effect(s)
+        if no_true_contrib:
+            true_contrib_i = np.zeros_like(pred_contrib_i)
+        if no_pred_contrib:
+            pred_contrib_i = np.zeros_like(true_contrib_i)
         err_scores = {ef.__name__: ef(true_contrib_i, pred_contrib_i)
                       for ef in err_func}
         score_str = ' | '.join(f'{name}={score:.3f}'

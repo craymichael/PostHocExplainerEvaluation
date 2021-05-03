@@ -23,7 +23,6 @@ Explanation = Dict[Tuple[sp.Symbol], np.ndarray]
 
 # reserved name for true contributions
 TRUE_CONTRIBS_NAME = '__true__'
-# TODO: best way to do this?
 # known explainers that give mean-centered contributions in explanation
 KNOWN_MEAN_CENTERED = [
     'SHAP',
@@ -195,11 +194,11 @@ def standardize_effect(e):
     return e
 
 
-def standardize_contributions(contribs_dict):
+def standardize_contributions(contribs_dict, remove_zeros=True):
     """standardize each effect tuple and remove effects that are 0-effects"""
     return {standardize_effect(k): v
             for k, v in contribs_dict.items()
-            if not np.allclose(v, 0., atol=1e-5)}
+            if not (remove_zeros and np.allclose(v, 0., atol=1e-5))}
 
 
 class CompatUnpickler(pickle.Unpickler):
