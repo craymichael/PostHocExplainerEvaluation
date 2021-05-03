@@ -24,6 +24,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import LabelEncoder
+from sklearn.impute import SimpleImputer
 from sklearn.base import TransformerMixin
 from sklearn.base import BaseEstimator
 
@@ -71,6 +72,7 @@ class Transformer(TransformerMixin):
             numerical_transformer: Optional[SklearnTransformer] = UNPROVIDED,
             categorical_transformer: Optional[SklearnTransformer] = UNPROVIDED,
             target_transformer: Optional[SklearnTransformer] = UNPROVIDED,
+            impute_numerical: Union[str, bool, TransformerMixin] = UNPROVIDED,
     ):
         """"""
         if numerical_transformer is UNPROVIDED:
@@ -83,6 +85,8 @@ class Transformer(TransformerMixin):
 
         self._data_transformer = None
         self._target_transformer = target_transformer
+
+        self._impute_numerical = impute_numerical
 
         # Set during fit(...)
         self.numerical_features_: List[str]
@@ -99,6 +103,27 @@ class Transformer(TransformerMixin):
         self.numerical_features_ = dataset.numerical_features
         self.categorical_features_ = dataset.categorical_features
 
+        imputers = []
+
+        if self._impute_numerical is UNPROVIDED:
+            if dataset.X_df[self.numerical_features_].isna().any(axis=None):
+                self._impute_numerical = 'median'
+
+        numerical_imputer = None
+        if isinstance(self._impute_numerical, str):
+            numerical_imputer = SimpleImputer(strategy=self._impute_numerical)
+        elif self._impute_numerical is True:
+            numerical_imputer = SimpleImputer()
+        elif isinstance(self._impute_numerical, TransformerMixin):
+            numerical_imputer = self._impute_numerical
+
+        if numerical_imputer is not None:
+            imputers.append(
+                ('numerical_imputer',
+                 numerical_imputer,
+                 self.numerical_features_)
+            )
+
         numerical_transformer = (
             self._numerical_transformer if self.transforms_numerical else
             IdentityTransformer()
@@ -108,7 +133,7 @@ class Transformer(TransformerMixin):
             IdentityTransformer()
         )
 
-        self._data_transformer = ColumnTransformer([
+        self._data_transformer = ColumnTransformer(imputers + [
             ('numerical',
              numerical_transformer,
              self.numerical_features_),
