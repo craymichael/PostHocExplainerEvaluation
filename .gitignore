@@ -3,6 +3,9 @@ libgpuarray/
 # MNIST test info
 data/mnist_*
 
+# FICO HELOC dataset
+data/HELOC/
+
 # UCI data
 archive.ics.uci.edu/
 

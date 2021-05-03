@@ -3,6 +3,9 @@ Python version 3.6+ required!
 Pipenv doesn't allow for Python version range to be specified...may
 change venv system due to that
 
+FICO HELOC license prohibits distribution. Obtain from:
+https://community.fico.com/s/explainable-machine-learning-challenge
+
 ## SHAPR Installation
 Install R. Then, in an R shell:
 ```R
