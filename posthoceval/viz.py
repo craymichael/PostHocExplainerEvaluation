@@ -10,6 +10,7 @@ from typing import Tuple
 from typing import Optional
 from typing import Any
 from typing import Callable
+from typing import Sequence
 
 import warnings
 from itertools import chain
@@ -54,6 +55,7 @@ def gather_viz_data(
         transformer: Transformer,
         true_contribs: Contribs,
         pred_contribs_map: Dict[str, Contribs],
+        dataset_sample_idxs: Sequence[int] = None,
         err_func: Union[List[Callable], Callable] = None,
 ) -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame]]:
     """pred_contribs: Dict[explainer_name, contribs]"""
@@ -99,6 +101,7 @@ def gather_viz_data(
                 explainer_name=explainer_name,
                 target_str=target_str,
                 err_func=err_func,
+                dataset_sample_idxs=dataset_sample_idxs,
                 ignored_true_effects=ignored_true_effects,
             )
             dfs += dfs_class
@@ -119,6 +122,7 @@ def _gather_viz_data_single_output(
         explainer_name: str,
         target_str: str,
         err_func: List[Callable],
+        dataset_sample_idxs: Sequence[int],
         ignored_true_effects: Set,
 ):
     dfs = []
@@ -132,7 +136,8 @@ def _gather_viz_data_single_output(
     # find and apply matching
     components, goodness = metrics.generous_eval(true_contribs_k,
                                                  pred_contribs_k)
-    n_explained = len(dataset)
+    n_explained = (len(dataset) if dataset_sample_idxs is None else
+                   len(dataset_sample_idxs))
     matches = apply_matching(
         matching=components,
         true_expl=true_contribs_k,
@@ -147,6 +152,8 @@ def _gather_viz_data_single_output(
                                                 transform_categorical=False,
                                                 transform_target=False)
     X_inv = dataset_inv.X
+    if dataset_sample_idxs is not None:
+        X_inv = X_inv[dataset_sample_idxs]
 
     # "for the effects and corresponding contributions of each match..."
     for ((true_feats, pred_feats),

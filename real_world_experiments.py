@@ -4,6 +4,8 @@ Copyright (C) 2021  Zach Carmichael
 """
 # maximize reproducibility: set seed with minimal imports
 # just a seed
+import warnings
+
 seed = 431136
 import os
 
@@ -55,6 +57,8 @@ sns.set_theme(
     color_codes=True,
     # palette=sns.color_palette('pastel'),
 )
+
+warnings.warn('DEPRECATED: USE THE NOTEBOOK INSTEAD')
 
 dataset_name = 'compas'
 
