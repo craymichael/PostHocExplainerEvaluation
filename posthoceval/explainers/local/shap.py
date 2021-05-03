@@ -15,6 +15,7 @@ from joblib import cpu_count
 from posthoceval.profile import profile
 from posthoceval.models.model import AdditiveModel
 from posthoceval.explainers._base import BaseExplainer
+from posthoceval.expl_utils import standardize_effect
 
 _HAS_RAY = None
 
@@ -53,6 +54,7 @@ class KernelSHAPExplainer(BaseExplainer):
                  task: str = 'regression',
                  link: Optional[str] = None,
                  seed: Optional[int] = None,
+                 group_categorical: bool = True,
                  verbose: Union[int, bool] = 1,
                  **explainer_kwargs):
         """"""
@@ -72,8 +74,9 @@ class KernelSHAPExplainer(BaseExplainer):
         if n_cpus < 0:
             n_cpus = max(cpu_count() + n_cpus + 1, 1)
 
-        self.n_cpus = n_cpus
+        self._n_cpus = n_cpus
         self._explainer_kwargs = explainer_kwargs
+        self._group_categorical = group_categorical
         # attributes set after fit
         self.expected_value_ = None
 
@@ -87,13 +90,13 @@ class KernelSHAPExplainer(BaseExplainer):
     ):
         """"""
         explainer_kwargs = self._explainer_kwargs.copy()
-        if grouped_feature_names is not None:
+        if self._group_categorical and grouped_feature_names is not None:
             init_kwargs, extra_fit_kwargs = self._handle_categorical(
                 grouped_feature_names)
             explainer_kwargs.update(init_kwargs)
             fit_kwargs.update(extra_fit_kwargs)
 
-        use_ray = self.n_cpus > 1
+        use_ray = self._n_cpus > 1
         if use_ray:
             use_ray = init_ray()
 
@@ -106,7 +109,7 @@ class KernelSHAPExplainer(BaseExplainer):
             link=self.link,
             distributed_opts={
                 # https://www.seldon.io/how-seldons-alibi-and-ray-make-model-explainability-easy-and-scalable/
-                'n_cpus': self.n_cpus,
+                'n_cpus': self._n_cpus,
                 # If batch_size set to `None`, an input array is split in
                 # (roughly) equal parts and distributed across the available
                 # CPUs
@@ -130,6 +133,8 @@ class KernelSHAPExplainer(BaseExplainer):
         self._explainer.fit(X, **fit_kwargs)
 
         self.expected_value_ = self._explainer.expected_value
+        self._groups = None
+        self._category_map = None
 
     # noinspection PyMethodMayBeStatic
     def _handle_categorical(
@@ -162,6 +167,8 @@ class KernelSHAPExplainer(BaseExplainer):
                        if category_map else {})
         fit_kwargs = (dict(group_names=group_names, groups=groups)
                       if category_map else {})
+        self._groups = groups
+        self._category_map = category_map
         return init_kwargs, fit_kwargs
 
     def predict(self, X):
@@ -178,7 +185,7 @@ class KernelSHAPExplainer(BaseExplainer):
         # Explain with n_cpus > 1 and silent=False gives awful output
         # unfortunately (multiple processes using tqdm in parallel)
         # l1_reg=False --> explain all features, not a subset
-        explanation = self._explainer.explain(X, silent=self.n_cpus != 1,
+        explanation = self._explainer.explain(X, silent=self._n_cpus != 1,
                                               l1_reg=False)
 
         # Note: explanation.raw['importances'] has aggregated scores per output
@@ -193,6 +200,17 @@ class KernelSHAPExplainer(BaseExplainer):
             contribs_shap = explanation.shap_values
             predictions = np.sum(contribs_shap, axis=2) + self.expected_value_
 
+        # if group_categorical and grouped names exist then we return a dict
+        if self._group_categorical and self._category_map:
+            if self.task == 'regression':
+                contribs_shap = self._handle_categorical_as_dict(
+                    contribs_shap, X)
+            else:
+                contribs_shap = [
+                    self._handle_categorical_as_dict(contribs_k, X)
+                    for contribs_k in contribs_shap
+                ]
+
         y = explanation.raw['raw_prediction']
 
         if self.link == 'logit':
@@ -204,6 +222,27 @@ class KernelSHAPExplainer(BaseExplainer):
         return {'contribs': contribs_shap, 'y': y,
                 'intercepts': self.expected_value_,
                 'predictions': predictions}
+
+    def _handle_categorical_as_dict(self, contribs, X: np.ndarray):
+        contribs_dict = {}
+        symbols = [*map(standardize_effect, self.model.symbols)]
+        n_explained = len(X)
+        for idx, group in enumerate(self._groups):
+            if len(group) > 1:
+                # TODO: this assumes one-hot encoding
+                contrib = contribs[:, idx]
+                for orig_idx in group:
+                    symbol = symbols[orig_idx]
+                    contrib_cat = np.zeros(n_explained, dtype=float)
+                    feat_mask = X[:, orig_idx].astype(bool)
+                    assert (X[:, orig_idx] == feat_mask.astype(int)).all()
+                    contrib_cat[feat_mask] = contrib[feat_mask]
+                    contribs_dict[symbol] = contrib_cat
+            else:
+                symbol = symbols[group[0]]
+                contribs_dict[symbol] = contribs[:, idx]
+
+        return contribs_dict
 
 
 # Alias

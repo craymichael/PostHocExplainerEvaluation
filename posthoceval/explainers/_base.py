@@ -188,6 +188,7 @@ class BaseExplainer(ABC):
             symbols: List[Tuple[Any, ...]],
     ):
         contribs = contribs.reshape(contribs.shape[0], -1)
+        # TODO: n_features in case on nd...?
         n_features = contribs.shape[1]
         assert len(symbols) == n_features
         # Contribs: feature: ndarray[n_samples]
@@ -199,9 +200,13 @@ class BaseExplainer(ABC):
             contribs: Dict[Any, np.ndarray],
             symbols: List[Tuple[Any, ...]],
     ):
-        assert len(symbols) == len(contribs)
-        assert set(symbols) == set(contribs.keys())
+        assert not (set(contribs.keys()) - set(symbols))
+        assert contribs, 'unsupported when contribs is empty'
+        one_contrib = next(iter(contribs.values()))
+        n_explained = len(next(iter(contribs.values())))
+        dtype = one_contrib.dtype
         # This will raise a KeyError if the contribs are invalid
         return np.asarray([
-            contribs[sym] for sym in symbols
+            contribs.get(sym, np.zeros(n_explained, dtype=dtype))
+            for sym in symbols
         ]).T  # Contribs: ndarray[n_samples x n_features]
