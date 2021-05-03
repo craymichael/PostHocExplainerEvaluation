@@ -149,7 +149,7 @@ class KernelSHAPExplainer(BaseExplainer):
                 group_names.append(item)
                 column_idx += 1
             else:
-                feature_name, categories = item[1]
+                feature_name, categories = item
                 # groups
                 column_idx_end = column_idx + len(categories)
                 groups.append([*range(column_idx, column_idx_end)])

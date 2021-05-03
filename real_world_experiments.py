@@ -213,8 +213,7 @@ explainer_array = (
     #  MAPLEExplainer(model, seed=seed, task=task)),
     ('SHAP',
      KernelSHAPExplainer(model, task=task, seed=seed,
-                         n_cpus=1 if model_type == 'dnn' else -1,
-                         **expl_init_kwargs)),
+                         n_cpus=1 if model_type == 'dnn' else -1)),
 )
 
 # TODO: feature_contributions() --> explain()
