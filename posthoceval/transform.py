@@ -25,6 +25,7 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import LabelEncoder
 from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
 from sklearn.base import TransformerMixin
 from sklearn.base import BaseEstimator
 
@@ -105,7 +106,15 @@ class Transformer(TransformerMixin):
         self.numerical_features_ = dataset.numerical_features
         self.categorical_features_ = dataset.categorical_features
 
-        imputers = []
+        # numerical and categorical transformers
+        numerical_transformer = (
+            self._numerical_transformer if self.transforms_numerical else
+            IdentityTransformer()
+        )
+        categorical_transformer = (
+            self._categorical_transformer if self.transforms_categorical else
+            IdentityTransformer()
+        )
 
         # Handle numerical imputer
         if self._impute_numerical is UNPROVIDED:
@@ -133,31 +142,19 @@ class Transformer(TransformerMixin):
         elif isinstance(self._impute_categorical, TransformerMixin):
             categorical_imputer = self._impute_categorical
 
-        # Add imputers if desired
+        # Add imputers if specified
         if numerical_imputer is not None:
-            imputers.append(
-                ('numerical_imputer',
-                 numerical_imputer,
-                 self.numerical_features_)
-            )
+            numerical_transformer = Pipeline(steps=[
+                ('numerical_imputer', numerical_imputer),
+                ('numerical_transformer', numerical_transformer),
+            ])
         if categorical_imputer is not None:
-            imputers.append(
-                ('categorical_imputer',
-                 categorical_imputer,
-                 self.categorical_features_)
-            )
+            categorical_transformer = Pipeline(steps=[
+                ('categorical_imputer', categorical_imputer),
+                ('categorical_transformer', categorical_transformer),
+            ])
 
-        # Add numerical and categorical transformers
-        numerical_transformer = (
-            self._numerical_transformer if self.transforms_numerical else
-            IdentityTransformer()
-        )
-        categorical_transformer = (
-            self._categorical_transformer if self.transforms_categorical else
-            IdentityTransformer()
-        )
-
-        self._data_transformer = ColumnTransformer(imputers + [
+        self._data_transformer = ColumnTransformer([
             ('numerical',
              numerical_transformer,
              self.numerical_features_),
@@ -250,6 +247,10 @@ class Transformer(TransformerMixin):
             #  from self._categorical_transformer)
             categorical_transformer = (
                 self._data_transformer.named_transformers_['categorical'])
+            if isinstance(categorical_transformer, Pipeline):
+                categorical_transformer = (
+                    categorical_transformer.named_steps[
+                        'categorical_transformer'])
             categories = categorical_transformer.categories_
             assert len(self.categorical_features_) == len(categories)
 
