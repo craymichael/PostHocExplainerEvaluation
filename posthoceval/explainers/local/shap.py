@@ -54,7 +54,7 @@ class KernelSHAPExplainer(BaseExplainer):
                  task: str = 'regression',
                  link: Optional[str] = None,
                  seed: Optional[int] = None,
-                 group_categorical: bool = True,
+                 group_categorical: bool = False,
                  verbose: Union[int, bool] = 1,
                  **explainer_kwargs):
         """"""
@@ -92,7 +92,7 @@ class KernelSHAPExplainer(BaseExplainer):
     ):
         """"""
         explainer_kwargs = self._explainer_kwargs.copy()
-        if self._group_categorical and grouped_feature_names is not None:
+        if grouped_feature_names is not None:
             init_kwargs, extra_fit_kwargs = self._handle_categorical(
                 grouped_feature_names)
             explainer_kwargs.update(init_kwargs)
@@ -146,29 +146,48 @@ class KernelSHAPExplainer(BaseExplainer):
         group_names: List[str] = []
         category_map: Dict[int, List[Any]] = {}
 
+        cat_vars_start_idx: List[int] = []
+        cat_vars_enc_dim: List[int] = []
+
         column_idx = 0  # transformed column index
         for orig_column_idx, item in enumerate(grouped_feature_names):
             # orig_column_idx: original index in untransformed data
             if isinstance(item, str):
-                groups.append([column_idx])
-                group_names.append(item)
+                if self._group_categorical:
+                    groups.append([column_idx])
+                    group_names.append(item)
+                else:
+                    # do nothing
+                    pass
                 column_idx += 1
             else:
                 feature_name, categories = item
-                # groups
-                column_idx_end = column_idx + len(categories)
-                groups.append([*range(column_idx, column_idx_end)])
-                group_names.append(feature_name)
-                column_idx = column_idx_end
-                # category map
-                category_map[orig_column_idx] = categories
 
-        init_kwargs = (dict(categorical_names=category_map)
-                       if category_map else {})
-        fit_kwargs = (dict(group_names=group_names, groups=groups)
-                      if category_map else {})
-        self._groups = groups
-        self._category_map = category_map
+                if self._group_categorical:
+                    # groups
+                    column_idx_end = column_idx + len(categories)
+                    groups.append([*range(column_idx, column_idx_end)])
+                    group_names.append(feature_name)
+                    column_idx = column_idx_end
+                    # category map
+                    category_map[orig_column_idx] = categories
+                else:
+                    cat_vars_start_idx.append(column_idx)
+                    cat_vars_enc_dim.append(len(categories))
+                    column_idx += len(categories)
+
+        if self._group_categorical:
+            self._groups = groups
+            self._category_map = category_map
+            init_kwargs = (dict(categorical_names=category_map)
+                           if category_map else {})
+            fit_kwargs = (dict(group_names=group_names, groups=groups)
+                          if category_map else {})
+        else:
+            init_kwargs = {}
+            fit_kwargs = (dict(cat_vars_start_idx=cat_vars_start_idx,
+                               cat_vars_enc_dim=cat_vars_enc_dim)
+                          if cat_vars_start_idx else {})
         return init_kwargs, fit_kwargs
 
     def predict(self, X):
@@ -203,11 +222,11 @@ class KernelSHAPExplainer(BaseExplainer):
         # if group_categorical and grouped names exist then we return a dict
         if self._group_categorical and self._category_map:
             if self.task == 'regression':
-                contribs_shap = self._handle_categorical_as_dict(
+                contribs_shap = self._handle_grouped_categorical_as_dict(
                     contribs_shap, X)
             else:
                 contribs_shap = [
-                    self._handle_categorical_as_dict(contribs_k, X)
+                    self._handle_grouped_categorical_as_dict(contribs_k, X)
                     for contribs_k in contribs_shap
                 ]
 
@@ -223,7 +242,7 @@ class KernelSHAPExplainer(BaseExplainer):
                 'intercepts': self.expected_value_,
                 'predictions': predictions}
 
-    def _handle_categorical_as_dict(self, contribs, X: np.ndarray):
+    def _handle_grouped_categorical_as_dict(self, contribs, X: np.ndarray):
         contribs_dict = {}
         symbols = [*map(standardize_effect, self.model.symbols)]
         n_explained = len(X)

@@ -195,6 +195,8 @@ class Transformer(TransformerMixin):
     def _set_transformed_feature_names(self):
         transformed_feature_names = self.numerical_features_.copy()
         if self.transforms_categorical:
+            # NOTE: case of drop_idx_ is not handled here...
+
             # safely get the categorical transformer (possibly could differ
             #  from self._categorical_transformer)
             categorical_transformer = (
