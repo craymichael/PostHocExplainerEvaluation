@@ -79,6 +79,8 @@ class KernelSHAPExplainer(BaseExplainer):
         self._group_categorical = group_categorical
         # attributes set after fit
         self.expected_value_ = None
+        self._groups = None
+        self._category_map = None
 
     def _fit(
             self,
@@ -133,8 +135,6 @@ class KernelSHAPExplainer(BaseExplainer):
         self._explainer.fit(X, **fit_kwargs)
 
         self.expected_value_ = self._explainer.expected_value
-        self._groups = None
-        self._category_map = None
 
     # noinspection PyMethodMayBeStatic
     def _handle_categorical(
