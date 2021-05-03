@@ -2,6 +2,9 @@
 gam.py - A PostHocExplainerEvaluation file
 Copyright (C) 2021  Zach Carmichael
 """
+from typing import Union
+from typing import List
+
 import warnings
 
 from abc import abstractmethod
@@ -18,7 +21,7 @@ from pygam import LogisticGAM as _LogisticGAM
 # from pygam import InvGaussGAM
 # from pygam import PoissonGAM
 # from pygam import GAM
-from pygam import terms
+from pygam import terms as pygam_terms
 
 from posthoceval.expl_utils import standardize_effect
 from posthoceval.utils import at_high_precision
@@ -32,9 +35,9 @@ __all__ = ['LinearGAM', 'MultiClassLogisticGAM', 'Terms', 'T']
 class Terms:
     __slots__ = ()
 
-    te = terms.te
-    s = terms.s
-    f = terms.f
+    te = pygam_terms.te
+    s = pygam_terms.s
+    f = pygam_terms.f
 
 
 T = Terms
@@ -52,6 +55,7 @@ class BaseGAM(AdditiveModel, metaclass=ABCMeta):
             n_features=None,
             symbols=None,
             symbol_names=None,
+            terms: Union[str, List] = 'auto',
             **kwargs,
     ):
         super().__init__(
@@ -59,7 +63,23 @@ class BaseGAM(AdditiveModel, metaclass=ABCMeta):
             symbols=symbols,
             n_features=n_features,
         )
+
+        if not isinstance(terms, (str, pygam_terms.TermList)):
+            converted_terms = []
+            for term in terms:
+                if isinstance(term, pygam_terms.SplineTerm):
+                    continue
+                if len(term) == 1:
+                    gam_term = T.s(term[0], n_splines=25)
+                else:
+                    gam_term = T.te(*term, n_splines=10)
+                converted_terms.append(gam_term)
+            terms = sum(converted_terms[1:], converted_terms[0])
+
         self.fit_with_gridsearch = kwargs.pop('fit_with_gridsearch', False)
+        kwargs['terms'] = terms
+        kwargs.setdefault('max_iter', 100)
+        kwargs.setdefault('verbose', True)
         self._estimator_kwargs = kwargs
         self._estimator_ = None
 
@@ -145,7 +165,7 @@ class BaseGAM(AdditiveModel, metaclass=ABCMeta):
     def predict(self, X):
         assert self._is_fitted
 
-        y_pred = self.call(X)
+        y_pred = self(X)
         if self.is_classifier:
             y_pred = y_pred.argmax(axis=1)
         return y_pred
@@ -158,8 +178,15 @@ class BaseGAM(AdditiveModel, metaclass=ABCMeta):
 
 
 class MultiClassLogisticGAM(BaseGAM):
-    def __init__(self, symbols, symbol_names=None, **kwargs):
-        super().__init__(symbols, symbol_names=symbol_names, **kwargs)
+    def __init__(
+            self,
+            n_features=None,
+            symbols=None,
+            symbol_names=None,
+            **kwargs,
+    ):
+        super().__init__(n_features=n_features, symbols=symbols,
+                         symbol_names=symbol_names, **kwargs)
 
         self._y_encoder = None
         self._n_classes = None

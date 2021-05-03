@@ -32,6 +32,22 @@ ClassificationContribs = List[RegressionContribs]
 Contribs = Union[RegressionContribs, ClassificationContribs]
 
 
+def make_tex_str(features, start_i, explained=False):
+    out_strs = []
+    for feats in features:
+        feats_str = ','.join(
+            f'x_{{{feat}}}' if isinstance(feat, int) else str(feat)
+            for feat in feats
+        )
+        if explained:
+            out_str = fr'\hat{{f}}_{{{start_i}}}({feats_str})'
+        else:
+            out_str = f'f_{{{start_i}}}({feats_str})'
+        out_strs.append(out_str)
+        start_i += 1
+    return '$' + ('+'.join(out_strs) or '0') + '$'
+
+
 def gather_viz_data(
         model: AdditiveModel,
         dataset: Dataset,
@@ -54,9 +70,13 @@ def gather_viz_data(
     dfs_3d = []
     ignored_true_effects = set()
 
+    if isinstance(true_contribs, dict):
+        true_contribs = [true_contribs]
+
     for explainer_name, pred_contribs in pred_contribs_map.items():
         if isinstance(pred_contribs, dict):
             pred_contribs = [pred_contribs]
+        assert len(pred_contribs) == len(true_contribs), explainer_name
 
         # iterate over each class
         for class_k, (true_contribs_k, pred_contribs_k) in enumerate(
@@ -205,3 +225,60 @@ def _gather_viz_data_single_output(
             store_target.append(pd.DataFrame(true_df_data))
 
     return dfs, dfs_3d
+
+
+def plot_fit():
+    if task == 'regression':
+        y_pred = model(X)
+
+        # TODO: unify
+        model_intercepts = 0
+        if model_type == 'gam':
+            contribs_full, model_intercepts = model.feature_contributions(
+                X, return_intercepts=True)
+        else:
+            contribs_full = model.feature_contributions(X)
+
+        print(f'GT vs. {model_type}')
+        print(f' RMSE={metrics.rmse(y, y_pred)}')
+        print(f'NRMSE={nrmse_func(y, y_pred)}')
+
+        # This should be 0
+        print(f'{model_type} Out vs. {model_type} Contribs')
+        y_contrib_pred = np.asarray([*contribs_full.values()]).sum(axis=0)
+        y_contrib_pred += model_intercepts
+        print(f' RMSE={metrics.rmse(y_pred, y_contrib_pred)}')
+        print(f'NRMSE={nrmse_func(y_pred, y_contrib_pred)}')
+
+        print(f'{model_type} vs. Explainer')
+        y_pred_trunc = model(X_trunc)
+        print(f' RMSE={metrics.rmse(y_pred_trunc, y_expl)}')
+        print(f'NRMSE={nrmse_func(y_pred_trunc, y_expl)}')
+
+        fig, ax = plt.subplots()
+        ax.scatter(sample_idxs_all,
+                   y,
+                   alpha=.65,
+                   label='GT')
+        ax.scatter(sample_idxs_all,
+                   # sample_idxs,
+                   y_pred,
+                   # y_pred_trunc,
+                   alpha=.65,
+                   label=f'{model_type}')
+        ax.scatter(sample_idxs,
+                   y_expl,
+                   alpha=.65,
+                   label='Explainer')
+        ax.set_xlabel('Sample idx')
+        ax.set_ylabel('Predicted value')
+        fig.legend()
+
+        if plt.get_backend() == 'agg':
+            fig.savefig(
+                nonexistent_filename(
+                    f'prediction_comparison_{model_type}_{explainer_name}.pdf'
+                )
+            )
+        else:
+            plt.show()
