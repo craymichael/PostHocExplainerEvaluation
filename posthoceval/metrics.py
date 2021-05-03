@@ -3,7 +3,8 @@ All functions of format:
 `func(y_true, y_pred, *args, **kwargs)`
 """
 import logging
-from functools import partial
+from functools import partial as partial_
+from functools import update_wrapper
 from typing import Iterable
 from typing import List
 from typing import Tuple
@@ -32,6 +33,13 @@ __all__ = [
     'spearmanr', 'spearman_corr', 'spearman_rank_correlation',
     'pearson_correlation_coef', 'corr', 'corrcoef'
 ]
+
+
+def partial(func, *args, **kwargs):
+    # ensure wrapped metric funcs have __name__ attr
+    partial_func = partial_(func, *args, **kwargs)
+    update_wrapper(partial_func, func)
+    return partial_func
 
 
 def strict_eval(y_true: Iterable, y_pred: Iterable):
