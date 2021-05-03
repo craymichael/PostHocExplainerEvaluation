@@ -176,8 +176,8 @@ def apply_matching(matching, true_expl, pred_expl, n_explained,
             #  same sample mean that the explainer saw before)
             contribs_pred = sum(
                 (pred_expl[effect] for effect in match_pred),
-                start=(contribs_true_mean
-                       if is_mean_centered(explainer_name) else 0)
+                (contribs_true_mean  # start
+                 if is_mean_centered(explainer_name) else 0)
             )
         else:  # no corresponding effect(s) from pred
             contribs_pred = np.zeros(n_explained) if always_numeric else None
