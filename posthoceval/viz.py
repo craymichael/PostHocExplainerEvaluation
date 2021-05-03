@@ -14,7 +14,6 @@ from typing import Sequence
 
 import warnings
 from itertools import chain
-from itertools import repeat
 
 import numpy as np
 import pandas as pd
@@ -177,7 +176,7 @@ def _gather_viz_data_single_output(
             pred_contrib_i = np.zeros_like(true_contrib_i)
         err_scores = {ef.__name__: ef(true_contrib_i, pred_contrib_i)
                       for ef in err_func}
-        score_str = ' | '.join(f'{name}={score:.3f}'
+        score_str = ' | '.join(f'{name}={score:.3g}'
                                for name, score in err_scores.items())
         print(f'{explainer_name} {feature_str}| {score_str}\n')
 
@@ -211,19 +210,20 @@ def _gather_viz_data_single_output(
         # base data for visualization
         base = {
             'Class': target_str,
-            'True Effect': repeat(true_feats, times=n_explained),
-            'Predicted Effect': repeat(pred_feats, times=n_explained),
+            'True Effect': [true_feats] * n_explained,
+            'Predicted Effect': [pred_feats] * n_explained,
             'Match': feature_str,
         }
         if len(all_feats) == 1:
             # main effect otherwise interaction effect (order of 2 per earlier
             #  check)
-            base['Feature Value'] = xi
+            base['Feature Value'] = xi.squeeze(axis=1)
             store_target = dfs
         else:
             base['Feature Value x'] = xi[:, 0]
             base['Feature Value y'] = xi[:, 1]
             store_target = dfs_3d
+
         # predicted contributions (explainer)
         if not no_pred_contrib:
             pred_df_data = base.copy()
