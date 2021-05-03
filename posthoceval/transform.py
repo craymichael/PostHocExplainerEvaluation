@@ -4,12 +4,16 @@ Copyright (C) 2021  Zach Carmichael
 """
 from typing import Optional
 from typing import Callable
-from typing import Protocol
 from typing import List
 from typing import Tuple
 from typing import Sequence
 from typing import Any
 from typing import Union
+
+try:
+    from typing import Protocol
+except ImportError:
+    from typing_extensions import Protocol
 
 import warnings
 
