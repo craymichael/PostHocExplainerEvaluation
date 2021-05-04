@@ -49,8 +49,10 @@ def partial(*args, **kwargs):
     partial_func = partial_(func, *args, **kwargs)
     update_wrapper(partial_func, func)
     if name is None:
-        func.__name__ += '__' + '__'.join(
+        partial_func.__name__ += '__' + '__'.join(
             f'{k}_{v}' for k, v in kwargs.items())
+    else:
+        partial_func.__name__ = name
     return partial_func
 
 
