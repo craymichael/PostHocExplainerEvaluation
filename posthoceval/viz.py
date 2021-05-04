@@ -296,7 +296,9 @@ def _gather_viz_data_single_output(
     # effectwise agg
     effectwise_err_agg_df = effectwise_err_df.drop(
         columns=['True Effect', 'Predicted Effect'])
-    effectwise_err_agg_df = effectwise_err_agg_df.groupby('Metric').mean()
+    effectwise_err_agg_df = effectwise_err_agg_df.groupby(
+        ['Explainer', 'Class', 'Metric']).mean()
+    effectwise_err_agg_df.reset_index(inplace=True)
 
     # sample-wise metrics here
     true_contribs_match = np.stack(true_contribs_match, axis=1)
@@ -309,7 +311,9 @@ def _gather_viz_data_single_output(
         'Class': target_str,
     }) for ef in samplewise_err_func], ignore_index=True)
     # samplewise agg
-    samplewise_err_agg_df = samplewise_err_df.groupby('Metric').mean()
+    samplewise_err_agg_df = samplewise_err_df.groupby(
+        ['Explainer', 'Class', 'Metric']).mean()
+    samplewise_err_agg_df.reset_index(inplace=True)
 
     return (dfs, dfs_3d, effectwise_err_df, effectwise_err_agg_df,
             samplewise_err_df, samplewise_err_agg_df)
