@@ -14,8 +14,10 @@ from joblib import cpu_count
 
 from posthoceval.profile import profile
 from posthoceval.models.model import AdditiveModel
+from posthoceval.models.dnn import AdditiveDNN
 from posthoceval.explainers._base import BaseExplainer
 from posthoceval.expl_utils import standardize_effect
+from posthoceval.utils import at_high_precision
 
 _HAS_RAY = None
 
@@ -67,7 +69,10 @@ class KernelSHAPExplainer(BaseExplainer):
 
         self.n_background_samples = n_background_samples
         if link is None:
-            link = 'identity' if self.task == 'regression' else 'logit'
+            link = ('identity'
+                    if (self.task == 'regression' or
+                        isinstance(model, AdditiveDNN)) else
+                    'logit')
             logger.info(f'Inferred link as "{link}"')
         self.link = link
 
@@ -231,15 +236,12 @@ class KernelSHAPExplainer(BaseExplainer):
                     for contribs_k in contribs_shap
                 ]
 
-        y = explanation.raw['raw_prediction']
-
         if self.link == 'logit':
             # noinspection PyProtectedMember
-            link_inv = np.vectorize(self._explainer._explainer.link.finv)
-            y = link_inv(y)
-            predictions = link_inv(y)
+            link_inv = self._explainer._explainer.link.finv
+            predictions = at_high_precision(link_inv, predictions)
 
-        return {'contribs': contribs_shap, 'y': y,
+        return {'contribs': contribs_shap,
                 'intercepts': self.expected_value_,
                 'predictions': predictions}
 
