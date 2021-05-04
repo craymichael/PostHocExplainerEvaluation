@@ -48,6 +48,17 @@ def make_tex_str(features, start_i, explained=False):
     return '$' + ('+'.join(out_strs) or '0') + '$'
 
 
+def make_tex_effect_match(effects):
+    out_strs = []
+    for effect in effects:
+        feats_str = ','.join(
+            f'x_{{{feat}}}' if isinstance(feat, int) else str(feat)
+            for feat in effect
+        )
+        out_strs.append(feats_str)
+    return '$' + ('+'.join(out_strs) or '0') + '$'
+
+
 def gather_viz_data(
         model: AdditiveModel,
         dataset: Dataset,
@@ -217,10 +228,12 @@ def _gather_viz_data_single_output(
             'Score': ef(true_contrib_i, pred_contrib_i),
             'Explainer': explainer_name,
             'Class': target_str,
+            # 'True Effect': make_tex_effect_match(true_feats),
+            # 'Predicted Effect': make_tex_effect_match(pred_feats),
             'True Effect': true_feats,
             'Predicted Effect': pred_feats,
         } for ef in effectwise_err_func]
-        effectwise_err_data.append(effectwise_err_data_effect)
+        effectwise_err_data += effectwise_err_data_effect
 
         if len(all_feats) > 2:
             warnings.warn(
@@ -289,12 +302,12 @@ def _gather_viz_data_single_output(
     true_contribs_match = np.stack(true_contribs_match, axis=1)
     pred_contribs_match = np.stack(pred_contribs_match, axis=1)
 
-    samplewise_err_df = pd.DataFrame([{
+    samplewise_err_df = pd.concat([pd.DataFrame({
         'Metric': ef.__name__,
         'Score': ef(true_contribs_match, pred_contribs_match),
         'Explainer': explainer_name,
         'Class': target_str,
-    } for ef in samplewise_err_func])
+    }) for ef in samplewise_err_func], ignore_index=True)
     # samplewise agg
     samplewise_err_agg_df = samplewise_err_df.groupby('Metric').mean()
 
