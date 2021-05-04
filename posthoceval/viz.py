@@ -69,7 +69,6 @@ def gather_viz_data(
     # dataframe rows (main effects and order-2 interaction effects)
     dfs = []
     dfs_3d = []
-    ignored_true_effects = set()
 
     if isinstance(true_contribs, dict):
         true_contribs = [true_contribs]
@@ -82,6 +81,8 @@ def gather_viz_data(
         # iterate over each class
         for class_k, (true_contribs_k, pred_contribs_k) in enumerate(
                 zip(true_contribs, pred_contribs)):
+            # stores effects to not repeat true contribs
+            ignored_true_effects = set()
             # Create target string
             target_str = f'{dataset.label_col}'
             if dataset.is_classification:
