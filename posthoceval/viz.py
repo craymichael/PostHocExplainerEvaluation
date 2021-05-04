@@ -296,9 +296,7 @@ def _gather_viz_data_single_output(
         'Class': target_str,
     } for ef in samplewise_err_func])
     # samplewise agg
-    samplewise_err_agg_df = samplewise_err_df.drop(
-        columns=['True Effect', 'Predicted Effect'])
-    samplewise_err_agg_df = samplewise_err_agg_df.groupby('Metric').mean()
+    samplewise_err_agg_df = samplewise_err_df.groupby('Metric').mean()
 
     return (dfs, dfs_3d, effectwise_err_df, effectwise_err_agg_df,
             samplewise_err_df, samplewise_err_agg_df)
