@@ -35,10 +35,22 @@ __all__ = [
 ]
 
 
-def partial(func, *args, **kwargs):
+def partial(*args, **kwargs):
     # ensure wrapped metric funcs have __name__ attr
+    if isinstance(args[0], str):
+        name = args[0]
+        func = args[1]
+        args = args[2:]
+    else:
+        name = None
+        func = args[0]
+        args = args[1:]
+
     partial_func = partial_(func, *args, **kwargs)
     update_wrapper(partial_func, func)
+    if name is None:
+        func.__name__ += '__' + '__'.join(
+            f'{k}_{v}' for k, v in kwargs.items())
     return partial_func
 
 
@@ -259,8 +271,10 @@ def effect_detection_recall(y_true, y_pred, effects='all'):
                                 'recall (effect detection)', 1.)
 
 
-cosine_distances = partial(pairwise.paired_distances, metric='cosine')
-euclidean_distances = partial(pairwise.paired_distances, metric='euclidean')
+cosine_distances = partial('cosine_distances', pairwise.paired_distances,
+                           metric='cosine')
+euclidean_distances = partial('euclidean_distances', pairwise.paired_distances,
+                              metric='euclidean')
 
 accuracy = sk_metrics.accuracy_score
 balanced_accuracy = sk_metrics.balanced_accuracy_score
@@ -268,7 +282,8 @@ balanced_accuracy = sk_metrics.balanced_accuracy_score
 mean_squared_error = sk_metrics.mean_squared_error
 mse = mean_squared_error
 
-root_mean_squared_error = partial(sk_metrics.mean_squared_error, squared=False)
+root_mean_squared_error = partial('root_mean_squared_error',
+                                  sk_metrics.mean_squared_error, squared=False)
 rmse = root_mean_squared_error
 
 

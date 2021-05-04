@@ -55,20 +55,32 @@ def gather_viz_data(
         true_contribs: Contribs,
         pred_contribs_map: Dict[str, Contribs],
         dataset_sample_idxs: Sequence[int] = None,
-        err_func: Union[List[Callable], Callable] = None,
-) -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame]]:
+        effectwise_err_func: Union[List[Callable], Callable] = None,
+        samplewise_err_func: Union[List[Callable], Callable] = None,
+) -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame],
+           Dict[str, pd.DataFrame]]:
     """pred_contribs: Dict[explainer_name, contribs]"""
 
-    if err_func is None:
-        err_func = [metrics.rmse, metrics.nrmse_interquartile,
-                    metrics.nrmse_range, metrics.mape, metrics.corr,
-                    metrics.spearmanr]
-    elif not isinstance(err_func, list):
-        err_func = [err_func]
+    if effectwise_err_func is None:
+        effectwise_err_func = [metrics.rmse, metrics.nrmse_interquartile,
+                               metrics.nrmse_range, metrics.mape, metrics.corr,
+                               metrics.spearmanr]
+    elif not isinstance(effectwise_err_func, list):
+        effectwise_err_func = [effectwise_err_func]
+
+    if samplewise_err_func is None:
+        samplewise_err_func = [metrics.cosine_distances,
+                               metrics.euclidean_distances]
+    elif not isinstance(samplewise_err_func, list):
+        samplewise_err_func = [samplewise_err_func]
 
     # dataframe rows (main effects and order-2 interaction effects)
     dfs = []
     dfs_3d = []
+    effectwise_err_dfs = []
+    effectwise_err_agg_dfs = []
+    samplewise_err_dfs = []
+    samplewise_err_agg_dfs = []
 
     if isinstance(true_contribs, dict):
         true_contribs = [true_contribs]
@@ -92,7 +104,9 @@ def gather_viz_data(
                     class_name = str(class_k)
                 target_str = target_str + ' = ' + class_name
 
-            dfs_class, dfs_3d_class = _gather_viz_data_single_output(
+            (dfs_class, dfs_3d_class, effectwise_err_df,
+             effectwise_err_agg_df, samplewise_err_df,
+             samplewise_err_agg_df) = _gather_viz_data_single_output(
                 true_contribs_k=true_contribs_k,
                 pred_contribs_k=pred_contribs_k,
                 dataset=dataset,
@@ -100,17 +114,31 @@ def gather_viz_data(
                 model=model,
                 explainer_name=explainer_name,
                 target_str=target_str,
-                err_func=err_func,
+                effectwise_err_func=effectwise_err_func,
+                samplewise_err_func=samplewise_err_func,
                 dataset_sample_idxs=dataset_sample_idxs,
                 ignored_true_effects=ignored_true_effects,
             )
             dfs += dfs_class
             dfs_3d += dfs_3d_class
+            effectwise_err_dfs.append(effectwise_err_df)
+            effectwise_err_agg_dfs.append(effectwise_err_agg_df)
+            samplewise_err_dfs.append(samplewise_err_df)
+            samplewise_err_agg_dfs.append(samplewise_err_agg_df)
 
     df = pd.concat(dfs, ignore_index=True) if dfs else None
     df_3d = pd.concat(dfs_3d, ignore_index=True) if dfs_3d else None
+    # err dfs
+    err_dfs = dict(
+        effectwise_err=pd.concat(effectwise_err_dfs, ignore_index=True),
+        effectwise_err_agg=pd.concat(effectwise_err_agg_dfs,
+                                     ignore_index=True),
+        samplewise_err=pd.concat(samplewise_err_dfs, ignore_index=True),
+        samplewise_err_agg=pd.concat(samplewise_err_agg_dfs,
+                                     ignore_index=True),
+    )
 
-    return df, df_3d
+    return df, df_3d, err_dfs
 
 
 def _gather_viz_data_single_output(
@@ -121,12 +149,14 @@ def _gather_viz_data_single_output(
         model: AdditiveModel,
         explainer_name: str,
         target_str: str,
-        err_func: List[Callable],
+        effectwise_err_func: List[Callable],
+        samplewise_err_func: List[Callable],
         dataset_sample_idxs: Sequence[int],
         ignored_true_effects: Set,
 ):
     dfs = []
     dfs_3d = []
+    effectwise_err_data = []
 
     # shed zero elements
     true_contribs_k = standardize_contributions(
@@ -155,9 +185,14 @@ def _gather_viz_data_single_output(
     if dataset_sample_idxs is not None:
         X_inv = X_inv[dataset_sample_idxs]
 
+    true_contribs_match = []
+    pred_contribs_match = []
     # "for the effects and corresponding contributions of each match..."
     for ((true_feats, pred_feats),
          (true_contrib_i, pred_contrib_i)) in matches.items():
+
+        true_contribs_match.append(true_contrib_i)
+        pred_contribs_match.append(pred_contrib_i)
 
         # Check if contribution is all zeros (which may be returned by
         #  apply_matching, e.g., pred has effect that true does not so
@@ -175,11 +210,17 @@ def _gather_viz_data_single_output(
             true_contrib_i = np.zeros_like(pred_contrib_i)
         if no_pred_contrib:
             pred_contrib_i = np.zeros_like(true_contrib_i)
-        err_scores = {ef.__name__: ef(true_contrib_i, pred_contrib_i)
-                      for ef in err_func}
-        score_str = ' | '.join(f'{name}={score:.3g}'
-                               for name, score in err_scores.items())
-        print(f'{explainer_name} {feature_str}| {score_str}\n')
+
+        # effect-wise metrics
+        effectwise_err_data_effect = [{
+            'Metric': ef.__name__,
+            'Score': ef(true_contrib_i, pred_contrib_i),
+            'Explainer': explainer_name,
+            'Class': target_str,
+            'True Effect': true_feats,
+            'Predicted Effect': pred_feats,
+        } for ef in effectwise_err_func]
+        effectwise_err_data.append(effectwise_err_data_effect)
 
         if len(all_feats) > 2:
             warnings.warn(
@@ -238,7 +279,29 @@ def _gather_viz_data_single_output(
             true_df_data['Contribution'] = true_contrib_i
             store_target.append(pd.DataFrame(true_df_data))
 
-    return dfs, dfs_3d
+    effectwise_err_df = pd.DataFrame(effectwise_err_data)
+    # effectwise agg
+    effectwise_err_agg_df = effectwise_err_df.drop(
+        columns=['True Effect', 'Predicted Effect'])
+    effectwise_err_agg_df = effectwise_err_agg_df.groupby('Metric').mean()
+
+    # sample-wise metrics here
+    true_contribs_match = np.stack(true_contribs_match, axis=1)
+    pred_contribs_match = np.stack(pred_contribs_match, axis=1)
+
+    samplewise_err_df = pd.DataFrame([{
+        'Metric': ef.__name__,
+        'Score': ef(true_contribs_match, pred_contribs_match),
+        'Explainer': explainer_name,
+        'Class': target_str,
+    } for ef in samplewise_err_func])
+    # samplewise agg
+    samplewise_err_agg_df = samplewise_err_df.drop(
+        columns=['True Effect', 'Predicted Effect'])
+    samplewise_err_agg_df = samplewise_err_agg_df.groupby('Metric').mean()
+
+    return (dfs, dfs_3d, effectwise_err_df, effectwise_err_agg_df,
+            samplewise_err_df, samplewise_err_agg_df)
 
 
 def plot_fit():

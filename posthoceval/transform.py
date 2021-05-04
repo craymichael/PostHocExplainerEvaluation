@@ -366,7 +366,7 @@ class Transformer(TransformerMixin):
             y: Optional[np.ndarray] = None,
             transform_numerical: bool = True,
             transform_categorical: bool = False,
-            transform_target: bool = True,
+            transform_target: bool = False,
     ):
         ds_missing, X_missing, y_missing = self._validate_transform_inputs(
             dataset, X_df, y)

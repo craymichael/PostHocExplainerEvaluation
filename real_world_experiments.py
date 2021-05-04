@@ -244,7 +244,7 @@ df, df_3d = gather_viz_data(
     transformer=transformer,
     true_contribs=true_contribs,
     pred_contribs_map=pred_contribs_map,
-    err_func=None,
+    effectwise_err_func=None,
 )
 
 col_wrap = 4
