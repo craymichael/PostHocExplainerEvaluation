@@ -388,6 +388,10 @@ class Transformer(TransformerMixin):
                 #  from self._categorical_transformer)
                 numerical_transformer = (
                     self._data_transformer.named_transformers_['numerical'])
+                if isinstance(numerical_transformer, Pipeline):
+                    numerical_transformer = (
+                        numerical_transformer.named_steps[
+                            'numerical_transformer'])
                 X_df = X_df if ds_missing else dataset.X_df
                 X = numerical_transformer.inverse_transform(
                     X_df[self.numerical_features_].values)
