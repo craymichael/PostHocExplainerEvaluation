@@ -217,7 +217,8 @@ class KernelSHAPExplainer(BaseExplainer):
             predictions = np.sum(contribs_shap, axis=1) + self.expected_value_
         else:
             contribs_shap = explanation.shap_values
-            predictions = np.sum(contribs_shap, axis=2) + self.expected_value_
+            intercepts = np.expand_dims(self.expected_value_, 1)
+            predictions = np.sum(contribs_shap, axis=2) + intercepts
 
         # if group_categorical and grouped names exist then we return a dict
         if self._group_categorical and self._category_map:
