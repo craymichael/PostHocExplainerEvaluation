@@ -23,9 +23,17 @@ class MultivariateInterpolation(object):
         :param interpolation: 'linear', 'nearest', 'zero', 'slinear',
             'quadratic', 'cubic', 'previous', 'next', or a callable
         """
-        # n data point, k features
-        utils.assert_rank(y, 2, name='y')
-        n, k = utils.assert_same_shape(x, y)
+        if x.dtype is np.dtype('O'):
+            assert y.dtype is np.dtype('O')
+            is_object = True
+            # object detected, assume ragged k x variable n
+            utils.assert_rank(y, 1, name='y')
+            k = utils.assert_same_shape(x, y)
+        else:
+            # n data point, k features
+            is_object = False
+            utils.assert_rank(y, 2, name='y')
+            n, k = utils.assert_same_shape(x, y)
 
         interpolation = (
             interpolation if isinstance(interpolation, Callable) else
@@ -34,7 +42,12 @@ class MultivariateInterpolation(object):
         )
         interp_funcs = []
         for i in range(k):
-            x_i, y_i = x[:, i], y[:, i]
+            if is_object:
+                x_i, y_i = x[i], y[i]
+                utils.assert_rank(y_i, 1, name='y_i')
+                utils.assert_same_shape(x_i, y_i)
+            else:
+                x_i, y_i = x[:, i], y[:, i]
             # Handle duplicate values properly. Sort both arrays by feat values
             # ascending. Then take unique feature values with the output being
             # the average value.

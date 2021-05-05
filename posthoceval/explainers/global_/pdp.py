@@ -87,6 +87,11 @@ class PDPExplainer(BaseExplainer):
                 all_x.append(pdp_feat.feature_grids)
                 all_y.append(pdp_feat.pdp)
             else:
+                # TODO: this is broken (only target class is returned...)
+                #  actuallyy!!! maybe just set classes_ on the model...
+                #  see the utils.py file in pdpbox - we HAVE to explicitly wrap
+                #  the model here. predict_proba and classes_ for
+                #  classification, just predict for regression
                 all_x.extend(p.feature_grids for p in pdp_feat)
                 all_y.extend(p.pdp for p in pdp_feat)
 
