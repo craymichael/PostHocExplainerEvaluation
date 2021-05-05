@@ -12,6 +12,13 @@ from scipy.interpolate import interp1d
 from posthoceval import utils
 
 
+def _get_unary_func(scalar_value):
+    def identity_like(x):
+        return np.repeat(scalar_value, len(x))
+
+    return identity_like
+
+
 class MultivariateInterpolation(object):
 
     def __init__(self,
@@ -48,6 +55,12 @@ class MultivariateInterpolation(object):
                 utils.assert_same_shape(x_i, y_i)
             else:
                 x_i, y_i = x[:, i], y[:, i]
+
+            # check case that only single value provided
+            if len(x_i) == 1:
+                interp_funcs.append(_get_unary_func(y_i[0]))
+                continue
+
             # Handle duplicate values properly. Sort both arrays by feat values
             # ascending. Then take unique feature values with the output being
             # the average value.
