@@ -206,11 +206,6 @@ def _gather_viz_data_single_output(
     for ((true_feats, pred_feats),
          (true_contrib_i, pred_contrib_i)) in matches.items():
 
-        true_contribs_match.append(true_contrib_i)
-        true_effects_match.append(true_feats)
-        pred_contribs_match.append(pred_contrib_i)
-        pred_effects_match.append(pred_feats)
-
         # Check if contribution is all zeros (which may be returned by
         #  apply_matching, e.g., pred has effect that true does not so
         #  true gives zeros for that effect)
@@ -227,6 +222,11 @@ def _gather_viz_data_single_output(
             true_contrib_i = np.zeros_like(pred_contrib_i)
         if no_pred_contrib:
             pred_contrib_i = np.zeros_like(true_contrib_i)
+
+        true_contribs_match.append(true_contrib_i)
+        true_effects_match.append(true_feats)
+        pred_contribs_match.append(pred_contrib_i)
+        pred_effects_match.append(pred_feats)
 
         # effect-wise metrics
         effectwise_err_data_effect = [{
