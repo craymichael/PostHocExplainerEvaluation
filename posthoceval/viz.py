@@ -68,7 +68,7 @@ def gather_viz_data(
         dataset_sample_idxs: Sequence[int] = None,
         effectwise_err_func: Union[List[Callable], Callable] = None,
         samplewise_err_func: Union[List[Callable], Callable] = None,
-) -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame],
+) -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame], pd.DataFrame,
            Dict[str, pd.DataFrame]]:
     """pred_contribs: Dict[explainer_name, contribs]"""
 
@@ -92,6 +92,7 @@ def gather_viz_data(
     effectwise_err_agg_dfs = []
     samplewise_err_dfs = []
     samplewise_err_agg_dfs = []
+    contribs_dicts = []
 
     if isinstance(true_contribs, dict):
         true_contribs = [true_contribs]
@@ -116,8 +117,8 @@ def gather_viz_data(
                 target_str = target_str + ' = ' + class_name
 
             (dfs_class, dfs_3d_class, effectwise_err_df,
-             effectwise_err_agg_df, samplewise_err_df,
-             samplewise_err_agg_df) = _gather_viz_data_single_output(
+             effectwise_err_agg_df, samplewise_err_df, samplewise_err_agg_df,
+             contribs_dict) = _gather_viz_data_single_output(
                 true_contribs_k=true_contribs_k,
                 pred_contribs_k=pred_contribs_k,
                 dataset=dataset,
@@ -136,6 +137,7 @@ def gather_viz_data(
             effectwise_err_agg_dfs.append(effectwise_err_agg_df)
             samplewise_err_dfs.append(samplewise_err_df)
             samplewise_err_agg_dfs.append(samplewise_err_agg_df)
+            contribs_dicts.append(contribs_dict)
 
     df = pd.concat(dfs, ignore_index=True) if dfs else None
     df_3d = pd.concat(dfs_3d, ignore_index=True) if dfs_3d else None
@@ -148,8 +150,8 @@ def gather_viz_data(
         samplewise_err_agg=pd.concat(samplewise_err_agg_dfs,
                                      ignore_index=True),
     )
-
-    return df, df_3d, err_dfs
+    contribs_df = pd.DataFrame(contribs_dicts)
+    return df, df_3d, contribs_df, err_dfs
 
 
 def _gather_viz_data_single_output(
@@ -197,13 +199,17 @@ def _gather_viz_data_single_output(
         X_inv = X_inv[dataset_sample_idxs]
 
     true_contribs_match = []
+    true_effects_match = []
     pred_contribs_match = []
+    pred_effects_match = []
     # "for the effects and corresponding contributions of each match..."
     for ((true_feats, pred_feats),
          (true_contrib_i, pred_contrib_i)) in matches.items():
 
         true_contribs_match.append(true_contrib_i)
+        true_effects_match.append(true_feats)
         pred_contribs_match.append(pred_contrib_i)
+        pred_effects_match.append(pred_feats)
 
         # Check if contribution is all zeros (which may be returned by
         #  apply_matching, e.g., pred has effect that true does not so
@@ -304,19 +310,32 @@ def _gather_viz_data_single_output(
     true_contribs_match = np.stack(true_contribs_match, axis=1)
     pred_contribs_match = np.stack(pred_contribs_match, axis=1)
 
+    data_idx = np.arange(n_explained)
+
+    contribs_dict = {
+        'True Contribs': pd.DataFrame(columns=true_effects_match,
+                                      data=true_contribs_match),
+        'Pred Contribs': pd.DataFrame(columns=pred_effects_match,
+                                      data=pred_contribs_match),
+        'Explainer': explainer_name,
+        'Class': target_str,
+    }
+
     samplewise_err_df = pd.concat([pd.DataFrame({
         'Metric': ef.__name__,
         'Score': ef(true_contribs_match, pred_contribs_match),
         'Explainer': explainer_name,
         'Class': target_str,
+        'Sample Index': data_idx,
     }) for ef in samplewise_err_func], ignore_index=True)
     # samplewise agg
-    samplewise_err_agg_df = samplewise_err_df.groupby(
+    samplewise_err_agg_df = samplewise_err_df.drop(columns=['Sample Index'])
+    samplewise_err_agg_df = samplewise_err_agg_df.groupby(
         ['Explainer', 'Class', 'Metric']).mean()
     samplewise_err_agg_df.reset_index(inplace=True)
 
     return (dfs, dfs_3d, effectwise_err_df, effectwise_err_agg_df,
-            samplewise_err_df, samplewise_err_agg_df)
+            samplewise_err_df, samplewise_err_agg_df, contribs_dict)
 
 
 def plot_fit():
