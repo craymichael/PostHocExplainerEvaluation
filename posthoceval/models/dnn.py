@@ -161,7 +161,10 @@ class AdditiveDNN(AdditiveModel):
         return contribs
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        return self._dnn.predict(X)
+        preds = self._dnn.predict(X)
+        if self.task == 'classification' and preds.ndim > 1:
+            preds = np.argmax(preds, axis=1)
+        return preds
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
         if self.task != 'classification':
