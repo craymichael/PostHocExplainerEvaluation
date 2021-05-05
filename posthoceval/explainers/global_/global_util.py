@@ -28,7 +28,7 @@ class MultivariateInterpolation(object):
             is_object = True
             # object detected, assume ragged k x variable n
             utils.assert_rank(y, 1, name='y')
-            k = utils.assert_same_shape(x, y)
+            k = utils.assert_same_shape(x, y)[0]
         else:
             # n data point, k features
             is_object = False
