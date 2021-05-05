@@ -55,6 +55,8 @@ class PDPExplainer(BaseExplainer):
     ) -> None:
         # needs to be list, not tuple
         feature_names = [*self.model.symbol_names]
+        if grouped_feature_names is None:
+            grouped_feature_names = feature_names
 
         dataset = pd.DataFrame(
             columns=feature_names,
@@ -72,7 +74,12 @@ class PDPExplainer(BaseExplainer):
 
         all_x = []
         all_y = []
-        for feature in feature_names:
+        for feature in grouped_feature_names:
+            is_grouped = not isinstance(feature, str)
+            if is_grouped:
+                # one-hot encoded feature
+                # TODO: this is very bad-looking (" = ")
+                feature = [f'{feature[0]} = {val}' for val in feature[1]]
             # classification vs. regression automatically handled by pdpbox
             pdp_feat = pdp_isolate(
                 model=self.model,
@@ -84,14 +91,22 @@ class PDPExplainer(BaseExplainer):
                 n_jobs=self.n_jobs,
             )
             if self.task == 'regression':
-                all_x.append(pdp_feat.feature_grids)
-                all_y.append(pdp_feat.pdp)
+                if is_grouped:
+                    all_x.extend(pdp_feat.feature_grids[i:i + 1]
+                                 for i in range(len(feature)))
+                    all_y.extend(pdp_feat.pdp[i:i + 1]
+                                 for i in range(len(feature)))
+                else:
+                    all_x.append(pdp_feat.feature_grids)
+                    all_y.append(pdp_feat.pdp)
             else:
                 # TODO: this is broken (only target class is returned...)
                 #  actuallyy!!! maybe just set classes_ on the model...
                 #  see the utils.py file in pdpbox - we HAVE to explicitly wrap
                 #  the model here. predict_proba and classes_ for
                 #  classification, just predict for regression
+                if is_grouped:
+                    raise NotImplementedError
                 all_x.extend(p.feature_grids for p in pdp_feat)
                 all_y.extend(p.pdp for p in pdp_feat)
 
