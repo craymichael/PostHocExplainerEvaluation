@@ -131,10 +131,10 @@ class LIMETabularExplainer(BaseExplainer):
                     intercept_i.append(intercept_ik)
                     contribs_i.append(contribs_ik)
             else:  # regression (one output)
-                expl_i = expl_i_map[1]
+                expl_i1 = expl_i_map[1]
 
                 contribs_i, intercept_i = self._process_explanation(
-                    expl_i, xi, intercept_i=expl_i.intercept[1])
+                    expl_i1, xi, intercept_i=expl_i.intercept[1])
 
             # store contributions and intercept(s)
             contribs_lime.append(contribs_i)
