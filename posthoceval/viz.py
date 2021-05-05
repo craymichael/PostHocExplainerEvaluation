@@ -313,10 +313,14 @@ def _gather_viz_data_single_output(
     data_idx = np.arange(n_explained)
 
     contribs_dict = {
-        'True Contribs': pd.DataFrame(columns=true_effects_match,
-                                      data=true_contribs_match),
-        'Pred Contribs': pd.DataFrame(columns=pred_effects_match,
-                                      data=pred_contribs_match),
+        'True Contribs': pd.DataFrame(
+            columns=pd.Index(true_effects_match, tupleize_cols=False),
+            data=true_contribs_match
+        ),
+        'Pred Contribs': pd.DataFrame(
+            columns=pd.Index(pred_effects_match, tupleize_cols=False),
+            data=pred_contribs_match
+        ),
         'Explainer': explainer_name,
         'Class': target_str,
     }
