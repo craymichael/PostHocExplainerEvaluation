@@ -18,6 +18,7 @@ class AdditiveDNN(AdditiveModel):
             symbols=None,
             symbol_names=None,
             n_units=64,
+            pool=True,
             activation='relu',
     ):
         task = task.lower()
@@ -32,6 +33,7 @@ class AdditiveDNN(AdditiveModel):
         self._n_units = n_units
         self._activation = activation
         self._dnn = None
+        self._pool = pool
 
         self._y_encoder = self._n_classes = None
 
@@ -69,8 +71,9 @@ class AdditiveDNN(AdditiveModel):
 
     def _make_branch(self, base_name, n_units, activation):
         from tensorflow.keras.layers import Dense
+        from tensorflow.keras.layers import MaxPool1D
 
-        return [
+        branch = [
             Dense(n_units, activation=activation,
                   name=base_name + f'l1_d{n_units}'),
             Dense(n_units, activation=activation,
@@ -80,6 +83,11 @@ class AdditiveDNN(AdditiveModel):
             Dense(1 if self.task == 'regression' else self._n_classes,
                   activation=None, name=base_name + 'linear_d1'),
         ]
+        if self._pool:
+            pool = (MaxPool1D(self._pool) if isinstance(self._pool, int)
+                    else MaxPool1D())
+            branch.insert(-1, pool)
+        return branch
 
     def plot_model(self,
                    to_file='model.png',
