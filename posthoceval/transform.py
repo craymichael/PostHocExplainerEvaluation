@@ -251,7 +251,10 @@ class Transformer(TransformerMixin):
                 categorical_transformer = (
                     categorical_transformer.named_steps[
                         'categorical_transformer'])
-            categories = categorical_transformer.categories_
+            if hasattr(categorical_transformer, 'categories_'):
+                categories = categorical_transformer.categories_
+            else:
+                categories = []
             assert len(self.categorical_features_) == len(categories)
 
             # record grouped feature names, retaining flat features with
