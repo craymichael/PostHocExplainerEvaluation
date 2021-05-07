@@ -30,11 +30,11 @@ class ParzenWindowExplainer(BaseExplainer):
         )
         super().__init__(
             model=model,
+            tabular=True,
             seed=seed,
             task=task,
             verbose=verbose,
         )
-        self._tabular = True
 
         if self.task != 'classification':
             raise ValueError(f'The {self.__class__.__name__} only supports '

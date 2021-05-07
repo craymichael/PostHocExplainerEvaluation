@@ -31,6 +31,7 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
                  **explain_kwargs):
         super().__init__(
             model=model,
+            tabular=False,
             seed=seed,
             task=task,
             verbose=verbose,

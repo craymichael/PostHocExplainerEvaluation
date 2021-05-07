@@ -62,11 +62,11 @@ class KernelSHAPExplainer(BaseExplainer):
         """"""
         super().__init__(
             model=model,
+            tabular=True,
             seed=seed,
             task=task,
             verbose=verbose,
         )
-        self._tabular = True
 
         self.n_background_samples = n_background_samples
         if link is None:

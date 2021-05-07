@@ -28,11 +28,11 @@ class LIMETabularExplainer(BaseExplainer):
         """"""
         super().__init__(
             model=model,
+            tabular=True,
             seed=seed,
             task=task,
             verbose=verbose,
         )
-        self._tabular = True
 
         self.num_samples = num_samples
 

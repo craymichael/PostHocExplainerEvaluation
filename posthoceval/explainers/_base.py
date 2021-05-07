@@ -18,14 +18,63 @@ Contribs = Union[np.ndarray, List[np.ndarray],
                  Dict[Any, np.ndarray], List[Dict[Any, np.ndarray]]]
 
 
+class _TabularExplainerModel(AdditiveModel):
+    """Wrapper for models used in tabular-only explainers"""
+
+    def __init__(
+            self,
+            model: AdditiveModel,
+            symbol_names: Optional[List[str]] = None,
+            n_features: Optional[int] = None,
+            symbols: Optional[List] = None,
+    ):
+        super().__init__(
+            symbol_names=symbol_names,
+            n_features=n_features,
+            symbols=symbols,
+        )
+        self._model = model
+        self._input_shape = None
+
+    def set_input_shape(self, input_shape: Tuple[int, ...]):
+        self._input_shape = input_shape
+
+    # noinspection PyPep8Naming
+    def _handle_X(self, X: np.ndarray) -> np.ndarray:
+        return X.reshape(X.shape[0], *self._input_shape)
+
+    def __call__(self, X: np.ndarray) -> np.ndarray:
+        X = self._handle_X(X)
+        return self._model(X)
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        X = self._handle_X(X)
+        return self._model.predict(X)
+
+    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        X = self._handle_X(X)
+        return self._model.predict_proba(X)
+
+    def feature_contributions(self, X: np.ndarray):
+        # This should never be called, it does not make sense for an explainer
+        #  to do so, and a private attribute should not have been called by
+        #  something else...
+        raise RuntimeError(
+            f'The tabular explainer wrapping {self._model.__class__.__name__} '
+            f'should never call the model method feature_contributions!'
+        )
+
+
 class BaseExplainer(ABC):
+
+    model: Union[AdditiveModel, _TabularExplainerModel]
 
     def __init__(self,
                  model: AdditiveModel,
+                 tabular: bool,
                  seed: Optional[int] = None,
                  task: str = 'regression',
                  verbose: Union[int, bool] = 1):
-        self.model = model
 
         task = task.lower()
         # TODO: formalize tasks among all relevant objects in project (e.g.
@@ -34,11 +83,15 @@ class BaseExplainer(ABC):
             raise ValueError(f'Invalid task name: {task}')
         self.task = task
 
+        self._tabular = tabular
+        if self._tabular:
+            model = _TabularExplainerModel(model)
+        self.model = model
+
         self.verbose = verbose
         self.seed = seed
 
         # initialized in fit
-        self._tabular = False
         self._explainer = None
         self._fitted = False
 
@@ -70,8 +123,11 @@ class BaseExplainer(ABC):
             grouped_feature_names = X.grouped_feature_names
             y = X.y
             X = X.X
-        if self._tabular and X.ndim > 2:
-            X = X.reshape(X.shape[0], -1)
+        if self._tabular:
+            if isinstance(self.model, _TabularExplainerModel):
+                self.model.set_input_shape(X.shape[1:])
+            if X.ndim > 2:
+                X = X.reshape(X.shape[0], -1)
         # noinspection PyArgumentList
         self._fit(X=X, y=y, grouped_feature_names=grouped_feature_names,
                   **kwargs)

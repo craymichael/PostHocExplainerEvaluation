@@ -197,11 +197,11 @@ class MAPLEExplainer(BaseExplainer):
                  **kwargs):
         super().__init__(
             model=model,
+            tabular=True,
             seed=seed,
             task=task,
             verbose=False,
         )
-        self._tabular = True
 
         if self.task != 'regression':
             raise NotImplementedError(self.task)
