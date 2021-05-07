@@ -164,7 +164,7 @@ class BaseExplainer(ABC):
 
         if isinstance(X, Dataset):
             X = X.X
-        orig_shape = X.shape
+        orig_shape = X.shape[1:]
         if self._tabular and X.ndim > 2:
             X = X.reshape(X.shape[0], -1)
         call_result = self._call_explainer(X)
