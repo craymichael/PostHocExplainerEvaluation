@@ -39,6 +39,7 @@ class TinyMNISTDataset(Dataset):
         super()._load(X=X, y=y, label_col='digit')
 
 
+@fetch_openml_memory.cache
 def load_tiny_mnist(
         class_subset=UNPROVIDED,
         crop_top_rows=3,
