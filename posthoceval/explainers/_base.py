@@ -24,14 +24,11 @@ class _TabularExplainerModel(AdditiveModel):
     def __init__(
             self,
             model: AdditiveModel,
-            symbol_names: Optional[List[str]] = None,
-            n_features: Optional[int] = None,
-            symbols: Optional[List] = None,
     ):
         super().__init__(
-            symbol_names=symbol_names,
-            n_features=n_features,
-            symbols=symbols,
+            symbol_names=model.symbol_names,
+            n_features=model.n_features,
+            symbols=model.symbols,
         )
         self._model = model
         self._input_shape = None
