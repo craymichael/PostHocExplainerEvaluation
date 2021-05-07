@@ -69,7 +69,7 @@ def load_tiny_mnist(
     X = X.reshape(-1, 28, 28, 1)
 
     # crop border
-    n_rows, n_cols = X.shape[1:]
+    n_rows, n_cols, _ = X.shape[1:]
     X = X[
         :,  # samples
         crop_top_rows:n_rows - crop_bottom_rows,  # rows

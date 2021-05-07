@@ -71,7 +71,7 @@ class AdditiveCNN(BaseAdditiveDNN):
             # gather effect out
             effect = standardize_effect(effect)
             feats_str = ','.join(map(str, effect))
-            out_i = tf.gather(out, i, axis=1, name=f'gather_{feats_str}')
+            out_i = tf.gather(out, [i], axis=1, name=f'gather_{feats_str}')
             # dot product --> num outputs
             xl = Dense(self._n_outputs, activation=None)(out_i)
 
