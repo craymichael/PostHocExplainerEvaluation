@@ -353,7 +353,7 @@ class Transformer(TransformerMixin):
         else:
             if not ds_missing:
                 # noinspection PyUnboundLocalVariable
-                X = X.reshape(-1, dataset.input_shape)
+                X = X.reshape(-1, *dataset.input_shape)
             # noinspection PyUnboundLocalVariable
             dataset_transformed = dataset.from_data(
                 task=dataset.task,
@@ -423,7 +423,7 @@ class Transformer(TransformerMixin):
             #  number of columns
             if not ds_missing:
                 # noinspection PyUnboundLocalVariable
-                X = X.reshape(-1, dataset.input_shape)
+                X = X.reshape(-1, *dataset.input_shape)
             # noinspection PyUnboundLocalVariable
             return dataset.from_data(
                 task=dataset.task,
