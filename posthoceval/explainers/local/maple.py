@@ -201,6 +201,7 @@ class MAPLEExplainer(BaseExplainer):
             task=task,
             verbose=False,
         )
+        self._tabular = True
 
         if self.task != 'regression':
             raise NotImplementedError(self.task)

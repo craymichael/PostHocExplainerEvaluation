@@ -32,6 +32,7 @@ class LIMETabularExplainer(BaseExplainer):
             task=task,
             verbose=verbose,
         )
+        self._tabular = True
 
         self.num_samples = num_samples
 

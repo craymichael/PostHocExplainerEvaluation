@@ -66,6 +66,7 @@ class KernelSHAPExplainer(BaseExplainer):
             task=task,
             verbose=verbose,
         )
+        self._tabular = True
 
         self.n_background_samples = n_background_samples
         if link is None:

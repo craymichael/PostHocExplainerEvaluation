@@ -34,6 +34,7 @@ class ParzenWindowExplainer(BaseExplainer):
             task=task,
             verbose=verbose,
         )
+        self._tabular = True
 
         if self.task != 'classification':
             raise ValueError(f'The {self.__class__.__name__} only supports '

@@ -92,6 +92,8 @@ class SHAPRExplainer(BaseExplainer):
             task=task,
             verbose=verbose,
         )
+        self._tabular = True
+
         self.prediction_zero_ = None
 
         # handle kwargs

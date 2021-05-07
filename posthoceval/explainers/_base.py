@@ -38,6 +38,7 @@ class BaseExplainer(ABC):
         self.seed = seed
 
         # initialized in fit
+        self._tabular = False
         self._explainer = None
         self._fitted = False
 
@@ -69,6 +70,8 @@ class BaseExplainer(ABC):
             grouped_feature_names = X.grouped_feature_names
             y = X.y
             X = X.X
+        if self._tabular and X.ndim > 2:
+            X = X.reshape(X.shape[0], -1)
         # noinspection PyArgumentList
         self._fit(X=X, y=y, grouped_feature_names=grouped_feature_names,
                   **kwargs)
@@ -108,9 +111,13 @@ class BaseExplainer(ABC):
 
         if isinstance(X, Dataset):
             X = X.X
+        orig_shape = X.shape
+        if self._tabular and X.ndim > 2:
+            X = X.reshape(X.shape[0], -1)
         call_result = self._call_explainer(X)
 
-        contribs = self._handle_as_dict(call_result['contribs'], as_dict)
+        contribs = self._handle_as_dict(call_result['contribs'], as_dict,
+                                        orig_shape)
         ret = (contribs,)
 
         if return_y:
@@ -137,12 +144,17 @@ class BaseExplainer(ABC):
             self,
             contribs: Contribs,
             as_dict: Optional[bool],
+            orig_shape: Tuple[int, ...],
     ):
         if self.task == 'regression':
             is_dict = isinstance(contribs, dict)
+            if not is_dict:
+                assert contribs.shape == orig_shape
         else:
             # hope that children allow us to make this assumption...
             is_dict = isinstance(contribs[0], dict)
+            if not is_dict:
+                assert contribs[0].shape == orig_shape
         if is_dict:
             if self.task == 'regression':
                 contribs = {standardize_effect(k): v
@@ -163,10 +175,12 @@ class BaseExplainer(ABC):
         #  case where this a non-dict is legal
         if is_dict and not as_dict:
             if self.task == 'regression':
-                contribs = self._single_contribs_from_dict(contribs, symbols)
+                contribs = self._single_contribs_from_dict(
+                    contribs, symbols, orig_shape)
             else:
                 contribs = [
-                    self._single_contribs_from_dict(contribs_k, symbols)
+                    self._single_contribs_from_dict(
+                        contribs_k, symbols, orig_shape)
                     for contribs_k in contribs
                 ]
         elif not is_dict and as_dict:
@@ -199,6 +213,7 @@ class BaseExplainer(ABC):
             self,
             contribs: Dict[Any, np.ndarray],
             symbols: List[Tuple[Any, ...]],
+            orig_shape: Tuple[int, ...],
     ):
         assert not (set(contribs.keys()) - set(symbols))
         assert contribs, 'unsupported when contribs is empty'
@@ -209,4 +224,4 @@ class BaseExplainer(ABC):
         return np.asarray([
             contribs.get(sym, np.zeros(n_explained, dtype=dtype))
             for sym in symbols
-        ]).T  # Contribs: ndarray[n_samples x n_features]
+        ]).T.reshape(orig_shape)  # Contribs: ndarray[n_samples x (n_features)]
