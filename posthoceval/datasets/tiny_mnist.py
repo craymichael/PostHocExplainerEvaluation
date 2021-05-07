@@ -66,7 +66,7 @@ def load_tiny_mnist(
         y = y[mask]
 
     # reshape to image dims
-    X = X.reshape(-1, 28, 28)
+    X = X.reshape(-1, 28, 28, 1)
 
     # crop border
     n_rows, n_cols = X.shape[1:]
