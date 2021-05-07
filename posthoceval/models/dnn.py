@@ -33,7 +33,11 @@ class AdditiveDNN(BaseAdditiveDNN):
         # Lazy-load
         import tensorflow as tf
         from tensorflow.keras.layers import Add
+        from tensorflow.keras.layers import Flatten
 
+        inp = self._input_tensor
+        if len(self.input_shape) > 1:
+            inp = Flatten()(inp)
         self._pre_sum_map = {}
         for term in self._terms:  # term features are indices into symbols
             if len(term) == 1:
@@ -46,8 +50,7 @@ class AdditiveDNN(BaseAdditiveDNN):
             branch = self._make_branch(
                 base_name, self._n_units, self._activation)
 
-            xl = tf.gather(self._input_tensor, term, axis=1,
-                           name=f'gather_{feats_str}')
+            xl = tf.gather(inp, term, axis=1, name=f'gather_{feats_str}')
             for layer in branch:
                 xl = layer(xl)
             feat_symbols = standardize_effect(

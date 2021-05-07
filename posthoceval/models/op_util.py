@@ -59,6 +59,8 @@ def symbolic_conv2d(
     _unsupported_tf_arg('dilation_rate', (1, 1), dilation_rate)
     _unsupported_tf_arg('groups', 1, groups)
 
+    if symbols.ndim == 2:
+        symbols = symbols[:, :, 1]
     assert symbols.ndim == 3, 'h x w x c'
     h, w, c = symbols.shape
 
