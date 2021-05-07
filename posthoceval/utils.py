@@ -78,14 +78,18 @@ def is_shape_equal(shape_a: Sequence[Optional[int]],
 def assert_same_size(expected: Union[int, Sized],
                      received: Union[int, Sized],
                      units: str = 'values',
-                     ret=None) -> Optional[Any]:
+                     ret: Optional[Any] = None,
+                     extra: Optional[str] = None) -> Optional[Any]:
     if isinstance(expected, Sized) and not isinstance(expected, np.ndarray):
         expected = len(expected)
     if isinstance(received, Sized) and not isinstance(received, np.ndarray):
         received = len(received)
     if expected != received:
-        raise ValueError('Expected %d %s but received %d instead.' %
-                         (expected, units, received))
+        extra = extra or ''
+        if extra:
+            extra = ' ' + extra
+        raise ValueError(f'Expected {expected} {units} but received '
+                         f'{received} instead.{extra}')
     return ret
 
 

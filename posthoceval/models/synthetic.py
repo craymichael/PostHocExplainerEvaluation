@@ -1023,8 +1023,6 @@ class SyntheticModel(AdditiveModel):
         if interaction_effects:
             effects.extend(self.interaction_effects)
 
-        # contributions = defaultdict(lambda: np.zeros(len(x)))
-        # all_effects = defaultdict(lambda: sp.Number(0))
         contributions = {}
         all_effects = {}
 
@@ -1041,7 +1039,10 @@ class SyntheticModel(AdditiveModel):
                                                x=X,  # TODO(x)
                                                backend=backend)
             contribution = eval_func(*related_features)
-            contributions[effect_symbols] = contribution
+            if effect_symbols in contributions:
+                contributions[effect_symbols] += contribution
+            else:
+                contributions[effect_symbols] = contribution
             if return_effects:
                 all_effects[effect_symbols] = effect
 

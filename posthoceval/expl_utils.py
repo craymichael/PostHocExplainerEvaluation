@@ -18,6 +18,7 @@ from tqdm.auto import tqdm
 
 from posthoceval.models.model import AdditiveModel
 from posthoceval.utils import safe_parse_tuple
+from posthoceval.utils import assert_same_size
 
 Explanation = Dict[Tuple[sp.Symbol], np.ndarray]
 
@@ -196,9 +197,14 @@ def standardize_effect(e):
 
 def standardize_contributions(contribs_dict, remove_zeros=True):
     """standardize each effect tuple and remove effects that are 0-effects"""
-    return {standardize_effect(k): v
-            for k, v in contribs_dict.items()
-            if not (remove_zeros and np.allclose(v, 0., atol=1e-5))}
+    contribs_std = {standardize_effect(k): v
+                    for k, v in contribs_dict.items()
+                    if not (remove_zeros and np.allclose(v, 0., atol=1e-5))}
+    # Future: default behavior just add dupes up? that could be janky...
+    assert_same_size(contribs_dict, contribs_std, 'contributions',
+                     extra='This is because there were duplicate effects in '
+                           'the input.')
+    return contribs_std
 
 
 class CompatUnpickler(pickle.Unpickler):
