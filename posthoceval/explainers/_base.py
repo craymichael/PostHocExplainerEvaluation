@@ -202,12 +202,12 @@ class BaseExplainer(ABC):
         if self.task == 'regression':
             is_dict = isinstance(contribs, dict)
             if not is_dict:
-                assert contribs.shape == orig_shape
+                assert contribs.shape[1:] == orig_shape
         else:
             # hope that children allow us to make this assumption...
             is_dict = isinstance(contribs[0], dict)
             if not is_dict:
-                assert contribs[0].shape == orig_shape
+                assert contribs[0].shape[1:] == orig_shape
         if is_dict:
             if self.task == 'regression':
                 contribs = {standardize_effect(k): v
@@ -274,7 +274,8 @@ class BaseExplainer(ABC):
         n_explained = len(next(iter(contribs.values())))
         dtype = one_contrib.dtype
         # This will raise a KeyError if the contribs are invalid
+        # Contribs: ndarray[n_samples x (n_features)]
         return np.asarray([
             contribs.get(sym, np.zeros(n_explained, dtype=dtype))
             for sym in symbols
-        ]).T.reshape(orig_shape)  # Contribs: ndarray[n_samples x (n_features)]
+        ]).T.reshape(n_explained, *orig_shape)
