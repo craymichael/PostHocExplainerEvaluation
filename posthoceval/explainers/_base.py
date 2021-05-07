@@ -13,6 +13,7 @@ import numpy as np
 from posthoceval.expl_utils import standardize_effect
 from posthoceval.models.model import AdditiveModel
 from posthoceval.datasets.dataset import Dataset
+from posthoceval.utils import prod
 
 Contribs = Union[np.ndarray, List[np.ndarray],
                  Dict[Any, np.ndarray], List[Dict[Any, np.ndarray]]]
@@ -63,7 +64,6 @@ class _TabularExplainerModel(AdditiveModel):
 
 
 class BaseExplainer(ABC):
-
     model: Union[AdditiveModel, _TabularExplainerModel]
 
     def __init__(self,
@@ -202,12 +202,21 @@ class BaseExplainer(ABC):
         if self.task == 'regression':
             is_dict = isinstance(contribs, dict)
             if not is_dict:
-                assert contribs.shape[1:] == orig_shape
+                contribs_input_shape = contribs.shape[1:]
+                assert prod(contribs_input_shape) == prod(orig_shape), (
+                    f'{contribs_input_shape} incompatible with {orig_shape}')
+                contribs = contribs.reshape(contribs.shape[0], *orig_shape)
         else:
             # hope that children allow us to make this assumption...
             is_dict = isinstance(contribs[0], dict)
             if not is_dict:
-                assert contribs[0].shape[1:] == orig_shape
+                contribs_input_shape = contribs[0].shape[1:]
+                assert prod(contribs_input_shape) == prod(orig_shape), (
+                    f'{contribs_input_shape} incompatible with {orig_shape}')
+                contribs = [
+                    contribs_i.reshape(contribs_i.shape[0], *orig_shape)
+                    for contribs_i in contribs
+                ]
         if is_dict:
             if self.task == 'regression':
                 contribs = {standardize_effect(k): v
