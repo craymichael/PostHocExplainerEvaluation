@@ -114,7 +114,7 @@ def gather_viz_data(
                     class_name = transformer.class_name(class_k)
                 except ValueError:
                     class_name = str(class_k)
-                target_str = target_str + ' = ' + class_name
+                target_str = target_str + f' = {class_name}'
 
             (dfs_class, dfs_3d_class, effectwise_err_df,
              effectwise_err_agg_df, samplewise_err_df, samplewise_err_agg_df,
@@ -197,6 +197,8 @@ def _gather_viz_data_single_output(
     X_inv = dataset_inv.X
     if dataset_sample_idxs is not None:
         X_inv = X_inv[dataset_sample_idxs]
+    # ensure flat
+    X_inv = X_inv.reshape(X_inv.shape[0], -1)
 
     true_contribs_match = []
     true_effects_match = []
