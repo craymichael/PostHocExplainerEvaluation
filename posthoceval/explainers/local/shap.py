@@ -14,7 +14,7 @@ from joblib import cpu_count
 
 from posthoceval.profile import profile
 from posthoceval.models.model import AdditiveModel
-from posthoceval.models.dnn import AdditiveDNN
+from posthoceval.models.base_dnn import BaseAdditiveDNN
 from posthoceval.explainers._base import BaseExplainer
 from posthoceval.expl_utils import standardize_effect
 from posthoceval.utils import at_high_precision
@@ -72,7 +72,7 @@ class KernelSHAPExplainer(BaseExplainer):
         if link is None:
             link = ('identity'
                     if (self.task == 'regression' or
-                        isinstance(model, AdditiveDNN)) else
+                        isinstance(model, BaseAdditiveDNN)) else
                     'logit')
             logger.info(f'Inferred link as "{link}"')
         self.link = link

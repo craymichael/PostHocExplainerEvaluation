@@ -102,6 +102,7 @@ class BaseExplainer(ABC):
     ) -> None:
         raise NotImplementedError
 
+    # noinspection PyPep8Naming
     def fit(
             self,
             X: Union[np.ndarray, Dataset],
