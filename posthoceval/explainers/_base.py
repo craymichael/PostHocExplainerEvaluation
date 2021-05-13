@@ -281,7 +281,7 @@ class BaseExplainer(ABC):
         assert not (set(contribs.keys()) - set(symbols))
         assert contribs, 'unsupported when contribs is empty'
         one_contrib = next(iter(contribs.values()))
-        n_explained = len(next(iter(contribs.values())))
+        n_explained = len(one_contrib)
         dtype = one_contrib.dtype
         # This will raise a KeyError if the contribs are invalid
         # Contribs: ndarray[n_samples x (n_features)]

@@ -9,8 +9,11 @@ from typing import Optional
 
 import logging
 import gc
+
 from collections import OrderedDict
 from multiprocessing import Lock
+
+from math import ceil
 
 import numpy as np
 import pandas as pd
@@ -36,7 +39,28 @@ _make_wrapped_model_r_inner_lock = Lock()
 
 class SHAPRExplainer(BaseExplainer):
     """Explain the output of machine learning models with more accurately
-    estimated Shapley values"""
+    estimated Shapley values
+
+    TODO...
+    shapr/R/features.R
+    ```R
+      if (m > 13 & is.null(n_combinations)) {
+        stop(
+          paste0(
+            "Due to computational complexity, we recommend setting n_combinations = 10 000\n",
+            "if the number of features is larger than 13. Note that you can force the use of the exact\n",
+            "method (i.e. n_combinations = NULL) by setting n_combinations equal to 2^m,\n",
+            "where m is the number of features."
+          )
+        )
+      }
+
+      # Not supported for m > 30
+      if (m > 30) {
+        stop("Currently we are not supporting cases where the number of features is greater than 30.")
+      }
+    ```
+    """
 
     __r_class_name_model__ = 'pymodel'
 
@@ -93,6 +117,7 @@ class SHAPRExplainer(BaseExplainer):
             task=task,
             verbose=verbose,
         )
+        self._x_fit_size = None
 
         self.prediction_zero_ = None
 
@@ -240,6 +265,7 @@ class SHAPRExplainer(BaseExplainer):
             y = self.model(X)
 
         X_df = pd.DataFrame(data=X, columns=self.model.symbol_names)
+        self._x_fit_size = len(X_df)
         # From SHAPR:
         # Due to computational complexity, we recommend setting
         # n_combinations = 10 000 if the number of features is larger than 13.
@@ -359,29 +385,54 @@ class SHAPRExplainer(BaseExplainer):
               that you'd like to use the ‘"gaussian"’ approach when
               conditioning on ‘i’ features.
         """
+        from rpy2.robjects import pandas2ri
+
         # shapr wants a dataframe...
         X_df = pd.DataFrame(data=X, columns=self.model.symbol_names)
 
-        explanation = self.shapr_lib.explain(
-            X_df,
-            explainer=self._explainer,
-            approach=self.approach,
-            prediction_zero=self.prediction_zero_,
-        )
-        expl_dict = dict(explanation.items())
+        # need to deactivate pandas for this
+        pandas2ri.deactivate()
+        n_comb = len(self._explainer.rx2('X'))  # i.e. n_slices
+        pandas2ri.activate()
 
-        # https://stackoverflow.com/questions/5199334/clearing-memory-used-by-rpy2
-        gc.collect()
+        # https://github.com/RcppCore/RcppArmadillo/blob/bfce33f905f8b4b55c2184ea53a4ce8c63bc854c/inst/include/armadillo_bits/typedef_elem.hpp
+        # Assume ARMA_64BIT_WORD undefined
+        # #define ARMA_MAX_UWORD  0xffffffff
+        ARMA_MAX_UWORD = 0xffffffff
+        # Error raised if too large of a Cube in init (dist func in shapr)
+        # (double(n_rows) * double(n_cols) * double(n_slices)) >
+        #   double(ARMA_MAX_UWORD)
+        n_explain = len(X_df)
+        cube_size = self._x_fit_size * n_explain * n_comb
+        batch_size = n_explain // max(cube_size / ARMA_MAX_UWORD, 1)
 
-        expl_df = expl_dict['dt']
-        # ignore prediction_zero col "none"
-        # expl_df.drop(columns='none', inplace=True)
-        # contribs = expl_df.values
-        # either a pandas dataframe or a numpy recarray are returned, this
-        #  code should handle both cases...
-        contribs = np.stack(
-            [expl_df[name] for name in self.model.symbol_names],
-            axis=1
-        )
+        contribs = []
+        for idx in range(0, n_explain, batch_size):
+            X_df_batch = X_df.iloc[idx:idx + batch_size].reset_index()
+
+            explanation_batch = self.shapr_lib.explain(
+                X_df_batch,
+                explainer=self._explainer,
+                approach=self.approach,
+                prediction_zero=self.prediction_zero_,
+            )
+            expl_dict_batch = dict(explanation_batch.items())
+
+            # https://stackoverflow.com/questions/5199334/clearing-memory-used-by-rpy2
+            gc.collect()
+
+            expl_df_batch = expl_dict_batch['dt']
+            # ignore prediction_zero col "none"
+            # expl_df.drop(columns='none', inplace=True)
+            # contribs = expl_df.values
+            # either a pandas dataframe or a numpy recarray are returned, this
+            #  code should handle both cases...
+            contribs_batch = np.stack(
+                [expl_df_batch[name] for name in self.model.symbol_names],
+                axis=1
+            )
+            contribs.append(contribs_batch)
+
+        contribs = np.concatenate(contribs, axis=0)
 
         return {'contribs': contribs, 'intercepts': self.prediction_zero_}
