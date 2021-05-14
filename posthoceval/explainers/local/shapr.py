@@ -411,12 +411,13 @@ class SHAPRExplainer(BaseExplainer):
         n_explain = len(X_df)
         cube_size = self._x_fit_size * n_explain * n_comb
         # 10 is a fudge factor
-        batch_size = max(
-            int(n_explain / (10 * cube_size / ARMA_MAX_UWORD)), 1)
+        # batch_size = max(
+        #     int(n_explain / (10 * cube_size / ARMA_MAX_UWORD)), 1)
+        batch_size = 1
 
         contribs = []
         for idx in range(0, n_explain, batch_size):
-            X_df_batch = X_df.iloc[idx:idx + batch_size].reset_index()
+            X_df_batch = X_df.iloc[idx:idx + batch_size].reset_index(drop=True)
 
             explanation_batch = self.shapr_lib.explain(
                 X_df_batch,
