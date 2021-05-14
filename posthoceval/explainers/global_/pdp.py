@@ -22,6 +22,54 @@ from posthoceval.explainers.global_.global_util import (
 from posthoceval.models.model import AdditiveModel
 
 
+class _PDPBoxModelCompatRegression(object):
+    """
+    From pdpbox/utils.py:
+
+    def _check_model(model):
+    '''Check model input, return class information and predict function'''
+    try:
+        n_classes = len(model.classes_)
+        predict = model.predict_proba
+    except:
+        n_classes = 0
+        predict = model.predict
+
+    return n_classes, predict
+    """
+
+    # noinspection PyUnusedLocal
+    def __init__(self, model: AdditiveModel, X=None):
+        self.model = model  # wrapped model
+
+    # noinspection PyPep8Naming
+    @staticmethod
+    def _handle_X(X):
+        if isinstance(X, pd.DataFrame):
+            X = X.values
+        return X
+
+    def predict(self, X):
+        return self.model.predict(self._handle_X(X))
+
+
+class _PDPBoxModelCompatClassification(_PDPBoxModelCompatRegression):
+    def __init__(self, model: AdditiveModel, X: np.ndarray):
+        super().__init__(model=model)
+        # sniff the number of classes
+        y_subset = self.predict_proba(X[:1])
+        if y_subset.ndim != 2:
+            raise ValueError(
+                f'Classifier models with output ndim != 2 are not supported. '
+                f'Wrapped model {model.__class__.__name__} has ndim == '
+                f'{y_subset.ndim}'
+            )
+        self.classes_ = [*range(y_subset.shape[1])]
+
+    def predict_proba(self, X):
+        return self.model.predict_proba(self._handle_X(X))
+
+
 class PDPExplainer(BaseExplainer):
     """https://github.com/SauceCat/PDPbox/blob/master/pdpbox/pdp.py"""
     # TODO: interactions using pdp_interact???? how do
@@ -73,6 +121,11 @@ class PDPExplainer(BaseExplainer):
         #  grouped_feature_names here and pass list of features for one-hot
         #  encoded features...
 
+        wrapper_cls = (_PDPBoxModelCompatRegression
+                       if self.task == 'regression' else
+                       _PDPBoxModelCompatClassification)
+        wrapped_model = wrapper_cls(model=self.model, X=X)
+
         all_x = []
         all_y = []
         for feature in grouped_feature_names:
@@ -83,7 +136,7 @@ class PDPExplainer(BaseExplainer):
                 feature = [f'{feature[0]} = {val}' for val in feature[1]]
             # classification vs. regression automatically handled by pdpbox
             pdp_feat = pdp_isolate(
-                model=self.model,
+                model=wrapped_model,
                 dataset=dataset,
                 model_features=feature_names,
                 feature=feature,
