@@ -410,7 +410,10 @@ class SHAPRExplainer(BaseExplainer):
         #   double(ARMA_MAX_UWORD)
         n_explain = len(X_df)
         cube_size = self._x_fit_size * n_explain * n_comb
-        batch_size = int(n_explain // max(cube_size / ARMA_MAX_UWORD, 1))
+        batch_size = n_explain // max(cube_size / ARMA_MAX_UWORD, 1)
+        # reduce batch_size by several factors
+        batch_size /= 10
+        batch_size = int(batch_size)
 
         contribs = []
         for idx in range(0, n_explain, batch_size):
