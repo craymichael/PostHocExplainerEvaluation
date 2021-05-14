@@ -372,10 +372,12 @@ class Transformer(TransformerMixin):
             y: Optional[np.ndarray] = None,
             transform_numerical: bool = True,
             transform_categorical: bool = False,
-            transform_target: bool = False,
+            transform_target: bool = UNPROVIDED,
     ):
         ds_missing, X_missing, y_missing = self._validate_transform_inputs(
             dataset, X_df, y)
+        if transform_target is UNPROVIDED:
+            transform_target = ds_missing and not y_missing
 
         if transform_categorical:
             raise NotImplementedError('transform_categorical')
