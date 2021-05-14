@@ -11,6 +11,12 @@ Install R. Then, in an R shell:
 ```R
 install.packages("shapr")
 ```
+_or_ for a workaround to allow more than 30 features and 13 groups...
+```R
+install.packages("remotes")
+install.packages("withr")
+remotes::install_github("craymichael/shapr")
+```
 
 ## Debugging environment (internal notes, temporary...)
 

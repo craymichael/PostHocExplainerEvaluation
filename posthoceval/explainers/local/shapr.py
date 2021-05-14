@@ -264,6 +264,12 @@ class SHAPRExplainer(BaseExplainer):
         if y is None:
             y = self.model(X)
 
+        if grouped_feature_names and any(not isinstance(feat, str)
+                                         for feat in grouped_feature_names):
+            # TODO: use groups...
+            logger.warning('SHAPR does not current have proper support for '
+                           'categorical variables!')
+
         X_df = pd.DataFrame(data=X, columns=self.model.symbol_names)
         self._x_fit_size = len(X_df)
         # From SHAPR:
@@ -404,7 +410,7 @@ class SHAPRExplainer(BaseExplainer):
         #   double(ARMA_MAX_UWORD)
         n_explain = len(X_df)
         cube_size = self._x_fit_size * n_explain * n_comb
-        batch_size = n_explain // max(cube_size / ARMA_MAX_UWORD, 1)
+        batch_size = int(n_explain // max(cube_size / ARMA_MAX_UWORD, 1))
 
         contribs = []
         for idx in range(0, n_explain, batch_size):
