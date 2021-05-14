@@ -38,6 +38,7 @@ class PDPExplainer(BaseExplainer):
                  n_jobs: int = 1,
                  verbose=True):
         super().__init__(
+            tabular=True,
             model=model,
             seed=seed,
             task=task,
