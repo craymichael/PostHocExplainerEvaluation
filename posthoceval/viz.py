@@ -287,18 +287,18 @@ def _gather_viz_data_single_output(
             base['Feature Value y'] = xi[:, 1]
             store_target = dfs_3d
 
-        # predicted contributions (explainer)
-        if not no_pred_contrib:
-            pred_df_data = base.copy()
-            pred_df_data['Explainer'] = explainer_name
-            pred_df_data['Contribution'] = pred_contrib_i
-            store_target.append(pd.DataFrame(pred_df_data))
         # true contributions (model)
         if not (ignore_true_effect or no_true_contrib):
             true_df_data = base.copy()
             true_df_data['Explainer'] = 'True'
             true_df_data['Contribution'] = true_contrib_i
             store_target.append(pd.DataFrame(true_df_data))
+        # predicted contributions (explainer)
+        if not no_pred_contrib:
+            pred_df_data = base.copy()
+            pred_df_data['Explainer'] = explainer_name
+            pred_df_data['Contribution'] = pred_contrib_i
+            store_target.append(pd.DataFrame(pred_df_data))
 
     effectwise_err_df = pd.DataFrame(effectwise_err_data)
     # effectwise agg
