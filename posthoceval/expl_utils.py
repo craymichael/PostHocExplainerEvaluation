@@ -195,13 +195,18 @@ def standardize_effect(e):
     return e
 
 
-def standardize_contributions(contribs_dict, remove_zeros=True):
+def standardize_contributions(contribs_dict, remove_zeros=True, atol=1e-5):
     """standardize each effect tuple and remove effects that are 0-effects"""
-    contribs_std = {standardize_effect(k): v
-                    for k, v in contribs_dict.items()
-                    if not (remove_zeros and np.allclose(v, 0., atol=1e-5))}
+    contribs_std = {}
+    n_zeros = 0
+    for k, v in contribs_dict.items():
+        if remove_zeros and np.allclose(v, 0., atol=atol):
+            n_zeros += 1
+        else:
+            contribs_std[standardize_effect(k)] = v
     # Future: default behavior just add dupes up? that could be janky...
-    assert_same_size(contribs_dict, contribs_std, 'contributions',
+    tot_contribs = len(contribs_std) + n_zeros
+    assert_same_size(contribs_dict, tot_contribs, 'contributions',
                      extra='This is because there were duplicate effects in '
                            'the input.')
     return contribs_std
