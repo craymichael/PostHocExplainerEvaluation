@@ -182,7 +182,7 @@ class PDPExplainer(BaseExplainer):
             ) for k in range(n_classes)]
 
     def predict(self, X):
-        pass  # TODO
+        raise NotImplementedError
 
     def _call_explainer(
             self,
@@ -190,8 +190,11 @@ class PDPExplainer(BaseExplainer):
     ) -> Dict[str, Any]:
         if self.task == 'regression':
             contribs = self._explainer.interpolate(X)
+            predictions = np.sum(contribs, axis=1)
         else:
             contribs = [expl.interpolate(X)
                         for expl in self._explainer]
+            predictions = np.sum(contribs, axis=2)
 
-        return {'contribs': contribs}
+        return {'contribs': contribs,
+                'predictions': predictions}

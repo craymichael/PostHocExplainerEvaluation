@@ -290,8 +290,8 @@ class SHAPRExplainer(BaseExplainer):
         #  equal to the mean of the response.
         self.prediction_zero_ = np.mean(y, axis=0)
 
-    def predict(self, X):  # TODO
-        pass
+    def predict(self, X):
+        raise NotImplementedError
 
     def _call_explainer(self, X):
         """
@@ -444,4 +444,12 @@ class SHAPRExplainer(BaseExplainer):
 
         contribs = np.concatenate(contribs, axis=0)
 
-        return {'contribs': contribs, 'intercepts': self.prediction_zero_}
+        if self.task == 'regression':
+            predictions = np.sum(contribs, axis=1) + self.prediction_zero_
+        else:
+            intercepts = np.expand_dims(self.prediction_zero_, 1)
+            predictions = np.sum(contribs, axis=2) + intercepts
+
+        return {'contribs': contribs,
+                'intercepts': self.prediction_zero_,
+                'predictions': predictions}

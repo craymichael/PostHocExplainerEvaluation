@@ -172,13 +172,15 @@ def _gather_viz_data_single_output(
     effectwise_err_data = []
 
     # shed zero elements
-    true_contribs_k = standardize_contributions(
-        true_contribs_k, remove_zeros=False)
-    pred_contribs_k = standardize_contributions(
-        pred_contribs_k, remove_zeros=False)
+    # true_contribs_k = standardize_contributions(
+    #     true_contribs_k, remove_zeros=False)
+    # pred_contribs_k = standardize_contributions(
+    #     pred_contribs_k, remove_zeros=False)
+    true_contribs_k = standardize_contributions(true_contribs_k)
+    pred_contribs_k = standardize_contributions(pred_contribs_k)
     # find and apply matching
-    components, goodness = metrics.generous_eval(true_contribs_k,
-                                                 pred_contribs_k)
+    components, goodness = metrics.generous_eval(
+        true_contribs_k, pred_contribs_k)
     n_explained = (len(dataset) if dataset_sample_idxs is None else
                    len(dataset_sample_idxs))
     matches = apply_matching(

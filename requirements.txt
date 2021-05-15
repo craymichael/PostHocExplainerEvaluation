@@ -8,7 +8,7 @@ numexpr
 seaborn
 statsmodels
 scikit-image
-interpret
+interpret  # we do not actually use this one right now...future work
 lime
 pdpbox
 scikit-learn
