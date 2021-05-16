@@ -77,15 +77,16 @@ def strict_eval(y_true: Iterable, y_pred: Iterable):
 
 
 def sorted_sym(iterable, reverse=False):
-    from sympy.core.relational import Relational
+    # from sympy.core.relational import Relational
 
-    def key(x):
-        if isinstance(x, Relational):
-            return x.name
-        else:
-            return x
+    # def key(x):
+    #     if isinstance(x, Relational):
+    #         return x.name
+    #     else:
+    #         return x
+    #     return
 
-    return sorted(iterable, key=key, reverse=reverse)
+    return sorted(iterable, key=str, reverse=reverse)
 
 
 def generous_eval(
