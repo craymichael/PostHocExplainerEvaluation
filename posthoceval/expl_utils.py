@@ -20,6 +20,7 @@ from posthoceval.models.model import AdditiveModel
 from posthoceval.utils import safe_parse_tuple
 from posthoceval.utils import assert_same_size
 
+# TODO: sp.Symbol --> Any
 Explanation = Dict[Tuple[sp.Symbol], np.ndarray]
 
 # reserved name for true contributions

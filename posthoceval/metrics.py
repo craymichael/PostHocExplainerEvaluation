@@ -9,6 +9,7 @@ from typing import Iterable
 from typing import List
 from typing import Tuple
 
+import sympy
 from sklearn import metrics as sk_metrics
 from sklearn.metrics import pairwise
 
@@ -73,6 +74,16 @@ def strict_eval(y_true: Iterable, y_pred: Iterable):
     goodness.extend([0.] * (len(residual_true) + len(residual_pred)))
 
     return matching, goodness
+
+
+def sorted_sym(iterable, reverse=False):
+    def key(x):
+        if isinstance(x, sympy.Symbol):
+            return x.name
+        else:
+            return x
+
+    return sorted(iterable, key=key, reverse=reverse)
 
 
 def generous_eval(
@@ -182,8 +193,8 @@ def generous_eval(
             stack = new_stack
             stack_t = not stack_t  # swap sides of graph
 
-        component_t = sorted(component_t)
-        component_p = sorted(component_p)
+        component_t = sorted_sym(component_t)
+        component_p = sorted_sym(component_p)
         if component_t == component_p:
             components.extend(
                 ([ct], [cp]) for ct, cp in zip(component_t, component_p)
