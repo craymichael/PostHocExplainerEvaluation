@@ -146,7 +146,7 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
                     call_model_args={'target_class_idx': k,
                                      'orig_shape': x_i.shape},
                     **self._explain_kwargs,
-                )
+                ).reshape(x_i.shape)
                 for x_i in X
             ]
             for k in range(self._n_classes)
