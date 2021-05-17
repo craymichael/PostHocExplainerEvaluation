@@ -340,10 +340,12 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False,
     out_filename = os.path.join(out_dir, expr_basename + '.json')
     print('Writing results to', out_filename)
 
-    atomic_write_exclusive(
+    out_filename_actual = atomic_write_exclusive(
         preferred_filename=out_filename,
         data=json.dumps(all_results, cls=CustomJSONEncoder),
     )
+    if out_filename_actual != out_filename:
+        print('Actually wrote results to', out_filename_actual)
 
 
 if __name__ == '__main__':
