@@ -19,6 +19,7 @@ from tqdm.auto import tqdm
 from posthoceval.models.model import AdditiveModel
 from posthoceval.utils import safe_parse_tuple
 from posthoceval.utils import assert_same_size
+from posthoceval.utils import prod
 
 # TODO: sp.Symbol --> Any
 Explanation = Dict[Tuple[sp.Symbol], np.ndarray]
@@ -121,14 +122,15 @@ def load_explanation(expl_path: str, true_model: AdditiveModel):
 
     if len(expl_dict) == 1 and 'data' in expl_dict:
         expl = expl_dict['data']
-
-        assert expl.shape[1] == len(true_model.symbols), (
+        expl_n_features = prod(expl.shape[1:])
+        assert expl_n_features == true_model.n_features, (
             f'Non-keyword explanation received with '
-            f'{expl.shape[1]} features but model has '
-            f'{len(true_model.symbols)} features.'
+            f'{expl_n_features} features but model has '
+            f'{true_model.n_features} features.'
         )
         # map to model symbols and standardize
-        expl = dict(zip(true_model.symbols, expl.T))
+        expl = dict(zip(true_model.symbols,
+                        expl.reshape(-1, expl_n_features).T))
     else:
         expl = {}
         for symbols_str, expl_data in expl_dict.items():
