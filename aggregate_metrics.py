@@ -232,6 +232,7 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False,
                     true_model):
             tqdm.write(f'\nBegin {expl_id}.')
 
+            true_expl_orig = true_expl
             if true_expl is None:
                 # compute true contributions
                 data_file = os.path.join(data_dir, f'{expl_id}.npz')
@@ -242,6 +243,7 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False,
                         compute_true_contributions(expr_result, data_file,
                                                    explainer_dir, expl_id)
                     )
+                    true_expl_orig = true_expl
                 except Exception as e:
                     e_module = str(getattr(e, '__module__', ''))
                     if e_module.split('.', 1)[0] != 'sympy':
@@ -289,7 +291,7 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False,
 
             tqdm.write('Done.')
 
-            return results, expl_id, true_expl, true_effects, true_model
+            return results, expl_id, true_expl_orig, true_effects, true_model
 
         if debug:  # debug --> limit to processing of 1 explanation
             explained = explained[:1]
