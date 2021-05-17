@@ -336,9 +336,6 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False,
             'results': explainer_results,
         })
 
-        if debug:  # run once for one explainer
-            break
-
     # Save to out_dir
     out_filename = os.path.join(out_dir, expr_basename + '.json')
     print('Writing results to', out_filename)
