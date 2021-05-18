@@ -48,6 +48,7 @@ def clean_explanations(
 
     pred_expl = pred_expl.copy()
     pred_lens = {*map(len, pred_expl.values())}
+    assert len(pred_lens), 'pred_expl is empty!'
     assert len(pred_lens) == 1, (
         'pred_expl has effect-wise explanations of non-uniform length: '
         f'{pred_lens}'
@@ -58,6 +59,7 @@ def clean_explanations(
     if with_true:
         true_expl = true_expl.copy()
         true_lens = {*map(len, true_expl.values())}
+        assert len(true_lens), 'true_expl is empty!'
         assert len(true_lens) == 1, (
             'true_expl has effect-wise explanations of non-uniform length: '
             f'{true_lens}'
