@@ -8,9 +8,12 @@ from typing import Optional
 from typing import Union
 from typing import Any
 
+import warnings
 import os
 
 import pickle
+
+from math import sqrt
 
 import numpy as np
 import sympy as sp
@@ -47,13 +50,27 @@ def clean_explanations(
     tqdm.write('Start cleaning explanations.')
 
     pred_expl = pred_expl.copy()
-    pred_lens = {*map(len, pred_expl.values())}
-    assert len(pred_lens), 'pred_expl is empty!'
-    assert len(pred_lens) == 1, (
-        'pred_expl has effect-wise explanations of non-uniform length: '
-        f'{pred_lens}'
-    )
-    n_pred = pred_lens.pop()
+    if pred_expl:
+        pred_lens = {*map(len, pred_expl.values())}
+        assert len(pred_lens) == 1, (
+            'pred_expl has effect-wise explanations of non-uniform length: '
+            f'{pred_lens}'
+        )
+        n_pred = pred_lens.pop()
+    else:
+        # TODO: the default used here is the default for generate_data.py and
+        #  is a bad way of handling this. We already have the n_pred
+        #  information from load_explanation, we should try to preserve it.
+        #  Best way is to likely introduce an Explanation class...this has been
+        #  a long time coming anyway...
+        warnings.warn(
+            'Provided pred_expl was empty, likely due to either all '
+            'contributions being near-zero and filtered previously, or the '
+            'model using zero features. n_pred will be inferred as '
+            '500 * round(sqrt(n_features)) if true_expl was provided and 500 '
+            'otherwise.'
+        )
+        n_pred = None  # infer later
 
     with_true = true_expl is not None
     if with_true:
@@ -65,14 +82,18 @@ def clean_explanations(
             f'{true_lens}'
         )
         n_true = true_lens.pop()
-
-        assert n_pred <= n_true, f'n_pred ({n_pred}) > n_true ({n_true})'
+        if n_pred is None:
+            n_pred = min(500 * round(sqrt(len(true_expl))), n_true)
+        else:
+            assert n_pred <= n_true, f'n_pred ({n_pred}) > n_true ({n_true})'
 
         if n_pred < n_true:
             tqdm.write(f'Truncating true_expl from {n_true} to {n_pred}')
             # truncate latter explanations to save length
             for k, v in true_expl.items():
                 true_expl[k] = v[:n_pred]
+    elif n_pred is None:
+        n_pred = 500
 
     tqdm.write('Discovering pred_expl invalids')
     nan_idxs_pred = np.zeros(n_pred, dtype=np.bool)
