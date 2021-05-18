@@ -49,7 +49,9 @@ def clean_explanations(
     pred_expl = pred_expl.copy()
     pred_lens = {*map(len, pred_expl.values())}
     assert len(pred_lens) == 1, (
-        'pred_expl has effect-wise explanations of non-uniform length')
+        'pred_expl has effect-wise explanations of non-uniform length: '
+        f'{pred_lens}'
+    )
     n_pred = pred_lens.pop()
 
     with_true = true_expl is not None
@@ -57,7 +59,9 @@ def clean_explanations(
         true_expl = true_expl.copy()
         true_lens = {*map(len, true_expl.values())}
         assert len(true_lens) == 1, (
-            'true_expl has effect-wise explanations of non-uniform length')
+            'true_expl has effect-wise explanations of non-uniform length: '
+            f'{true_lens}'
+        )
         n_true = true_lens.pop()
 
         assert n_pred <= n_true, f'n_pred ({n_pred}) > n_true ({n_true})'
