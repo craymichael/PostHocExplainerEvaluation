@@ -351,7 +351,15 @@ class Transformer(TransformerMixin):
             else:
                 return X_df_transformed, y
         else:
-            if not ds_missing:
+            # TODO: len(set(dataset.input_shape) - {1}) == 1 instead?
+            if not ds_missing and len(dataset.input_shape) != 1:
+                # noinspection PyUnboundLocalVariable
+                if dataset.n_features != X.shape[1]:
+                    raise NotImplementedError(
+                        f'Cannot reshape transformed data when the number of '
+                        f'columns changes ({dataset.n_features} --> '
+                        f'{X.shape[1]} columns)'
+                    )
                 # noinspection PyUnboundLocalVariable
                 X = X.reshape(-1, *dataset.input_shape)
             # noinspection PyUnboundLocalVariable
@@ -423,7 +431,14 @@ class Transformer(TransformerMixin):
         else:
             # NOTE: this assumes numerical transformer does not alter the
             #  number of columns
-            if not ds_missing:
+            if not ds_missing and len(dataset.input_shape) != 1:
+                # noinspection PyUnboundLocalVariable
+                if dataset.n_features != X.shape[1]:
+                    raise NotImplementedError(
+                        f'Cannot reshape transformed data when the number of '
+                        f'columns changes ({dataset.n_features} --> '
+                        f'{X.shape[1]} columns)'
+                    )
                 # noinspection PyUnboundLocalVariable
                 X = X.reshape(-1, *dataset.input_shape)
             # noinspection PyUnboundLocalVariable
