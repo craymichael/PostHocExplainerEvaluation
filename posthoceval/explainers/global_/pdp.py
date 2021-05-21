@@ -13,6 +13,8 @@ from itertools import chain
 import pandas as pd
 import numpy as np
 
+from tqdm.auto import tqdm
+
 from pdpbox.pdp import pdp_isolate
 # from pdpbox.pdp import pdp_interact  # TODO- future work...
 
@@ -112,15 +114,6 @@ class PDPExplainer(BaseExplainer):
             data=X,
         )
 
-        # TODO: consider categorical stuff here - PDP sets up groups by having
-        #  categorical feature name "foo" suffixed by "_value" - e.g., feature
-        #  "color" with values "red" and "blue" would result in the columns
-        #  "color_red" and "color_blue" and be handled accordingly/
-        #  automatically within PDPBox lib.
-        #  Looking at source, we maybe should iterate over
-        #  grouped_feature_names here and pass list of features for one-hot
-        #  encoded features...
-
         wrapper_cls = (_PDPBoxModelCompatRegression
                        if self.task == 'regression' else
                        _PDPBoxModelCompatClassification)
@@ -128,7 +121,8 @@ class PDPExplainer(BaseExplainer):
 
         all_x = []
         all_y = []
-        for feature in grouped_feature_names:
+        for feature in tqdm(grouped_feature_names, unit='feature',
+                            disable=not self.verbose):
             is_grouped = not isinstance(feature, str)
             if is_grouped:
                 # one-hot encoded feature
@@ -154,11 +148,6 @@ class PDPExplainer(BaseExplainer):
                     all_x.append(pdp_feat.feature_grids)
                     all_y.append(pdp_feat.pdp)
             else:
-                # TODO: this is broken (only target class is returned...)
-                #  actuallyy!!! maybe just set classes_ on the model...
-                #  see the utils.py file in pdpbox - we HAVE to explicitly wrap
-                #  the model here. predict_proba and classes_ for
-                #  classification, just predict for regression
                 if len(wrapped_model.classes_) == 2:
                     # TODO: this is not correct....
                     if is_grouped:
