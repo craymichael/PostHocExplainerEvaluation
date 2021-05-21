@@ -159,10 +159,27 @@ class PDPExplainer(BaseExplainer):
                 #  see the utils.py file in pdpbox - we HAVE to explicitly wrap
                 #  the model here. predict_proba and classes_ for
                 #  classification, just predict for regression
-                if is_grouped:
-                    raise NotImplementedError
-                all_x.extend(p.feature_grids for p in pdp_feat)
-                all_y.extend(p.pdp for p in pdp_feat)
+                if len(wrapped_model.classes_) == 2:
+                    # TODO: this is not correct....
+                    if is_grouped:
+                        for i in range(len(feature)):
+                            all_x.append(
+                                [pdp_feat.feature_grids[i:i + 1]] * 2)
+                            all_y.append(
+                                [pdp_feat.pdp[i:i + 1]] * 2)
+                    else:
+                        all_x.append([pdp_feat.feature_grids] * 2)
+                        all_y.append([pdp_feat.pdp] * 2)
+                else:
+                    if is_grouped:
+                        for i in range(len(feature)):
+                            all_x.append([p.feature_grids[i:i + 1]
+                                          for p in pdp_feat])
+                            all_y.append([p.pdp[i:i + 1]
+                                          for p in pdp_feat])
+                    else:
+                        all_x.append([p.feature_grids for p in pdp_feat])
+                        all_y.append([p.pdp for p in pdp_feat])
 
         if self.task == 'regression':
             self._explainer = MultivariateInterpolation(
