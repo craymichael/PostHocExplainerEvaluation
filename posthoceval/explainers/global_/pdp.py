@@ -114,7 +114,7 @@ class PDPExplainer(BaseExplainer):
             grouped_feature_names = feature_names
 
         # TODO: rename max_samples........
-        n_samples = round(self.max_samples * X.shape[1] / 25)
+        n_samples = round(self.max_samples * 25 / X.shape[1])
         if len(X) > n_samples:
             rng = as_random_state(self.seed)
             X = X[randint(0, len(X), size=n_samples, seed=rng)]
