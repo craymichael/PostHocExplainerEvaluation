@@ -113,9 +113,11 @@ class PDPExplainer(BaseExplainer):
         if grouped_feature_names is None:
             grouped_feature_names = feature_names
 
-        if len(X) > self.max_samples:
+        # TODO: rename max_samples........
+        n_samples = round(self.max_samples * X.shape[1] / 25)
+        if len(X) > n_samples:
             rng = as_random_state(self.seed)
-            X = X[randint(0, len(X), size=self.max_samples, seed=rng)]
+            X = X[randint(0, len(X), size=n_samples, seed=rng)]
 
         dataset = pd.DataFrame(
             columns=feature_names,
