@@ -18,6 +18,8 @@ from tqdm.auto import tqdm
 from pdpbox.pdp import pdp_isolate
 # from pdpbox.pdp import pdp_interact  # TODO- future work...
 
+from posthoceval.rand import as_random_state
+from posthoceval.rand import randint
 from posthoceval.explainers._base import BaseExplainer
 from posthoceval.explainers.global_.global_util import (
     MultivariateInterpolation)
@@ -86,6 +88,7 @@ class PDPExplainer(BaseExplainer):
                  n_grid_points: int = 100,
                  interpolation='linear',
                  n_jobs: int = 1,
+                 max_samples: int = 10000,
                  verbose=True):
         super().__init__(
             tabular=True,
@@ -96,6 +99,7 @@ class PDPExplainer(BaseExplainer):
         )
         self.n_grid_points = n_grid_points
         self.interpolation = interpolation
+        self.max_samples = max_samples
         self.n_jobs = n_jobs
 
     def _fit(
@@ -108,6 +112,10 @@ class PDPExplainer(BaseExplainer):
         feature_names = [*self.model.symbol_names]
         if grouped_feature_names is None:
             grouped_feature_names = feature_names
+
+        if len(X) > self.max_samples:
+            rng = as_random_state(self.seed)
+            X = X[randint(0, len(X), size=self.max_samples, seed=rng)]
 
         dataset = pd.DataFrame(
             columns=feature_names,
