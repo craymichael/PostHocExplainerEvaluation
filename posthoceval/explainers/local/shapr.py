@@ -266,7 +266,7 @@ class SHAPRExplainer(BaseExplainer):
 
         if grouped_feature_names and any(not isinstance(feat, str)
                                          for feat in grouped_feature_names):
-            # TODO: use groups...
+            # TODO: use groups...and ctree
             logger.warning('SHAPR does not current have proper support for '
                            'categorical variables!')
 
@@ -280,6 +280,7 @@ class SHAPRExplainer(BaseExplainer):
         # where m is the number of features.
         kwargs = {}
         if self.model.n_features > 13:
+            # TODO: parameterize
             kwargs['n_combinations'] = 10000
 
         self._explainer = self.shapr_lib.shapr(

@@ -19,8 +19,8 @@ def as_random_state(seed):
     if isinstance(seed, bad_rng):
         warnings.warn(
             f'Seed is an instance of {bad_rng}: this will be slower than the '
-            f'optimized RNGs available in NumPy. Unless reproducing results, '
-            f'do not use this RNG. See '
+            f'optimized RNGs available in NumPy. Unless reproducing results '
+            f'that specifically use {bad_rng}, do not use this RNG. See '
             f'https://numpy.org/devdocs/reference/random/performance.html'
         )
         return seed
