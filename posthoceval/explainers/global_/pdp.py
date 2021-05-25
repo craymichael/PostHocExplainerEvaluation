@@ -87,7 +87,7 @@ class PDPExplainer(BaseExplainer):
                  task: str = 'regression',
                  n_grid_points: int = 100,
                  interpolation='linear',
-                 n_jobs: int = 1,
+                 n_jobs: int = 1,  # TODO memory_limit=.9...
                  max_samples: int = 10000,
                  verbose=True):
         super().__init__(

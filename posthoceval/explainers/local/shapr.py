@@ -127,22 +127,21 @@ class SHAPRExplainer(BaseExplainer):
         if kwargs:
             raise ValueError(f'Unexpected keyword arguments: {kwargs}')
 
-        self.__wrapped_model = None
+        self.__wrapped_model = {}
         # handle shapr compat things
         with _shapr_install_lock:
             self._install_shapr_r_compat()
 
     def __del__(self):
         with _make_wrapped_model_r_inner_lock:
-            # decrement count by 1
-            _ref_make_wrapped_model_r_inner_dict[
-                self._wrapped_model_ref_str
-            ] -= 1
-            # if no more references then also delete the reference to the model
-            if _ref_make_wrapped_model_r_inner_dict[
-                self._wrapped_model_ref_str
-            ] == 0:
-                del globals()[self._wrapped_model_ref_str]
+            for model_key in self.__wrapped_model:
+                model_str = self._wrapped_model_ref_str + f'_{model_key}'
+                # decrement count by 1
+                _ref_make_wrapped_model_r_inner_dict[model_str] -= 1
+                # if no more references then also delete the reference to the
+                #  model
+                if _ref_make_wrapped_model_r_inner_dict[model_str] == 0:
+                    del globals()[model_str]
             gc.collect()
 
     @property
@@ -150,7 +149,7 @@ class SHAPRExplainer(BaseExplainer):
         return (f'_ref_make_wrapped_model_r_inner_{id(self.model)}_'
                 f'{self.__r_class_name_model__}')
 
-    def _make_wrapped_model_r(self):
+    def _make_wrapped_model_r(self, key):
         import rpy2.rinterface as ri
         from rpy2.robjects import StrVector
         from rpy2.robjects import numpy2ri
@@ -159,7 +158,12 @@ class SHAPRExplainer(BaseExplainer):
         def inner(X):
             if isinstance(X, ri.ListSexpVector):
                 X = np.asarray(X).T
-            return numpy2ri.py2rpy(self.model(X))
+            if key is None:
+                out = self.model(X)
+            else:
+                # assuming key is an int
+                out = self.model(X)[:, key]
+            return numpy2ri.py2rpy(out)
 
         inner.rclass = StrVector((self.__r_class_name_model__, 'function'))
         inner.do_slot_assign('feature_names',
@@ -167,13 +171,11 @@ class SHAPRExplainer(BaseExplainer):
 
         with _make_wrapped_model_r_inner_lock:
             # add reference, increment counter for the model by 1
-            cur_count = _ref_make_wrapped_model_r_inner_dict.get(
-                self._wrapped_model_ref_str, 0)
-            _ref_make_wrapped_model_r_inner_dict[
-                self._wrapped_model_ref_str
-            ] = cur_count + 1
+            model_str = self._wrapped_model_ref_str + f'_{key}'
+            cur_count = _ref_make_wrapped_model_r_inner_dict.get(model_str, 0)
+            _ref_make_wrapped_model_r_inner_dict[model_str] = cur_count + 1
             if cur_count == 0:
-                globals()[self._wrapped_model_ref_str] = inner
+                globals()[model_str] = inner
 
         return inner
 
@@ -247,13 +249,14 @@ class SHAPRExplainer(BaseExplainer):
         _ref_get_model_specs_compat = get_model_specs_compat
         _ref_predict_model_compat = predict_model_compat
 
-    @property
-    def _wrapped_model(self):
-        if self.__wrapped_model is not None:
-            return self.__wrapped_model
+    def _wrapped_model(self, key=None):
+        __wrapped_model_from_key = self.__wrapped_model.get(key)
+        if __wrapped_model_from_key is not None:
+            return __wrapped_model_from_key
 
-        self.__wrapped_model = self._make_wrapped_model_r()
-        return self.__wrapped_model
+        __wrapped_model_from_key = self._make_wrapped_model_r(key)
+        self.__wrapped_model[key] = __wrapped_model_from_key
+        return __wrapped_model_from_key
 
     def _fit(
             self,
@@ -280,12 +283,20 @@ class SHAPRExplainer(BaseExplainer):
         # where m is the number of features.
         kwargs = {}
         if self.model.n_features > 13:
-            # TODO: parameterize
+            # TODO: parameterize in init
             kwargs['n_combinations'] = 10000
 
-        self._explainer = self.shapr_lib.shapr(
-            X_df, self._wrapped_model, **kwargs
-        )
+        if self.task == 'classification':
+            assert len(y.shape) == 2, f'{y.shape} ndim != 2 for model output'
+            n_classes = y.shape[1]
+
+            self._explainer = [self.shapr_lib.shapr(
+                X_df, self._wrapped_model(k), **kwargs
+            ) for k in range(n_classes)]
+        else:
+            self._explainer = self.shapr_lib.shapr(
+                X_df, self._wrapped_model(), **kwargs
+            )
 
         # expected value - the prediction value for unseen data, typically
         #  equal to the mean of the response.
@@ -392,11 +403,14 @@ class SHAPRExplainer(BaseExplainer):
               that you'd like to use the ‘"gaussian"’ approach when
               conditioning on ‘i’ features.
         """
-        from rpy2.robjects import pandas2ri
+        # from rpy2.robjects import pandas2ri
 
         # shapr wants a dataframe...
         X_df = pd.DataFrame(data=X, columns=self.model.symbol_names)
 
+        n_explain = len(X_df)
+        # TODO: bad impl
+        '''
         # need to deactivate pandas for this
         pandas2ri.deactivate()
         n_comb = len(self._explainer.rx2('X'))  # i.e. n_slices
@@ -409,48 +423,61 @@ class SHAPRExplainer(BaseExplainer):
         # Error raised if too large of a Cube in init (dist func in shapr)
         # (double(n_rows) * double(n_cols) * double(n_slices)) >
         #   double(ARMA_MAX_UWORD)
-        n_explain = len(X_df)
         cube_size = self._x_fit_size * n_explain * n_comb
         # 10 is a fudge factor
         # batch_size = max(
         #     int(n_explain / (10 * cube_size / ARMA_MAX_UWORD)), 1)
+        '''
         batch_size = 1
 
         contribs = []
         for idx in range(0, n_explain, batch_size):
             X_df_batch = X_df.iloc[idx:idx + batch_size].reset_index(drop=True)
 
-            explanation_batch = self.shapr_lib.explain(
-                X_df_batch,
-                explainer=self._explainer,
-                approach=self.approach,
-                prediction_zero=self.prediction_zero_,
-            )
-            expl_dict_batch = dict(explanation_batch.items())
-
-            # https://stackoverflow.com/questions/5199334/clearing-memory-used-by-rpy2
-            gc.collect()
-
-            expl_df_batch = expl_dict_batch['dt']
-            # ignore prediction_zero col "none"
-            # expl_df.drop(columns='none', inplace=True)
-            # contribs = expl_df.values
-            # either a pandas dataframe or a numpy recarray are returned, this
-            #  code should handle both cases...
-            contribs_batch = np.stack(
-                [expl_df_batch[name] for name in self.model.symbol_names],
-                axis=1
-            )
+            if self.task == 'classification':
+                contribs_batch = []
+                # for each class's explainer
+                for k, explainer in enumerate(self._explainer):
+                    contribs_batch_k = self._explain_batch_one_class(
+                        X_df_batch, explainer, self.prediction_zero_[k])
+                    contribs_batch.append(contribs_batch_k)
+            else:
+                contribs_batch = self._explain_batch_one_class(
+                    X_df_batch, self._explainer, self.prediction_zero_)
             contribs.append(contribs_batch)
 
-        contribs = np.concatenate(contribs, axis=0)
-
-        if self.task == 'regression':
-            predictions = np.sum(contribs, axis=1) + self.prediction_zero_
-        else:
+        if self.task == 'classification':
+            contribs = np.concatenate(contribs, axis=1)
             intercepts = np.expand_dims(self.prediction_zero_, 1)
             predictions = np.sum(contribs, axis=2) + intercepts
+        else:
+            contribs = np.concatenate(contribs, axis=0)
+            predictions = np.sum(contribs, axis=1) + self.prediction_zero_
 
         return {'contribs': contribs,
                 'intercepts': self.prediction_zero_,
                 'predictions': predictions}
+
+    def _explain_batch_one_class(self, X_df_batch, explainer, prediction_zero):
+        explanation_batch = self.shapr_lib.explain(
+            X_df_batch,
+            explainer=explainer,
+            approach=self.approach,
+            prediction_zero=prediction_zero,
+        )
+        expl_dict_batch = dict(explanation_batch.items())
+
+        # https://stackoverflow.com/questions/5199334/clearing-memory-used-by-rpy2
+        gc.collect()
+
+        expl_df_batch = expl_dict_batch['dt']
+        # ignore prediction_zero col "none"
+        # expl_df.drop(columns='none', inplace=True)
+        # contribs = expl_df.values
+        # either a pandas dataframe or a numpy recarray are returned, this
+        #  code should handle both cases...
+        contribs_batch = np.stack(
+            [expl_df_batch[name] for name in self.model.symbol_names],
+            axis=1
+        )
+        return contribs_batch
