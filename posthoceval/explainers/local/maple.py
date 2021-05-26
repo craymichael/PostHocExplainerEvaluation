@@ -288,8 +288,8 @@ class MAPLEExplainer(BaseExplainer):
             contribs_maple = np.moveaxis(contribs_maple, 0, 1)
 
         y_maple = np.stack(y_maple)
-        if self.task == 'regression':
-            y_maple = y_maple.squeeze(axis=1)
+        if self.task == 'classification':
+            y_maple = y_maple.T
 
         return {'contribs': contribs_maple, 'intercepts': intercepts,
                 'predictions': y_maple}
