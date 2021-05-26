@@ -287,7 +287,7 @@ class MAPLEExplainer(BaseExplainer):
         if self.task == 'classification':
             contribs_maple = np.moveaxis(contribs_maple, 0, 1)
 
-        y_maple = np.stack(y_maple)
+        y_maple = np.stack(y_maple).squeeze(axis=-1)
         if self.task == 'classification':
             y_maple = y_maple.T
 
