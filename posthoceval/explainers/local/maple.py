@@ -22,6 +22,8 @@ from sklearn.model_selection import train_test_split
 
 from posthoceval.explainers._base import BaseExplainer
 from posthoceval.models.model import AdditiveModel
+from posthoceval.rand import as_random_state
+from posthoceval.rand import randint
 
 
 class _MAPLE:
@@ -196,6 +198,7 @@ class MAPLEExplainer(BaseExplainer):
                  train_size: float = 2 / 3,
                  seed: Optional[int] = None,
                  task: str = 'regression',
+                 max_samples: int = 10000,
                  **kwargs):
         super().__init__(
             model=model,
@@ -208,7 +211,7 @@ class MAPLEExplainer(BaseExplainer):
         # at 7cecf35621859a9ce915da1947a5fb90ee313f08, MAPLE uses 2/3
         #  train/val split in Code/Misc.py
         self.train_size = train_size
-
+        self.max_samples = max_samples
         self.explainer_kwargs = kwargs
 
     def _fit(
@@ -217,8 +220,18 @@ class MAPLEExplainer(BaseExplainer):
             y: Optional[np.ndarray] = None,
             grouped_feature_names=None,
     ):
+        # TODO....same thing as PDP
+        n_samples = round(self.max_samples * 25 / X.shape[1])
+        sample_idxs = None
+        if len(X) > n_samples:
+            rng = as_random_state(self.seed)
+            sample_idxs = randint(0, len(X), size=n_samples, seed=rng)
+            X = X[sample_idxs]
+
         if y is None:
             y = self.model(X)
+        elif sample_idxs is not None:
+            y = y[sample_idxs]
 
         if self.task == 'regression' and y.ndim == 2:
             y = np.squeeze(y, axis=1)
