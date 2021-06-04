@@ -1,7 +1,4 @@
-"""
-base_dnn.py - A PostHocExplainerEvaluation file
-Copyright (C) 2021  Zach Carmichael
-"""
+
 from typing import Optional
 from typing import Dict
 
@@ -53,7 +50,7 @@ class BaseAdditiveDNN(AdditiveModel, metaclass=ABCMeta):
         self._y_encoder = self._n_outputs = None
 
     def _build_dnn(self):
-        # Lazy-load
+        
         from tensorflow.keras.layers import Add
         from tensorflow.keras.models import Model
 
@@ -74,7 +71,7 @@ class BaseAdditiveDNN(AdditiveModel, metaclass=ABCMeta):
                    rankdir='TB',
                    expand_nested=False,
                    dpi=96):
-        # lazy load
+        
         from tensorflow.keras.utils import plot_model
 
         return plot_model(self._dnn,
@@ -117,14 +114,14 @@ class BaseAdditiveDNN(AdditiveModel, metaclass=ABCMeta):
         y = self._standardize_y(y)
         if self._dnn is None:
             self._build_dnn()
-        # kwargs: epochs, batch_size, shuffle, etc...
+        
         self._dnn.compile(optimizer=optimizer, loss=loss)
         self._dnn.fit(X, y, **kwargs)
 
         return self
 
     def feature_contributions(self, X):
-        # lazy load
+        
         from tensorflow.keras.models import Model
 
         all_feats, all_outputs = zip(*self._pre_sum_map.items())

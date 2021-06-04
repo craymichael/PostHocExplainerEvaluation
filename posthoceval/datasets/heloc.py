@@ -1,7 +1,4 @@
-"""
-heloc.py - A PostHocExplainerEvaluation file
-Copyright (C) 2021  Zach Carmichael
-"""
+
 import pandas as pd
 
 from posthoceval.datasets.dataset import Dataset
@@ -16,10 +13,10 @@ class HELOCDataset(Dataset):
 
     def _load(self):
         data_path = LOCAL_DATA_PATH / 'HELOC' / 'heloc_dataset_v1.csv'
-        # special handling:
-        # -9 No Bureau Record or No Investigation
-        # -8 No Usable/Valid Trades or Inquiries
-        # -7 Condition not Met (e.g. No Inquiries, No Delinquencies)
+        
+        
+        
+        
         data_df = pd.read_csv(
             data_path,
             na_values=['-9', '-8', '-7']

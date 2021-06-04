@@ -1,7 +1,4 @@
-"""
-model.py - A PostHocExplainerEvaluation file
-Copyright (C) 2021  Zach Carmichael
-"""
+
 from abc import ABC
 from abc import abstractmethod
 
@@ -18,9 +15,9 @@ T = TypeVar('T')
 
 
 class AdditiveModel(ABC):
-    # TODO: symbol_names --> feature_names
-    # TODO: symbols --> features
-    # TODO: gen_symbol_names --> gen_feature_names
+    
+    
+    
 
     def __init__(
             self,
@@ -28,8 +25,8 @@ class AdditiveModel(ABC):
             n_features: Optional[int] = None,
             symbols: Optional[List[T]] = None,
     ):
-        # TODO: nd input shapes...
-        # validate inputs
+        
+        
         if symbol_names is None:
             if symbols is None:
                 assert n_features is not None
@@ -46,8 +43,8 @@ class AdditiveModel(ABC):
 
         self.symbol_names: List[str] = symbol_names
         self.n_features: int = n_features
-        # Lazily set, may not always be needed (or may be set by child,
-        #  ignoring the default)
+        
+        
         self._symbols: Optional[List[T]] = symbols
         self._symbol_map: Optional[Dict[str, T]] = None
 
@@ -75,23 +72,23 @@ class AdditiveModel(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def predict(self, X: np.ndarray) -> np.ndarray:  # sklearn compat
+    def predict(self, X: np.ndarray) -> np.ndarray:  
         raise NotImplementedError
 
     @abstractmethod
-    def predict_proba(self, X: np.ndarray) -> np.ndarray:  # sklearn compat
+    def predict_proba(self, X: np.ndarray) -> np.ndarray:  
         raise NotImplementedError
 
     @abstractmethod
     def feature_contributions(
             self,
             X: np.ndarray,
-    ):  # TODO: -> Explanation.......
+    ):  
         raise NotImplementedError
 
 
 def gen_symbol_names(n_features: int, excel_like: bool = False) -> List[str]:
-    """Generate Excel-like names for symbols"""
+    
     assert n_features >= 1, 'Invalid number of features < 1: %d' % n_features
     if excel_like:
         alphabet = string.ascii_uppercase

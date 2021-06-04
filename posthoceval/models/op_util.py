@@ -1,7 +1,4 @@
-"""
-op_util.py - A PostHocExplainerEvaluation file
-Copyright (C) 2021  Zach Carmichael
-"""
+
 from collections.abc import Iterable
 from itertools import chain
 
@@ -78,7 +75,7 @@ def symbolic_conv2d(
         wpad = max((wo - 1) * strides[1] + kernel_size[1] - w, 0) / 2
         hpad, wpad = (floor(hpad), ceil(hpad)), (floor(wpad), ceil(wpad))
 
-    # output effects
+    
     out = np.zeros((ho, wo, filters), dtype=object)
     for hoi, hi in enumerate(range(-hpad[0], h + hpad[1], strides[0])):
         hj = hi + kernel_size[0]

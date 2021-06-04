@@ -1,7 +1,4 @@
-"""
-gam.py - A PostHocExplainerEvaluation file
-Copyright (C) 2021  Zach Carmichael
-"""
+
 from typing import Union
 from typing import List
 
@@ -16,19 +13,19 @@ from sklearn.preprocessing import OneHotEncoder
 
 from pygam import LinearGAM as _LinearGAM
 from pygam import LogisticGAM as _LogisticGAM
-# from pygam import GammaGAM
-# from pygam import ExpectileGAM
-# from pygam import InvGaussGAM
-# from pygam import PoissonGAM
-# from pygam import GAM
+
+
+
+
+
 from pygam import terms as pygam_terms
 
 from posthoceval.expl_utils import standardize_effect
 from posthoceval.utils import at_high_precision
 from posthoceval.models.model import AdditiveModel
 
-# __all__ = ['GAM', 'InvGaussGAM', 'PoissonGAM', 'ExpectileGAM', 'GammaGAM',
-#            'LogisticGAM', 'LinearGAM', 'MultiClassLogisticGAM', 'Terms', 'T']
+
+
 __all__ = ['LinearGAM', 'MultiClassLogisticGAM', 'Terms', 'T']
 
 
@@ -101,7 +98,7 @@ class BaseGAM(AdditiveModel, metaclass=ABCMeta):
     @property
     def _is_fitted(self):
         return (self._estimator is not None and
-                all(estimator._is_fitted  # noqa
+                all(estimator._is_fitted  
                     for estimator in self._estimator))
 
     @abstractmethod
@@ -145,8 +142,8 @@ class BaseGAM(AdditiveModel, metaclass=ABCMeta):
 
         if len(contribs) == 1:
             if self.is_classifier:
-                # TODO: this should work for more than two classes...
-                # invert log odds
+                
+                
                 contribs_1 = contribs[0]
                 contribs_0 = {
                     effect: at_high_precision(inverse_log_odd, pd)
@@ -209,7 +206,7 @@ class MultiClassLogisticGAM(BaseGAM):
         self._n_classes = y.shape[1]
 
         if self._n_classes == 2:
-            # single class in this case
+            
             y = y[:, 1]
             self._n_classes = 1
 
@@ -228,7 +225,7 @@ class MultiClassLogisticGAM(BaseGAM):
         super()._do_fit(estimator, i, X, yi, weights=weights)
 
     def predict_proba(self, X):
-        # y : np.array of shape (n_samples,)
+        
         assert self._is_fitted
 
         if self._n_classes == 1:
@@ -236,7 +233,7 @@ class MultiClassLogisticGAM(BaseGAM):
 
         probas = []
         for i, estimator in enumerate(self._estimator_):
-            # get probability at 1 (not 0)
+            
             p_i = estimator.predict_proba(X)[:, 1]
             probas.append(p_i)
 
@@ -245,10 +242,10 @@ class MultiClassLogisticGAM(BaseGAM):
 
 def inverse_log_odd(values):
     exp_vals = np.exp(values)
-    # logistic
-    log_odds = 1 - (exp_vals / (1 + exp_vals))  # val --> p
-    # logit
-    prob_vals = np.log(log_odds / (1 - log_odds))  # p --> val
+    
+    log_odds = 1 - (exp_vals / (1 + exp_vals))  
+    
+    prob_vals = np.log(log_odds / (1 - log_odds))  
     return prob_vals
 
 

@@ -1,7 +1,4 @@
-"""
-boston.py - A PostHocExplainerEvaluation file
-Copyright (C) 2021  Zach Carmichael
-"""
+
 import pandas as pd
 
 from posthoceval.datasets.dataset import Dataset
@@ -36,12 +33,12 @@ class BostonDataset(Dataset):
         else:
             self._raise_bad_task()
 
-        # noinspection PyUnboundLocalVariable
-        # TODO: https://youtrack.jetbrains.com/issue/PY-24273
+        
+        
         feature_names = data_df.columns.drop(to_drop).to_list()
 
-        # noinspection PyUnboundLocalVariable
-        # TODO: https://youtrack.jetbrains.com/issue/PY-24273
+        
+        
         super()._load(
             data=data_df,
             feature_names=feature_names,

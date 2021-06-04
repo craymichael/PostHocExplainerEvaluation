@@ -34,7 +34,7 @@ def init_ray():
             logger.warning('Could not import ray for multiprocessing.')
             _HAS_RAY = False
         else:
-            # tell ray to shut up and not launch the dashboard...
+            
             ray.init(
                 include_dashboard=False,
                 logging_level=logging.WARNING,
@@ -44,10 +44,7 @@ def init_ray():
 
 
 class KernelSHAPExplainer(BaseExplainer):
-    """
-    https://github.com/slundberg/shap/issues/624
-    https://github.com/slundberg/shap/blob/e1d0314e5eed0825fb99d8ef01e8cab5b3d45d54/notebooks/kernel_explainer/Squashing%20Effect.ipynb
-    """
+
 
     def __init__(self,
                  model: AdditiveModel,
@@ -59,7 +56,7 @@ class KernelSHAPExplainer(BaseExplainer):
                  group_categorical: bool = False,
                  verbose: Union[int, bool] = 1,
                  **explainer_kwargs):
-        """"""
+         
         super().__init__(
             model=model,
             tabular=True,
@@ -83,7 +80,7 @@ class KernelSHAPExplainer(BaseExplainer):
         self._n_cpus = n_cpus
         self._explainer_kwargs = explainer_kwargs
         self._group_categorical = group_categorical
-        # attributes set after fit
+         
         self.expected_value_ = None
         self._groups = None
         self._category_map = None
@@ -96,7 +93,7 @@ class KernelSHAPExplainer(BaseExplainer):
                 List[Union[str, Tuple[str, List[Any]]]]] = None,
             **fit_kwargs,
     ):
-        """"""
+         
         explainer_kwargs = self._explainer_kwargs.copy()
         if grouped_feature_names is not None:
             init_kwargs, extra_fit_kwargs = self._handle_categorical(
@@ -108,19 +105,19 @@ class KernelSHAPExplainer(BaseExplainer):
         if use_ray:
             use_ray = init_ray()
 
-        # TODO: we have dataset objects with feature names, and models with
-        #  symbol names for each feature. This gap needs to be bridged...
+         
+         
         self._explainer = KernelShap(
             self.model,
             feature_names=self.model.symbol_names,
             task=self.task,
             link=self.link,
             distributed_opts={
-                # https://www.seldon.io/how-seldons-alibi-and-ray-make-model-explainability-easy-and-scalable/
+                 
                 'n_cpus': self._n_cpus,
-                # If batch_size set to `None`, an input array is split in
-                # (roughly) equal parts and distributed across the available
-                # CPUs
+                 
+                 
+                 
                 'batch_size': None,
             } if use_ray else None,
             seed=self.seed,
@@ -142,12 +139,12 @@ class KernelSHAPExplainer(BaseExplainer):
 
         self.expected_value_ = self._explainer.expected_value
 
-    # noinspection PyMethodMayBeStatic
+     
     def _handle_categorical(
             self,
             grouped_feature_names: List[Union[str, Tuple[str, List[Any]]]],
     ) -> Tuple[Dict, Dict]:
-        """"""
+         
         groups: List[List[int]] = []
         group_names: List[str] = []
         category_map: Dict[int, List[Any]] = {}
@@ -155,27 +152,27 @@ class KernelSHAPExplainer(BaseExplainer):
         cat_vars_start_idx: List[int] = []
         cat_vars_enc_dim: List[int] = []
 
-        column_idx = 0  # transformed column index
+        column_idx = 0   
         for orig_column_idx, item in enumerate(grouped_feature_names):
-            # orig_column_idx: original index in untransformed data
+             
             if isinstance(item, str):
                 if self._group_categorical:
                     groups.append([column_idx])
                     group_names.append(item)
                 else:
-                    # do nothing
+                     
                     pass
                 column_idx += 1
             else:
                 feature_name, categories = item
 
                 if self._group_categorical:
-                    # groups
+                     
                     column_idx_end = column_idx + len(categories)
                     groups.append([*range(column_idx, column_idx_end)])
                     group_names.append(feature_name)
                     column_idx = column_idx_end
-                    # category map
+                     
                     category_map[orig_column_idx] = categories
                 else:
                     cat_vars_start_idx.append(column_idx)
@@ -207,16 +204,16 @@ class KernelSHAPExplainer(BaseExplainer):
         if self.verbose > 0:
             logger.info('Fetching KernelSHAP explanations')
 
-        # Explain with n_cpus > 1 and silent=False gives awful output
-        # unfortunately (multiple processes using tqdm in parallel)
-        # l1_reg=False --> explain all features, not a subset
+         
+         
+         
         explanation = self._explainer.explain(X, silent=self._n_cpus != 1,
                                               l1_reg=False)
 
-        # Note: explanation.raw['importances'] has aggregated scores per output
-        # with corresponding keys, e.g., '0' & '1' for two outputs. Also has
-        # 'aggregated' for the aggregated scores over all outputs. Same applies
-        # to e.g. `explanation.shap_values[0]`
+         
+         
+         
+         
         if self.task == 'regression':
             assert len(explanation.shap_values) == 1
             contribs_shap = explanation.shap_values[0]
@@ -226,7 +223,7 @@ class KernelSHAPExplainer(BaseExplainer):
             intercepts = np.expand_dims(self.expected_value_, 1)
             predictions = np.sum(contribs_shap, axis=2) + intercepts
 
-        # if group_categorical and grouped names exist then we return a dict
+         
         if self._group_categorical and self._category_map:
             if self.task == 'regression':
                 contribs_shap = self._handle_grouped_categorical_as_dict(
@@ -238,7 +235,7 @@ class KernelSHAPExplainer(BaseExplainer):
                 ]
 
         if self.link == 'logit':
-            # noinspection PyProtectedMember
+             
             link_inv = self._explainer._explainer.link.finv
             predictions = at_high_precision(link_inv, predictions)
 
@@ -252,7 +249,7 @@ class KernelSHAPExplainer(BaseExplainer):
         n_explained = len(X)
         for idx, group in enumerate(self._groups):
             if len(group) > 1:
-                # TODO: this assumes one-hot encoding
+                 
                 contrib = contribs[:, idx]
                 for orig_idx in group:
                     symbol = symbols[orig_idx]
@@ -268,5 +265,5 @@ class KernelSHAPExplainer(BaseExplainer):
         return contribs_dict
 
 
-# Alias
+ 
 SHAPExplainer = KernelSHAPExplainer

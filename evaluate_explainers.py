@@ -1,17 +1,13 @@
-#!/usr/bin/env python
-"""
-evaluate_explainers.py - A PostHocExplainerEvaluation file
-Copyright (C) 2020  Zach Carmichael
-"""
+
 import os
 import sys
 
-# ssshhhhhhhhhhhh
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = "2"
-# # lazy load tensorflow
-# from posthoceval.lazy_loader import LazyLoader
-#
-# _ = LazyLoader('tensorflow')
+
+
+
+
 
 from glob import glob
 
@@ -46,8 +42,8 @@ from posthoceval.results import ExprResult
 
 EXPLAINER_MAP = {
     'SHAP': KernelSHAPExplainer,
-    # TODO: SHAPR for each of the conditioned distributions other than
-    #  empirical
+    
+    
     'SHAPR': SHAPRExplainer,
     'LIME': LIMEExplainer,
     'MAPLE': MAPLEExplainer,
@@ -70,7 +66,7 @@ EXPLAINER_MAP = {
 
 def explain(explainer_cls, out_filename, expr_result, data_file, max_explain,
             seed):
-    # type hint
+    
     expr_result: ExprResult
 
     if os.path.exists(out_filename):
@@ -111,14 +107,14 @@ def explain(explainer_cls, out_filename, expr_result, data_file, max_explain,
             tqdm.write(str(line), file=sys.stderr, end='')
 
         return
-    # save things in parallel
+    
     tqdm.write('Saving explanation')
     save_explanation(out_filename, explanation)
 
 
 def run(expr_filename, out_dir, data_dir, max_explain, seed, n_jobs,
         start_at=1, step_size=1, explainer='SHAP', debug=False):
-    """"""
+    
     try:
         explainer_cls = EXPLAINER_MAP[explainer]
     except KeyError:
@@ -138,7 +134,7 @@ def run(expr_filename, out_dir, data_dir, max_explain, seed, n_jobs,
     data_files = glob(os.path.join(data_dir, '*.npz'))
     assert_same_size(expr_data, data_files, f'data files (in {data_dir})')
 
-    # grab each file ID as integer index
+    
     file_ids = [*map(lambda fn: int(os.path.basename(fn).rsplit('.')[0]),
                      data_files)]
     assert len(file_ids) == len({*file_ids}), 'duplicate data file IDs!'
@@ -147,12 +143,12 @@ def run(expr_filename, out_dir, data_dir, max_explain, seed, n_jobs,
     assert max(file_ids) == (n_results - 1), (
         f'file ID index does not end with {n_results - 1} (number of results)')
 
-    # now that data looks good, just sort the file names so we can zip together
-    # with the loaded expression data
+    
+    
     data_files = [fn for _, fn in sorted(zip(file_ids, data_files),
                                          key=lambda id_fn: id_fn[0])]
 
-    # same as indexing as [start_at - 1::step_size]
+    
     indices = slice(start_at - 1, None, step_size)
 
     file_ids = range(n_results)[indices]
@@ -171,11 +167,11 @@ def run(expr_filename, out_dir, data_dir, max_explain, seed, n_jobs,
                     max_explain, seed
                 )
 
-                if debug:  # one iteration
+                if debug:  
                     break
 
         if n_jobs == 1 or debug:
-            # TODO: this doesn't update tqdm
+            
             [f(*a, **kw) for f, a, kw in jobs()]
         else:
             Parallel(n_jobs=n_jobs)(jobs())
@@ -198,7 +194,7 @@ if __name__ == '__main__':
 
 
     def main():
-        parser = argparse.ArgumentParser(  # noqa
+        parser = argparse.ArgumentParser(  
             description='Generate explainer explanations of models and save '
                         'results to file',
             formatter_class=argparse.ArgumentDefaultsHelpFormatter

@@ -36,7 +36,7 @@ def mem_profile(func=None, *args, **kwargs):
             return mem_profile(func_, *args, **kwargs)
 
         return wrapper
-    # otherwise
+    
     mem_profile_func = _mem_profile(func, *args, **kwargs)
 
     @wraps(func)

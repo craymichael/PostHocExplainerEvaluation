@@ -1,7 +1,4 @@
-"""
-dataset_utils.py - A PostHocExplainerEvaluation file
-Copyright (C) 2021  Zach Carmichael
-"""
+
 from math import floor
 from pathlib import Path
 
@@ -26,12 +23,12 @@ def show_crop_stats(X, verbose=True):
             for k in range(max_cols + 1):
                 for m in range(max_cols + 1):
                     nonzero_border_tot = (
-                            nonzero[:, :i].sum() +  # top rows (inclusive)
-                            # bottom rows (incl.)
+                            nonzero[:, :i].sum() +  
+                            
                             nonzero[:, X.shape[1] - j:].sum() +
-                            # left cols (excl.)
+                            
                             nonzero[:, i:X.shape[1] - j, :k].sum() +
-                            # right cols (excl.)
+                            
                             nonzero[:, i:X.shape[1] - j, X.shape[2] - m:].sum()
                     )
 
@@ -82,20 +79,20 @@ def show_crop_stats(X, verbose=True):
     if not verbose:
         return df
 
-    # do some empirical analysis
+    
     df_anal = df.copy()
-    # we care about this metric the most
+    
     df_anal['metric'] = (df_anal['pct_removed_img'] /
                          df_anal['pct_of_nonzero_removed'])
     df_anal = df.sort_values(by='pct_of_nonzero_removed', ascending=True)
     df_anal = df_anal.loc[
         (df_anal['pct_removed_img'] >= df_anal['pct_removed_img'].cummax())
-        # & (df_anal['pct_of_nonzero_removed'] <= 50)
+        
     ]
     df_anal = df_anal.loc[
         df_anal.groupby(['pct_removed_img'])['pct_of_nonzero_removed'].idxmin()
     ]
-    df_anal = df_anal.sort_values(by='metric', ascending=False)  # .iloc[:50]
+    df_anal = df_anal.sort_values(by='metric', ascending=False)  
 
     print('Here are some good border crop values:')
     print(df_anal)

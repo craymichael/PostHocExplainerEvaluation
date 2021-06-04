@@ -1,7 +1,4 @@
-"""
-saliency_base.py - A PostHocExplainerEvaluation file
-Copyright (C) 2021  Zach Carmichael
-"""
+
 from typing import Union
 from typing import Optional
 from typing import List
@@ -38,7 +35,7 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
         )
         self.smooth = smooth
         self.multiply_by_input = multiply_by_input
-        # needs to be set by child
+        
         self._expected_keys: Optional[List[str]] = None
         self._atleast_2d = False
         self._atleast_3d = False
@@ -68,20 +65,20 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
                 'Convolutional-based salience map methods')
 
         if (hasattr(self.model, '_dnn') and
-                isinstance(self.model._dnn, Model)):  # noqa
-            # TODO: AdditiveModel -> TFAdditiveModel....
-            tf_model = self.model._dnn  # noqa
+                isinstance(self.model._dnn, Model)):  
+            
+            tf_model = self.model._dnn  
             target_layer = None
             n_classes = self._infer_n_classes(tf_model.output_shape)
 
         elif (hasattr(self.model, 'expr') and
               isinstance(self.model.expr, sp.Expr)):
-            # lazy load
+            
             from tensorflow.keras.models import Model
             from tensorflow.keras.layers import Input
             from tensorflow.keras.layers import Lambda
 
-            # TODO: AdditiveModel -> SymbolicAdditiveModel
+            
             expr = self.model.expr
             symbols = self.model.symbols
 
@@ -107,7 +104,7 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
             tf_model = Model(in_layer, output)
 
         else:
-            # Otherwise
+            
             raise TypeError(f'Incompatible model type {type(self.model)} for '
                             f'{self.__class__.__name__} explainer: '
                             f'{self.model}')
@@ -170,28 +167,7 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
                             data,
                             call_model_args=None,
                             expected_keys=None):
-        """
-
-        # Output of the last convolution layer for the given input, including
-        #  the batch dimension.
-        CONVOLUTION_LAYER_VALUES = 'CONVOLUTION_LAYER_VALUES'
-        # Gradients of the output being explained (the logit/softmax value)
-        #  with respect to the last convolution layer, including the batch
-        #  dimension.
-        CONVOLUTION_OUTPUT_GRADIENTS = 'CONVOLUTION_OUTPUT_GRADIENTS'
-        # Gradients of the output being explained (the logit/softmax value)
-        #  with respect to the input. Shape should be the same shape as
-        #  x_value_batch.
-        INPUT_OUTPUT_GRADIENTS = 'INPUT_OUTPUT_GRADIENTS'
-        # Value of the output being explained (the logit/softmax value).
-        OUTPUT_LAYER_VALUES = 'OUTPUT_LAYER_VALUES'
-
-        :param data:
-        :param call_model_args:
-        :param expected_keys:
-        :return:
-        """
-        # lazy load
+        
         import tensorflow as tf
 
         assert self._tf_model is not None
@@ -202,7 +178,7 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
 
         target_class_idx = call_model_args['target_class_idx']
         orig_shape = call_model_args['orig_shape']
-        grad_shape = data.shape  # grads need to be same shape as input
+        grad_shape = data.shape  
         data = data.reshape(-1, *orig_shape)
         data = tf.convert_to_tensor(data)
 
@@ -225,13 +201,13 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
                 else:
                     assert len(expected_keys) == 1
                 return ret
-                # TODO: infer conv layer from model. raise TypeError for sympy
-                #  models?
-                # TODO: use _target_layer here?
-                # conv_layer, output_layer = self._tf_model(data)
-                # gradients = tape.gradient(output_layer, conv_layer).numpy()
-                # return {saliency.CONVOLUTION_LAYER_VALUES: conv_layer,
-                #         saliency.CONVOLUTION_OUTPUT_GRADIENTS: gradients}
+                
+                
+                
+                
+                
+                
+                
         elif saliency.OUTPUT_LAYER_VALUES in expected_keys:
             assert len(expected_keys) == 1
 

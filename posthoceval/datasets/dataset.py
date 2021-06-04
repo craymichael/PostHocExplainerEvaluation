@@ -1,7 +1,4 @@
-"""
-dataset.py - A PostHocExplainerEvaluation file
-Copyright (C) 2021  Zach Carmichael
-"""
+
 from typing import Optional
 from typing import List
 from typing import Any
@@ -34,32 +31,32 @@ logger = logging.getLogger(__name__)
 
 def _needs_load(f):
     def inner(self: 'Dataset', *args, **kwargs):
-        # Call _load() if not called before
+        
         if not self.__load_called__:
             logger.info(f'Loading bas begun for {self.__class__.__name__}')
             self.__load_called__ = True
             self._load()
             logger.info(f'Loading has finished for {self.__class__.__name__}')
-        # Call wrapped function
+        
         return f(self, *args, **kwargs)
 
     return inner
 
 
 class Dataset(ABC):
-    """"""
+    
 
     __expect_keys = ['label_col', 'grouped_feature_names', 'feature_names',
                      'feature_types', 'X', 'y', 'data']
 
     def __init__(self, task: str):
-        # TODO: standardize tasks between data and models
+        
         task = task.lower()
         if task not in ['classification', 'regression']:
             raise ValueError(f'Unknown task: {task}')
 
         self.task: str = task
-        # These will be set lazily
+        
         self._X: Optional[np.ndarray] = None
         self._y: Optional[np.ndarray] = None
         self._data: Optional[pd.DataFrame] = None
@@ -68,7 +65,7 @@ class Dataset(ABC):
         self._feature_names: Optional[List[str]] = None
         self._feature_types: Optional[List[str]] = None
         self._label_col: Optional[str] = None
-        # These will be set lazily and a function of those provided in _load
+        
         self._X_df: Optional[pd.DataFrame] = None
 
         self.__load_called__ = False
@@ -78,7 +75,7 @@ class Dataset(ABC):
                          f'{self.__class__.__name__}')
 
     def __len__(self) -> int:
-        # return length without triggering lazy-loading, if possible
+        
         if self._y is not None:
             return len(self.y)
         elif self._X is not None:
@@ -89,7 +86,7 @@ class Dataset(ABC):
     @classmethod
     def from_data(cls, task: str, *args, **kwargs) -> 'Dataset':
         dataset = cls(task=task)
-        # >:)
+        
         dataset.__load_called__ = True
         Dataset._load(dataset, *args, **kwargs)
         return dataset
@@ -132,21 +129,21 @@ class Dataset(ABC):
         ]
 
     @property
-    def X_df(self) -> pd.DataFrame:  # noqa
+    def X_df(self) -> pd.DataFrame:  
         if self._X_df is None:
             self._X_df = self.data[self.feature_names]
         return self._X_df
 
     @property
     @_needs_load
-    def X(self) -> np.ndarray:  # noqa
-        if self._X is None:  # infer
+    def X(self) -> np.ndarray:  
+        if self._X is None:  
             self.X = self.data[self.feature_names].values
 
         return self._X
 
     @X.setter
-    def X(self, val: Union[pd.DataFrame, np.ndarray]):  # noqa
+    def X(self, val: Union[pd.DataFrame, np.ndarray]):  
         if is_pandas(val):
             val = val.values
         else:
@@ -163,7 +160,7 @@ class Dataset(ABC):
     @property
     @_needs_load
     def y(self) -> np.ndarray:
-        if self._y is None:  # infer
+        if self._y is None:  
             self.y = self.data[self.label_col].values
         return self._y
 
@@ -183,7 +180,7 @@ class Dataset(ABC):
                 logger.debug(f'{self.__class__.__name__} y is of type '
                              f'{val.dtype} and not integer for {self.task}')
 
-        # ensure it is a vector
+        
         val = val.squeeze(axis=tuple(range(1, val.ndim)))
         assert val.ndim == 1, 'y ndim is not 1'
 
@@ -193,7 +190,7 @@ class Dataset(ABC):
     @property
     @_needs_load
     def data(self) -> pd.DataFrame:
-        if self._data is None:  # infer
+        if self._data is None:  
             data = pd.DataFrame(
                 columns=self.feature_names,
                 data=self.X.reshape(-1, self.n_features),
@@ -217,7 +214,7 @@ class Dataset(ABC):
     @property
     @_needs_load
     def feature_names(self) -> List[str]:
-        if self._feature_names is None:  # infer
+        if self._feature_names is None:  
             if self._data is None:
                 self.feature_names = [*map(str, range(self.n_features))]
             else:
@@ -237,7 +234,7 @@ class Dataset(ABC):
     @_needs_load
     def grouped_feature_names(
             self) -> List[Union[str, Tuple[str, List[Any]]]]:
-        if self._grouped_feature_names is None:  # infer
+        if self._grouped_feature_names is None:  
             self.grouped_feature_names = self.feature_names.copy()
         return self._grouped_feature_names
 
@@ -254,8 +251,8 @@ class Dataset(ABC):
     @property
     @_needs_load
     def feature_types(self) -> List[str]:
-        if self._feature_types is None:  # infer
-            # TODO: dtypes do
+        if self._feature_types is None:  
+            
             self.feature_types = ['numerical'] * self.n_features
         return self._feature_types
 
@@ -270,7 +267,7 @@ class Dataset(ABC):
     @property
     @_needs_load
     def label_col(self) -> str:
-        if self._label_col is None:  # infer
+        if self._label_col is None:  
             assert self._data is None, 'data is not None'
             self.label_col = 'target'
         return self._label_col
@@ -325,7 +322,7 @@ class Dataset(ABC):
         assert not (loaded_keys - set(self.__expect_keys)), (
             f'unknown keys in load_dict: {loaded_keys}')
 
-        # set in the correct order
+        
         for key in self.__expect_keys:
             loaded_val = load_dict.get(key)
             if loaded_val is None:
@@ -334,11 +331,7 @@ class Dataset(ABC):
 
 
 class CustomDataset(Dataset):
-    """
-    Usage:
-    >>> ds1 = CustomDataset(task='classification', X=X, y=y)
-    >>> ds2 = CustomDataset(task='regression', data=df, label_col='target')
-    """
+
 
     def __init__(self, task, *args, **kwargs):
         super().__init__(task)

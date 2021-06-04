@@ -1,7 +1,4 @@
-"""
-tiny_mnist.py - A PostHocExplainerEvaluation file
-Copyright (C) 2021  Zach Carmichael
-"""
+
 import os
 
 from joblib import Memory
@@ -17,9 +14,9 @@ from posthoceval.utils import UNPROVIDED
 
 __all__ = ['load_tiny_mnist', 'TinyMNISTDataset']
 
-# Data not actually cached (as of sklearn 0.23.2 at least)
-# https://github.com/scikit-learn/scikit-learn/issues/18783
-# https://github.com/scikit-learn/scikit-learn/pull/14855
+
+
+
 OPENML_CACHE_DIR = os.path.join(get_data_home(), 'openml-cache')
 fetch_openml_memory = Memory(OPENML_CACHE_DIR, verbose=False)
 fetch_openml = fetch_openml_memory.cache(uncached_fetch_openml)
@@ -48,11 +45,11 @@ def load_tiny_mnist(
         crop_right_cols=3,
         downscale=0.5,
 ):
-    """"""
+    
     if class_subset is UNPROVIDED:
         class_subset = [0, 1, 5, 8]
 
-    # load MNIST
+    
     X, y = fetch_openml('mnist_784', version=1, return_X_y=True,
                         as_frame=False)
     X = X.astype(float)
@@ -65,19 +62,19 @@ def load_tiny_mnist(
         X = X[mask]
         y = y[mask]
 
-    # reshape to image dims
+    
     X = X.reshape(-1, 28, 28, 1)
 
-    # crop border
+    
     n_rows, n_cols, _ = X.shape[1:]
     X = X[
-        :,  # samples
-        crop_top_rows:n_rows - crop_bottom_rows,  # rows
-        crop_left_cols:n_cols - crop_right_cols,  # cols
+        :,  
+        crop_top_rows:n_rows - crop_bottom_rows,  
+        crop_left_cols:n_cols - crop_right_cols,  
         ]
 
     if downscale is not None and downscale != 1:
-        # resize images (downscale)
+        
         output_shape = (round(X.shape[1] * downscale),
                         round(X.shape[2] * downscale))
         X = np.asarray(

@@ -1,7 +1,4 @@
-"""
-lazy_loader.py - A PostHocExplainerEvaluation file
-Copyright (C) 2020  Zach Carmichael
-"""
+
 import sys
 import logging
 import importlib

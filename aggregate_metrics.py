@@ -1,8 +1,5 @@
-#!/usr/bin/env python
-"""
-aggregate_metrics.py - A PostHocExplainerEvaluation file
-Copyright (C) 2021  Zach Carmichael
-"""
+
+
 import os
 import sys
 import json
@@ -33,22 +30,22 @@ from posthoceval.results import ExprResult
 def compute_true_means(true_expl):
     true_means = {}
     for k, v in true_expl.items():
-        # no nans or infs
+        
         true_means[k] = at_high_precision(np.mean, np.ma.masked_invalid(v))
     return true_means
 
 
 def compute_metrics(true_expl, pred_expl, n_explained, true_means):
-    # per-effect metrics
+    
     per_match_metrics = []
 
-    # TODO: no comment out these, maybe take in as parameter?
-    #  commented out for now as saves compute...
+    
+    
     for name, effect_wise_metric in (
-            # ('strict_matching', metrics.strict_eval),
+            
             ('generous_matching', metrics.generous_eval),
-            # ('maybe_exact_matching',
-            #  partial(metrics.generous_eval, maybe_exact=True)),
+            
+            
     ):
         matching, goodness = effect_wise_metric(true_expl, pred_expl)
         matching_results = []
@@ -59,9 +56,9 @@ def compute_metrics(true_expl, pred_expl, n_explained, true_means):
 
         for match_goodness, (match_true, match_pred) in zip(
                 goodness, matching):
-            # for each pair in the match
-            # the "worse" the match, the more effects will be in match
-            # list needed so sum of single effect won't reduce to scalar
+            
+            
+            
             if match_true:
                 contribs_true = sum(
                     [true_expl[effect] for effect in match_true])
@@ -73,15 +70,15 @@ def compute_metrics(true_expl, pred_expl, n_explained, true_means):
                 contribs_pred = sum(
                     [pred_expl[effect] for effect in match_pred])
                 if true_means is not None:
-                    # add the mean back for these effects (this will be the
-                    #  same sample mean that the explainer saw before)
+                    
+                    
                     contribs_pred += sum(
                         [true_means[effect] for effect in match_true])
             else:
                 contribs_pred = np.zeros(n_explained)
             contribs_pred_all.append(contribs_pred)
 
-            # now we evaluate the fidelity with various error metrics!
+            
             err_dict = {}
             for err_name, err_metric in (
                     ('rmse', metrics.rmse),
@@ -121,11 +118,11 @@ def compute_metrics(true_expl, pred_expl, n_explained, true_means):
             agg_results['goodness_mean'] = (
                     agg_results.get('goodness_mean', 0.) + match_goodness)
 
-        # compute means over all metrics
+        
         for err_name_agg, err in agg_results.items():
             agg_results[err_name_agg] = err / len(matching)
 
-        # vector-wise metrics
+        
         contribs_true_all = np.stack(contribs_true_all, axis=1)
         contribs_pred_all = np.stack(contribs_pred_all, axis=1)
 
@@ -142,7 +139,7 @@ def compute_metrics(true_expl, pred_expl, n_explained, true_means):
             'agg_results': agg_results,
         })
 
-    # aggregate metrics
+    
     effect_detection_metrics = {
         agg_name: agg_metric(true_expl, pred_expl)
         for agg_name, agg_metric in (
@@ -167,7 +164,7 @@ def compute_true_contributions(expr_result, data_file, explainer_dir, expl_id):
         symbols=expr_result.symbols,
     )
 
-    # check if contributions have been saved before
+    
     cached_dir = os.path.join(explainer_dir, TRUE_CONTRIBS_NAME)
     os.makedirs(cached_dir, exist_ok=True)
 
@@ -185,12 +182,12 @@ def compute_true_contributions(expr_result, data_file, explainer_dir, expl_id):
         contribs = model.feature_contributions(data)
         tqdm.write('Done explaining.')
 
-        # cache contribs
+        
         tqdm.write('Saving to disk.')
         save_explanation(cached_path, contribs)
 
-        # might not be necessary, but `load_explanation` does this (so do it
-        # for consistency)
+        
+        
         contribs = standardize_contributions(contribs)
 
     effects = model.make_effects_dict()
@@ -200,8 +197,8 @@ def compute_true_contributions(expr_result, data_file, explainer_dir, expl_id):
 
 def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False,
         n_jobs=1):
-    """"""
-    np.seterr('raise')  # never trust silent fp in metrics
+    
+    np.seterr('raise')  
 
     expr_basename = os.path.basename(expr_filename).rsplit('.', 1)[0]
     os.makedirs(out_dir, exist_ok=True)
@@ -234,10 +231,10 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False,
 
             true_expl_orig = true_expl
             if true_expl is None:
-                # compute true contributions
+                
                 data_file = os.path.join(data_dir, f'{expl_id}.npz')
 
-                # cache result for later use (by other explainers)
+                
                 try:
                     true_model, true_expl, true_effects = (
                         compute_true_contributions(expr_result, data_file,
@@ -247,7 +244,7 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False,
                 except Exception as e:
                     e_module = str(getattr(e, '__module__', ''))
                     if e_module.split('.', 1)[0] != 'sympy':
-                        # raise non-sympy exceptions...
+                        
                         raise
 
                     tqdm.write(f'Failed to compute feature contribs for '
@@ -264,7 +261,7 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False,
             pred_expl_file = os.path.join(explainer_path, f'{expl_id}.npz')
             pred_expl = load_explanation(pred_expl_file, true_model)
 
-            # check if explanation should be uncentered
+            
             true_means = None
             if is_mean_centered(explainer):
                 true_means = compute_true_means(true_expl)
@@ -293,7 +290,7 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False,
 
             return results, expl_id, true_expl_orig, true_effects, true_model
 
-        if debug:  # debug --> limit to processing of 1 explanation
+        if debug:  
             explained = explained[:1]
 
         jobs = (
@@ -308,22 +305,22 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False,
 
         with tqdm_parallel(tqdm(desc=explainer, total=len(explained))):
             if n_jobs == 1 or debug:
-                # TODO: this doesn't update tqdm
+                
                 packed_results = [f(*a, **kw) for f, a, kw in jobs]
             else:
                 packed_results = Parallel(n_jobs=n_jobs)(jobs)
 
-        # now compute metrics for each model
+        
         explainer_results = []
         for packed_result in packed_results:
             if packed_result is None:
                 continue
 
-            # otherwise unpack
+            
             (results, expl_id, true_expl,
              true_effects, true_model) = packed_result
 
-            # update cache for other explainers
+            
             true_explanations[expl_id] = true_expl
             true_effects_all[expl_id] = true_effects
 
@@ -336,7 +333,7 @@ def run(expr_filename, explainer_dir, data_dir, out_dir, debug=False,
             'results': explainer_results,
         })
 
-    # Save to out_dir
+    
     out_filename = os.path.join(out_dir, expr_basename + '.json')
     print('Writing results to', out_filename)
 
@@ -353,7 +350,7 @@ if __name__ == '__main__':
 
 
     def main():
-        parser = argparse.ArgumentParser(  # noqa
+        parser = argparse.ArgumentParser(  
             description='Compute metrics on previously produced explanations',
             formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
@@ -377,7 +374,7 @@ if __name__ == '__main__':
             '--n-jobs', '-j', default=-1, type=int,
             help='Number of jobs to use in generation'
         )
-        parser.add_argument(  # hidden debug argument
+        parser.add_argument(  
             '--debug', action='store_true',
             help=argparse.SUPPRESS
         )

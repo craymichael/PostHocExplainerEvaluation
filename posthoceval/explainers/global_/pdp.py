@@ -1,7 +1,4 @@
-"""
-pdp.py - A PostHocExplainerEvaluation file
-Copyright (C) 2021  Zach Carmichael
-"""
+
 from typing import Union
 from typing import List
 from typing import Optional
@@ -16,7 +13,7 @@ import numpy as np
 from tqdm.auto import tqdm
 
 from pdpbox.pdp import pdp_isolate
-# from pdpbox.pdp import pdp_interact  # TODO- future work...
+
 
 from posthoceval.rand import as_random_state
 from posthoceval.rand import randint
@@ -27,26 +24,11 @@ from posthoceval.models.model import AdditiveModel
 
 
 class _PDPBoxModelCompatRegression(object):
-    """
-    From pdpbox/utils.py:
-
-    def _check_model(model):
-    '''Check model input, return class information and predict function'''
-    try:
-        n_classes = len(model.classes_)
-        predict = model.predict_proba
-    except:
-        n_classes = 0
-        predict = model.predict
-
-    return n_classes, predict
-    """
-
-    # noinspection PyUnusedLocal
+    
     def __init__(self, model: AdditiveModel, X=None):
-        self.model = model  # wrapped model
+        self.model = model  
 
-    # noinspection PyPep8Naming
+    
     @staticmethod
     def _handle_X(X):
         if isinstance(X, pd.DataFrame):
@@ -60,7 +42,7 @@ class _PDPBoxModelCompatRegression(object):
 class _PDPBoxModelCompatClassification(_PDPBoxModelCompatRegression):
     def __init__(self, model: AdditiveModel, X: np.ndarray):
         super().__init__(model=model)
-        # sniff the number of classes
+        
         y_subset = self.predict_proba(X[:1])
         if y_subset.ndim != 2:
             raise ValueError(
@@ -75,8 +57,8 @@ class _PDPBoxModelCompatClassification(_PDPBoxModelCompatRegression):
 
 
 class PDPExplainer(BaseExplainer):
-    """https://github.com/SauceCat/PDPbox/blob/master/pdpbox/pdp.py"""
-    # TODO: interactions using pdp_interact???? how do
+    
+    
 
     _explainer: Union[MultivariateInterpolation,
                       List[MultivariateInterpolation]]
@@ -87,7 +69,7 @@ class PDPExplainer(BaseExplainer):
                  task: str = 'regression',
                  n_grid_points: int = 100,
                  interpolation='linear',
-                 n_jobs: int = 1,  # TODO memory_limit=.9...
+                 n_jobs: int = 1,  
                  max_samples: int = 10000,
                  verbose=True):
         super().__init__(
@@ -108,12 +90,12 @@ class PDPExplainer(BaseExplainer):
             y: Optional[np.ndarray] = None,
             grouped_feature_names=None,
     ) -> None:
-        # needs to be list, not tuple
+        
         feature_names = [*self.model.symbol_names]
         if grouped_feature_names is None:
             grouped_feature_names = feature_names
 
-        # TODO: rename max_samples........
+        
         n_samples = round(self.max_samples * 25 / X.shape[1])
         if len(X) > n_samples:
             rng = as_random_state(self.seed)
@@ -135,10 +117,10 @@ class PDPExplainer(BaseExplainer):
                             disable=not self.verbose):
             is_grouped = not isinstance(feature, str)
             if is_grouped:
-                # one-hot encoded feature
-                # TODO: this is very bad-looking (" = ")
+                
+                
                 feature = [f'{feature[0]} = {val}' for val in feature[1]]
-            # classification vs. regression automatically handled by pdpbox
+            
             pdp_feat = pdp_isolate(
                 model=wrapped_model,
                 dataset=dataset,
@@ -159,7 +141,7 @@ class PDPExplainer(BaseExplainer):
                     all_y.append(pdp_feat.pdp)
             else:
                 if len(wrapped_model.classes_) == 2:
-                    # TODO: this is not correct....
+                    
                     if is_grouped:
                         for i in range(len(feature)):
                             all_x.append(

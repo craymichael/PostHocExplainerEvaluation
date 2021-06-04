@@ -14,8 +14,8 @@ from posthoceval.evaluate import symbolic_evaluate_func
 
 
 def _get_uniform_args(distribution):
-    # so easy to get distribution arguments...ex
-    #  U.pspace.distribution.left
+    
+    
     if hasattr(distribution, 'pspace'):
         pspace = distribution.pspace
         if hasattr(pspace, 'distribution'):
@@ -35,13 +35,13 @@ def _get_uniform_args(distribution):
 def sample(variables, distribution, n_samples, constraints=None, cov=None,
            seed=None):
     if seed is not None:
-        # TODO: setting seed may not be possible...until 1.7.1
-        #  https://github.com/sympy/sympy/pull/20528/
-        # This may be sufficient for now...
+        
+        
+        
         random.seed(seed)
         np.random.seed(seed)
 
-    # TODO satisfy desired covariance matrix...
+    
     assert cov is None, 'not supported yet...'
 
     if isinstance(distribution, Sequence):
@@ -57,7 +57,7 @@ def sample(variables, distribution, n_samples, constraints=None, cov=None,
         assert len(constraints) == len(variables)
         constraints = dict(map(variables, constraints))
     else:
-        # each variable gets same constraint
+        
         constraints = dict(map(variables, repeat(constraints)))
 
     columns = []
@@ -65,35 +65,35 @@ def sample(variables, distribution, n_samples, constraints=None, cov=None,
         constraint = constraints.get(v)
         no_constraint = constraint is None
 
-        # if uniform...
+        
         uniform_args = _get_uniform_args(d)
 
         if ((no_constraint or len(constraint.free_symbols) == 1)
                 and uniform_args is not None):
-            # get instance of UniformDistribution
+            
             low, high = uniform_args
 
-            # Use numpy which is insanely faster right now (than sympy
-            # sampling)
+            
+            
             def sample_func(n_samples_):
                 return np.random.uniform(low, high, size=n_samples_).astype(
                     np.float32)
 
             samples_v = sample_func(n_samples)
             if not no_constraint:
-                # meet constraints
+                
                 try:
-                    # entirely possible that this will break in sympy
+                    
                     constraint_func = symbolic_evaluate_func(
                         constraint, [*constraint.free_symbols],
                         backend='numpy'
                     )
-                    # test to make sure things work ok
+                    
                     constraint_func(samples_v[:1])
                 except (NameError, ValueError, TypeError):
                     warnings.warn(f'Could not lambdify {constraint}...using '
                                   f'sympy validation instead...')
-                    # next symbol (only one symbol per above check)
+                    
                     c_symbol = [*constraint.free_symbols][0]
 
                     def constraint_func(values):
@@ -106,15 +106,15 @@ def sample(variables, distribution, n_samples, constraints=None, cov=None,
                     invalid_sample_idxs = np.where(
                         ~constraint_func(samples_v))[0]
                     if invalid_sample_idxs.size == 0:
-                        break  # constraints met
+                        break  
                     samples_v[invalid_sample_idxs] = sample_func(
                         len(invalid_sample_idxs))
         else:
             args = () if no_constraint else (constraint,)
 
-            # TODO: note that sympy==1.6 is necessary, there is a non-public
-            #  regression for some expressions in 1.7
-            #  https://github.com/sympy/sympy/issues/20563
+            
+            
+            
             try:
                 samples = sp.stats.sample_iter(d, *args)
             except NameError:

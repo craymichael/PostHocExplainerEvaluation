@@ -1,7 +1,4 @@
-"""
-results.py - A PostHocExplainerEvaluation file
-Copyright (C) 2020  Zach Carmichael
-"""
+
 from collections import namedtuple
 
 import sympy as sp
@@ -11,7 +8,6 @@ ExprResult = namedtuple('ExprResult',
 
 
 class MetricResult(object):
-    """Serializable result storing metrics"""
     __slots__ = 'effect_symbols', 'effect_latex'
 
     def __init__(self,

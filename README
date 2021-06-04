@@ -1,0 +1,4 @@
+All comments have been stripped for the sake of anonymity in this blind submission.
+Dependencies are listed in requirements.txt.
+The main scripts are at the top level outside of the posthoceval directory.
+Run these scripts with the --help option for details.

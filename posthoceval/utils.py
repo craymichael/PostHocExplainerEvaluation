@@ -1,7 +1,7 @@
 import json
 from collections.abc import Sized
 from collections.abc import Iterable
-from typing import Sequence  # collections.abc Sequence no subscript until 3.9
+from typing import Sequence  
 from typing import Union
 from typing import Tuple
 from typing import Optional
@@ -33,19 +33,10 @@ import mpmath
 import pandas as pd
 from pandas.core.generic import NDFrame as pd_NDFrame
 
-if hasattr(math, 'prod'):  # available in 3.8+
+if hasattr(math, 'prod'):  
     prod = math.prod
-else:  # functionally equivalent w/o positional argument checking
-    """
-    >>> %timeit reduce(mul, values)
-    180 µs ± 2.15 µs per loop (mean ± std. dev. of 7 runs, 10000 loops each)
-    
-    >>> %timeit math.prod(values)
-    133 µs ± 1.57 µs per loop (mean ± std. dev. of 7 runs, 10000 loops each)
-    
-    >>> math.prod(values) == reduce(mul, values)
-    True
-    """
+else:  
+
     import operator
     from functools import reduce
 
@@ -65,7 +56,7 @@ def as_sized(x: Iterable) -> Union[Tuple, Sized]:
 
 def is_shape_equal(shape_a: Sequence[Optional[int]],
                    shape_b: Sequence[Optional[int]]):
-    """Shape comparison allowing for `None`s for unknown/don't-care dims"""
+    
     shape_a = as_sized(shape_a)
     shape_b = as_sized(shape_b)
     assert_same_size(len(shape_a), len(shape_b), units='dimensions')
@@ -167,7 +158,7 @@ def dict_product(d: Dict[Any, Iterable]) -> Dict:
 
 
 def at_high_precision(func, *args, **kwargs):
-    # raise errors for {over,under}flow and save current settings
+    
     old_err = np.seterr(over='raise', under='raise')
 
     args_cast, kwargs_cast, highest_prec_dtype = (
@@ -191,18 +182,18 @@ def at_high_precision(func, *args, **kwargs):
         if highest_prec_dtype is not None and (
                 ret_is_float or isinstance(ret, mpmath.mpf)):
             if ret_is_float:
-                # cast back
+                
                 ret_cast = highest_prec_dtype(ret)
             else:
                 ret_cast = float(ret)
 
-            # TODO: only consider infs here?
+            
             if not (np.isinf(ret_cast).any() or np.isnan(ret_cast).any()):
                 ret = ret_cast
 
         rets_cast.append(ret)
 
-    # restore current settings
+    
     np.seterr(**old_err)
 
     return tuple(rets_cast) if is_tuple else rets_cast[0]
@@ -308,7 +299,7 @@ def atomic_write_exclusive(
         binary=False,
         strict=False,
 ):
-    # fp: Union[RawIOBase, TextIOBase, BufferedIOBase]
+    
     mode = 'x'
     if binary:
         mode += 'b'
@@ -324,7 +315,7 @@ def atomic_write_exclusive(
         except FileExistsError:
             if strict:
                 raise
-            continue  # try again - race condition must've happened
+            continue  
         break
 
     return filename
@@ -361,14 +352,6 @@ def loose_npy_err(level='warn'):
 
 @contextmanager
 def tqdm_parallel(tqdm_object):
-    """
-    Context manager to patch joblib to report into tqdm progress bar given
-    as argument. Kudos to https://stackoverflow.com/a/58936697/6557588
-
-    Usage:
-    >>> with tqdm_parallel(tqdm(desc='My calculation', total=10)) as pbar:
-    >>>     Parallel(n_jobs=-1)(delayed(sqrt)(i**2) for i in range(10))
-    """
 
     class TqdmBatchCompletionCallback(joblib.parallel.BatchCompletionCallBack):
         def __init__(self, *args, **kwargs):
@@ -388,21 +371,14 @@ def tqdm_parallel(tqdm_object):
 
 
 def safe_parse_tuple(string_, verbose=False):
-    """naively parse string, only returns strings
-
-    why did i bother with this
-    """
     return tuple(_safe_parse_tuple_generator(string_, verbose=verbose))
 
 
 def _safe_parse_tuple_generator(string_, verbose=False):
-    # updated dynamically
     element = ''
     left = None
     tuple_open = tuple_closed = token_ready = False
-    # updated consistently
     prev_token = None
-    # static
     whitespace = ' \n\r\t\f\v'
 
     for token in string_:
@@ -420,7 +396,7 @@ def _safe_parse_tuple_generator(string_, verbose=False):
             if element:
                 yield element
                 element, token_ready = '', False
-            continue  # do not record whitespaces
+            continue
         elif not tuple_open:
             assert token == '(', 'leading char must be "(" in tuple'
             tuple_open = token_ready = True
@@ -458,13 +434,11 @@ class CustomJSONEncoder(json.JSONEncoder):
             return int(obj)
         if is_float(obj):
             return float(obj)
-        # Let the base class default method raise the TypeError
+        
         return json.JSONEncoder.default(self, obj)
 
 
-class UnprovidedType:  # noqa
-    """singleton - unprovided argument default for when `None` means something
-    different than no arg provided"""
+class UnprovidedType:
     __slots__ = ()
     _instance = None
 
@@ -476,5 +450,5 @@ class UnprovidedType:  # noqa
         return cls._instance
 
 
-# create singleton
+
 UNPROVIDED = UnprovidedType()

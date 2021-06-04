@@ -1,7 +1,4 @@
-"""
-term_util.py - A PostHocExplainerEvaluation file
-Copyright (C) 2021  Zach Carmichael
-"""
+
 from scipy.special import comb
 
 from posthoceval.rand import select_n_combinations
@@ -44,5 +41,5 @@ def generate_terms(
                 selected_interact = desired_interactions
             terms.extend(tuple(feats) for feats in selected_interact)
             if desired_interactions is not None:
-                break  # all user-specified interactions added
+                break  
     return terms

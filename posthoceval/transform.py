@@ -1,7 +1,4 @@
-"""
-transform.py - A PostHocExplainerEvaluation file
-Copyright (C) 2021  Zach Carmichael
-"""
+
 from typing import Optional
 from typing import Callable
 from typing import List
@@ -48,7 +45,7 @@ class SklearnTransformer(Protocol):
 class IdentityTransformer(BaseEstimator, TransformerMixin):
     __slots__ = ()
 
-    # noinspection PyUnusedLocal
+    
     def fit(self, X: np.ndarray) -> 'IdentityTransformer': return self
 
     @staticmethod
@@ -59,7 +56,7 @@ class IdentityTransformer(BaseEstimator, TransformerMixin):
 
 
 class Transformer(TransformerMixin):
-    """"""
+    
 
     _numerical_transformer: Optional[SklearnTransformer]
     _categorical_transformer: Optional[SklearnTransformer]
@@ -76,7 +73,7 @@ class Transformer(TransformerMixin):
             impute_numerical: Union[str, bool, TransformerMixin] = UNPROVIDED,
             impute_categorical: Union[str, bool, TransformerMixin] = UNPROVIDED,
     ):
-        """"""
+        
         if numerical_transformer is UNPROVIDED:
             numerical_transformer = StandardScaler()
         self._numerical_transformer = numerical_transformer
@@ -91,7 +88,7 @@ class Transformer(TransformerMixin):
         self._impute_numerical = impute_numerical
         self._impute_categorical = impute_categorical
 
-        # Set during fit(...)
+        
         self.numerical_features_: List[str]
         self.categorical_features_: List[str]
         self.transformed_feature_names_: List[str]
@@ -102,11 +99,11 @@ class Transformer(TransformerMixin):
             self,
             dataset: Dataset,
     ) -> None:
-        """"""
+        
         self.numerical_features_ = dataset.numerical_features
         self.categorical_features_ = dataset.categorical_features
 
-        # numerical and categorical transformers
+        
         numerical_transformer = (
             self._numerical_transformer if self.transforms_numerical else
             IdentityTransformer()
@@ -116,7 +113,7 @@ class Transformer(TransformerMixin):
             IdentityTransformer()
         )
 
-        # Handle numerical imputer
+        
         if self._impute_numerical is UNPROVIDED:
             if dataset.X_df[self.numerical_features_].isna().any(axis=None):
                 self._impute_numerical = 'median'
@@ -129,7 +126,7 @@ class Transformer(TransformerMixin):
         elif isinstance(self._impute_numerical, TransformerMixin):
             numerical_imputer = self._impute_numerical
 
-        # Handle categorical imputer
+        
         if (self._impute_categorical is UNPROVIDED or
                 self._impute_categorical is True):
             if dataset.X_df[self.categorical_features_].isna().any(axis=None):
@@ -142,7 +139,7 @@ class Transformer(TransformerMixin):
         elif isinstance(self._impute_categorical, TransformerMixin):
             categorical_imputer = self._impute_categorical
 
-        # Add imputers if specified
+        
         if numerical_imputer is not None:
             numerical_transformer = Pipeline(steps=[
                 ('numerical_imputer', numerical_imputer),
@@ -167,9 +164,9 @@ class Transformer(TransformerMixin):
             self,
             dataset: Dataset,
     ) -> None:
-        # Note: calling this twice changes this value, so if for some silly
-        #  reason you call fit with two Datasets with different tasks then you
-        #  may have the wrong transformer if target_transformer is UNPROVIDED
+        
+        
+        
         if self._target_transformer is UNPROVIDED:
             if dataset.is_classification:
                 self._target_transformer = LabelEncoder()
@@ -181,11 +178,11 @@ class Transformer(TransformerMixin):
             transformer_func: Callable,
             y: np.ndarray,
     ) -> Union[np.ndarray, TransformerMixin]:
-        """"""
+        
         shape_orig = y.shape
-        if y.ndim == 1:  # vector
+        if y.ndim == 1:  
             y = y[:, np.newaxis]
-        elif y.ndim == 0:  # scalar
+        elif y.ndim == 0:  
             y = y[np.newaxis, np.newaxis]
 
         with warnings.catch_warnings():
@@ -218,14 +215,14 @@ class Transformer(TransformerMixin):
         if not hasattr(self._target_transformer, 'classes_'):
             raise ValueError('Target transformer does not have the classes_ '
                              'attribute!')
-        # noinspection PyUnresolvedReferences
+        
         return self._target_transformer.classes_[idx]
 
     def fit(
             self,
             dataset: Dataset,
     ) -> 'Transformer':
-        """"""
+        
         self._build_data_transformer(dataset)
         self._infer_default_target_transformer(dataset)
 
@@ -241,10 +238,10 @@ class Transformer(TransformerMixin):
     def _set_transformed_feature_names(self):
         transformed_feature_names = self.numerical_features_.copy()
         if self.transforms_categorical:
-            # NOTE: case of drop_idx_ is not handled here...
+            
 
-            # safely get the categorical transformer (possibly could differ
-            #  from self._categorical_transformer)
+            
+            
             categorical_transformer = (
                 self._data_transformer.named_transformers_['categorical'])
             if isinstance(categorical_transformer, Pipeline):
@@ -257,15 +254,15 @@ class Transformer(TransformerMixin):
                 categories = []
             assert len(self.categorical_features_) == len(categories)
 
-            # record grouped feature names, retaining flat features with
-            #  mappings to unique categorical values (new columns in
-            #  transformed data)
+            
+            
+            
             grouped_feature_names: List[Union[str, Tuple[str, Sequence[Any]]]]
             grouped_feature_names = transformed_feature_names.copy()
 
             for cat, names in zip(self.categorical_features_, categories):
-                # cat:   categorical feature name
-                # names: unique values for that categorical feature
+                
+                
                 transformed_feature_names.extend(
                     cat + f' = {name}'
                     for name in names
@@ -284,7 +281,7 @@ class Transformer(TransformerMixin):
             X_df: Optional[pd.DataFrame],
             y: Optional[np.ndarray],
     ):
-        # input validation
+        
         ds_missing = dataset is None
         X_missing = (ds_missing and X_df is None)
         y_missing = (ds_missing and y is None)
@@ -306,17 +303,6 @@ class Transformer(TransformerMixin):
                pd.DataFrame,
                np.ndarray,
                Tuple[pd.DataFrame, np.ndarray]]:
-        """Must provide either 1) dataset alone or 2) X_df and/or y.
-
-        :param dataset:
-        :param X_df:
-        :param y:
-        :return: The transformed input(s):
-            dataset -> Dataset
-            X_df    -> pd.DataFrame
-            y       -> np.ndarray
-            X_df, y -> Tuple[pd.DataFrame, np.ndarray]
-        """
         ds_missing, X_missing, y_missing = self._validate_transform_inputs(
             dataset, X_df, y)
 
@@ -336,14 +322,14 @@ class Transformer(TransformerMixin):
             elif not ds_missing:
                 y = dataset.y
 
-            if X_missing:  # nothing else to do here
+            if X_missing:  
                 return y
 
         if ds_missing:
-            # X guaranteed at this point, y not
-            # noinspection PyUnboundLocalVariable
+            
+            
             X_df_transformed = pd.DataFrame(
-                data=X,  # not unbound
+                data=X,  
                 columns=self.transformed_feature_names_,
             )
             if y_missing:
@@ -351,21 +337,21 @@ class Transformer(TransformerMixin):
             else:
                 return X_df_transformed, y
         else:
-            # TODO: len(set(dataset.input_shape) - {1}) == 1 instead?
+            
             if not ds_missing and len(dataset.input_shape) != 1:
-                # noinspection PyUnboundLocalVariable
+                
                 if dataset.n_features != X.shape[1]:
                     raise NotImplementedError(
                         f'Cannot reshape transformed data when the number of '
                         f'columns changes ({dataset.n_features} --> '
                         f'{X.shape[1]} columns)'
                     )
-                # noinspection PyUnboundLocalVariable
+                
                 X = X.reshape(-1, *dataset.input_shape)
-            # noinspection PyUnboundLocalVariable
+            
             dataset_transformed = dataset.from_data(
                 task=dataset.task,
-                X=X,  # not unbound
+                X=X,  
                 y=y,
                 label_col=dataset.label_col,
                 feature_names=self.transformed_feature_names_,
@@ -400,8 +386,8 @@ class Transformer(TransformerMixin):
 
         if not X_missing:
             if transform_numerical and self.transforms_numerical:
-                # safely get the categorical transformer (possibly could differ
-                #  from self._categorical_transformer)
+                
+                
                 numerical_transformer = (
                     self._data_transformer.named_transformers_['numerical'])
                 if isinstance(numerical_transformer, Pipeline):
@@ -423,28 +409,28 @@ class Transformer(TransformerMixin):
 
         if ds_missing:
             if y_missing:
-                # noinspection PyUnboundLocalVariable
+                
                 return X
             else:
-                # noinspection PyUnboundLocalVariable
+                
                 return X, y
         else:
-            # NOTE: this assumes numerical transformer does not alter the
-            #  number of columns
+            
+            
             if not ds_missing and len(dataset.input_shape) != 1:
-                # noinspection PyUnboundLocalVariable
+                
                 if dataset.n_features != X.shape[1]:
                     raise NotImplementedError(
                         f'Cannot reshape transformed data when the number of '
                         f'columns changes ({dataset.n_features} --> '
                         f'{X.shape[1]} columns)'
                     )
-                # noinspection PyUnboundLocalVariable
+                
                 X = X.reshape(-1, *dataset.input_shape)
-            # noinspection PyUnboundLocalVariable
+            
             return dataset.from_data(
                 task=dataset.task,
-                X=X,  # not unbound
+                X=X,  
                 y=y,
                 label_col=dataset.label_col,
                 feature_names=dataset.feature_names,

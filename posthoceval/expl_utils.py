@@ -1,7 +1,4 @@
-"""
-expl_utils.py - A PostHocExplainerEvaluation file
-Copyright (C) 2021  Zach Carmichael
-"""
+
 from typing import Dict
 from typing import Tuple
 from typing import Optional
@@ -24,12 +21,12 @@ from posthoceval.utils import safe_parse_tuple
 from posthoceval.utils import assert_same_size
 from posthoceval.utils import prod
 
-# TODO: sp.Symbol --> Any
+
 Explanation = Dict[Tuple[sp.Symbol], np.ndarray]
 
-# reserved name for true contributions
+
 TRUE_CONTRIBS_NAME = '__true__'
-# known explainers that give mean-centered contributions in explanation
+
 KNOWN_MEAN_CENTERED = [
     'SHAP',
     'SHAPR',
@@ -37,7 +34,7 @@ KNOWN_MEAN_CENTERED = [
 
 
 def is_mean_centered(explainer):
-    # TODO: startswith can be dangerous here...maybe underscore split [0] check
+    
     return any(explainer.upper().startswith(e) for e in KNOWN_MEAN_CENTERED)
 
 
@@ -46,7 +43,7 @@ def clean_explanations(
         true_expl: Optional[Explanation] = None,
 ) -> Union[Tuple[Explanation, Explanation, int],
            Tuple[Explanation, int]]:
-    """"""
+    
     tqdm.write('Start cleaning explanations.')
 
     pred_expl = pred_expl.copy()
@@ -58,11 +55,11 @@ def clean_explanations(
         )
         n_pred = pred_lens.pop()
     else:
-        # TODO: the default used here is the default for generate_data.py and
-        #  is a bad way of handling this. We already have the n_pred
-        #  information from load_explanation, we should try to preserve it.
-        #  Best way is to likely introduce an Explanation class...this has been
-        #  a long time coming anyway...
+        
+        
+        
+        
+        
         warnings.warn(
             'Provided pred_expl was empty, likely due to either all '
             'contributions being near-zero and filtered previously, or the '
@@ -70,7 +67,7 @@ def clean_explanations(
             '500 * round(sqrt(n_features)) if true_expl was provided and 500 '
             'otherwise.'
         )
-        n_pred = None  # infer later
+        n_pred = None  
 
     with_true = true_expl is not None
     if with_true:
@@ -89,7 +86,7 @@ def clean_explanations(
 
         if n_pred < n_true:
             tqdm.write(f'Truncating true_expl from {n_true} to {n_pred}')
-            # truncate latter explanations to save length
+            
             for k, v in true_expl.items():
                 true_expl[k] = v[:n_pred]
     elif n_pred is None:
@@ -104,11 +101,11 @@ def clean_explanations(
         tqdm.write('Discovering true_expl invalids')
         nan_idxs_true = np.zeros(n_pred, dtype=np.bool)
         for v in true_expl.values():
-            # yep, guess what - this can also happen...
+            
             nan_idxs_true |= np.isnan(v) | np.isinf(v)
 
-        # isnan or isinf in pred_expl but not true_expl is likely artifact of
-        #  bad perturbation
+        
+        
         nan_idxs_pred_only = nan_idxs_pred & (~nan_idxs_true)
         if nan_idxs_pred_only.any():
             tqdm.write(f'Pred explanations has {nan_idxs_pred_only.sum()} '
@@ -141,7 +138,7 @@ def clean_explanations(
 
 
 def load_explanation(expl_path: str, true_model: AdditiveModel):
-    # TODO: intercept loading...
+    
     if not os.path.exists(expl_path):
         raise FileNotFoundError(f'{expl_path} does not exist!')
 
@@ -155,7 +152,7 @@ def load_explanation(expl_path: str, true_model: AdditiveModel):
             f'{expl_n_features} features but model has '
             f'{true_model.n_features} features.'
         )
-        # map to model symbols and standardize
+        
         expl = dict(zip(true_model.symbols,
                         expl.reshape(-1, expl_n_features).T))
     else:
@@ -163,9 +160,9 @@ def load_explanation(expl_path: str, true_model: AdditiveModel):
         for symbols_str, expl_data in expl_dict.items():
             try:
                 symbol_strs = safe_parse_tuple(symbols_str)
-            except AssertionError:  # not a tuple...tisk tisk
+            except AssertionError:  
                 symbol_strs = (symbols_str,)
-            # convert strings to symbols in model
+            
             symbols = tuple(map(true_model.get_symbol, symbol_strs))
 
             expl[symbols] = expl_data
@@ -198,18 +195,18 @@ def apply_matching(matching, true_expl, pred_expl, n_explained,
         if match_true:
             contribs_true = sum(true_expl[effect] for effect in match_true)
             contribs_true_mean = np.mean(contribs_true)
-        else:  # no corresponding effect(s) from truth
+        else:  
             contribs_true_mean = np.zeros(n_explained)
             contribs_true = contribs_true_mean if always_numeric else None
         if match_pred:
-            # add the mean back for these effects (this will be the
-            #  same sample mean that the explainer saw before)
+            
+            
             contribs_pred = sum(
                 (pred_expl[effect] for effect in match_pred),
-                (contribs_true_mean  # start
+                (contribs_true_mean  
                  if is_mean_centered(explainer_name) else 0)
             )
-        else:  # no corresponding effect(s) from pred
+        else:  
             contribs_pred = np.zeros(n_explained) if always_numeric else None
 
         match_key = (tuple(match_true), tuple(match_pred))
@@ -219,14 +216,14 @@ def apply_matching(matching, true_expl, pred_expl, n_explained,
 
 
 def standardize_effect(e):
-    """sorted by str for consistency"""
+    
     e = tuple(sorted({*e}, key=str)) if isinstance(e, (tuple, list)) else (e,)
     assert e, 'received empty effect'
     return e
 
 
 def standardize_contributions(contribs_dict, remove_zeros=True, atol=1e-5):
-    """standardize each effect tuple and remove effects that are 0-effects"""
+    
     contribs_std = {}
     n_zeros = 0
     for k, v in contribs_dict.items():
@@ -234,7 +231,7 @@ def standardize_contributions(contribs_dict, remove_zeros=True, atol=1e-5):
             n_zeros += 1
         else:
             contribs_std[standardize_effect(k)] = v
-    # Future: default behavior just add dupes up? that could be janky...
+    
     tot_contribs = len(contribs_std) + n_zeros
     assert_same_size(contribs_dict, tot_contribs, 'contributions',
                      extra='This is because there were duplicate effects in '

@@ -1,7 +1,3 @@
-"""
-run.py - A PostHocExplainerEvaluation file
-Copyright (C) 2020  Zach Carmichael
-"""
 import warnings
 import os
 
@@ -27,8 +23,8 @@ def generate_data(out_filename, symbols, domains, n_samples, seed):
                       f'data for the related model')
         return
 
-    # Note: uniform distributions only supported with this code
-    # TODO: hard-coded...
+    
+    
     low = -1
     high = +1
 
@@ -39,8 +35,8 @@ def generate_data(out_filename, symbols, domains, n_samples, seed):
         domain = domains.get(symbol)
 
         if domain is None:
-            # no domain provided (possible that symbol is a dummy variable in
-            # expression)
+            
+            
             U = stats.Uniform('U', low, high)
             distribution.append(U)
             continue
@@ -52,17 +48,17 @@ def generate_data(out_filename, symbols, domains, n_samples, seed):
             intervals = [valid_interval]
         elif (isinstance(valid_interval, sp.Union) and
               all(isinstance(i, sp.Interval) for i in valid_interval.args)):
-            # naive special case optimization...
+            
             intervals = valid_interval.args
             non_interval = True
         else:
-            # failed to find optimization...
+            
             U = stats.Uniform('U', low, high)
 
             distribution.append(U)
             constraints[symbol] = valid_interval.contains(U)
             continue
-        # otherwise
+        
         left = None
         left_open = None
         right = None
@@ -74,9 +70,9 @@ def generate_data(out_filename, symbols, domains, n_samples, seed):
             if right is None or i.right > right:
                 right = i.right
                 right_open = i.right_open
-        # number-fudging
-        left = float(left)  # noqa
-        right = float(right)  # noqa
+        
+        left = float(left)  
+        right = float(right)  
         if left_open:
             left = np.nextafter(left, +1, dtype=np.float32)
         if right_open:
@@ -122,18 +118,18 @@ def run(out_dir, expr_filename, n_samples, scale_samples, n_jobs, seed):
 
                 n_samples_job = n_samples
                 if scale_samples:
-                    # higher-dim may increase variance of the output of
-                    # generated expressions
+                    
+                    
                     n_samples_job *= round(sqrt(len(symbols)))
 
                 out_filename = os.path.join(out_dir_full, str(i)) + '.npz'
                 yield delayed(generate_data)(
                     out_filename, symbols, domains, n_samples_job, seed)
-                # increment seed (don't have same RNG state per job)
+                
                 seed += 1
 
         if n_jobs == 1:
-            # TODO: this doesn't update tqdm
+            
             [f(*a, **kw) for f, a, kw in jobs()]
         else:
             Parallel(n_jobs=n_jobs)(jobs())
@@ -144,7 +140,7 @@ if __name__ == '__main__':
 
 
     def main():
-        parser = argparse.ArgumentParser(  # noqa
+        parser = argparse.ArgumentParser(  
             description='Generate data and save to file',
             formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )

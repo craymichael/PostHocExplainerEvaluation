@@ -1,7 +1,4 @@
-"""
-dnn.py - A PostHocExplainerEvaluation file
-Copyright (C) 2021  Zach Carmichael
-"""
+
 from posthoceval.expl_utils import standardize_effect
 from posthoceval.models.base_dnn import BaseAdditiveDNN
 
@@ -30,7 +27,7 @@ class AdditiveDNN(BaseAdditiveDNN):
         self._activation = activation
 
     def _build_pre_sum_map(self):
-        # Lazy-load
+        
         import tensorflow as tf
         from tensorflow.keras.layers import Add
         from tensorflow.keras.layers import Flatten
@@ -39,7 +36,7 @@ class AdditiveDNN(BaseAdditiveDNN):
         if len(self.input_shape) > 1:
             inp = Flatten()(inp)
         self._pre_sum_map = {}
-        for term in self._terms:  # term features are indices into symbols
+        for term in self._terms:  
             if len(term) == 1:
                 feats_str = term[0]
                 base_name = f'branch_main/feature_{feats_str}_'
@@ -55,10 +52,10 @@ class AdditiveDNN(BaseAdditiveDNN):
                 xl = layer(xl)
             feat_symbols = standardize_effect(
                 tuple(self.symbols[fi] for fi in term))
-            # TODO: this is boilerplate...
+            
             xl_prev = self._pre_sum_map.get(feat_symbols)
             if xl_prev is not None:
-                # add contributions for the same effect together
+                
                 xl = Add()([xl_prev, xl])
             self._pre_sum_map[feat_symbols] = xl
 

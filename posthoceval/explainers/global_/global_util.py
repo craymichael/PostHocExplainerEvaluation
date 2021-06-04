@@ -1,7 +1,4 @@
-"""
-util.py - A PostHocExplainerEvaluation file
-Copyright (C) 2021  Zach Carmichael
-"""
+
 from functools import partial
 from typing import Callable
 from typing import Union
@@ -25,19 +22,14 @@ class MultivariateInterpolation(object):
                  x: np.ndarray,
                  y: np.ndarray,
                  interpolation: Union[str, Callable] = 'linear'):
-        """
-
-        :param interpolation: 'linear', 'nearest', 'zero', 'slinear',
-            'quadratic', 'cubic', 'previous', 'next', or a callable
-        """
         if x.dtype is np.dtype('O'):
             assert y.dtype is np.dtype('O')
             is_object = True
-            # object detected, assume ragged k x variable n
+            
             utils.assert_rank(y, 1, name='y')
             k = utils.assert_same_shape(x, y)[0]
         else:
-            # n data point, k features
+            
             is_object = False
             utils.assert_rank(y, 2, name='y')
             n, k = utils.assert_same_shape(x, y)
@@ -56,14 +48,14 @@ class MultivariateInterpolation(object):
             else:
                 x_i, y_i = x[:, i], y[:, i]
 
-            # check case that only single value provided
+            
             if len(x_i) == 1:
                 interp_funcs.append(_get_unary_func(y_i[0]))
                 continue
 
-            # Handle duplicate values properly. Sort both arrays by feat values
-            # ascending. Then take unique feature values with the output being
-            # the average value.
+            
+            
+            
             idx_sort = np.argsort(x_i)
             x_i_sort = x_i[idx_sort]
             y_i_sort = y_i[idx_sort]
@@ -84,5 +76,5 @@ class MultivariateInterpolation(object):
             interp_func(x[:, i])
             for i, interp_func in enumerate(self.interp_funcs)
         ]
-        # f x n --> n x f
+        
         return np.asarray(y_interp).T

@@ -5,14 +5,14 @@ from .rand import randint
 
 
 class Node(object):
-    """smaller than namedtuple"""
+    
     __slots__ = 'v', 'left', 'right'
 
     def __init__(self,
                  v,
                  left=None,
                  right=None):
-        """Tree node with either 1 or 2 children"""
+        
         self.v = v
         self.left = left
         self.right = right
@@ -30,14 +30,7 @@ class RandExprTree(object):
                  parents_with_child=None,
                  root_blacklist=None,
                  seed=None):
-        """
 
-        :param leaves: values cannot be None or things could break
-        :param parents_with_children:
-        :param parents_with_child:
-        :param root_blacklist:
-        :param seed:
-        """
         rs = as_random_state(seed)
 
         if root_blacklist is not None:
@@ -45,10 +38,10 @@ class RandExprTree(object):
 
         n_leaf = len(leaves)
         if not n_leaf:
-            # no nodes
+            
             raise ValueError('Need 1+ leaf nodes')
         if n_leaf == 1:
-            # single node
+            
             assert (parents_with_children is None or
                     not len(parents_with_children))
             root_v = leaves[0]
@@ -59,27 +52,27 @@ class RandExprTree(object):
                 )
             self.root = Node(root_v)
         else:
-            # 2+ nodes
+            
             assert (parents_with_children is not None and
                     len(parents_with_children) == (n_leaf - 1))
 
-            # construct tree now
+            
             leaves = [Node(lf) for lf in leaves]
             potential_children = leaves
 
-            # tuples of (nargs, parent)
+            
             parents = [*zip(repeat(2), parents_with_children)]
             if parents_with_child:
                 parents.extend(zip(repeat(1), parents_with_child))
 
-            # more randomness
+            
             rs.shuffle(parents)
 
-            # pre-allocate root node value if applicable and possible
+            
             root_v = None
             if root_blacklist:
                 choice_idxs = [*range(len(parents))]
-                # even more randomness
+                
                 rs.shuffle(choice_idxs)
 
                 for idx in choice_idxs:
@@ -87,13 +80,13 @@ class RandExprTree(object):
                         root_v = parents.pop(idx)
                         break
                 else:
-                    # BIST ;)
+                    
                     assert root_v is None
                     raise ValueError(f'Every parent node is in '
                                      f'blacklist_root! {root_blacklist}')
 
             for n_args, parent in parents:
-                # select children
+                
                 args = [
                     potential_children.pop(
                         randint(len(potential_children), seed=rs))
@@ -128,13 +121,11 @@ class RandExprTree(object):
 
 
 def tree_to_str(tree: RandExprTree, padding=2):
-    """"""
     lines = _str_tree_helper(((0, tree.root),), padding)
     return '\n'.join(''.join(l) for l in lines[:-1])
 
 
 def _str_tree_helper(nodes, padding):
-    """"""
     children = []
     node_strs = []
     node_ws = []

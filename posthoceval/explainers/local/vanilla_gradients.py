@@ -1,7 +1,4 @@
-"""
-vanilla_gradients.py - A PostHocExplainerEvaluation file
-Copyright (C) 2021  Zach Carmichael
-"""
+
 import saliency.core as saliency
 
 from posthoceval.explainers.local.saliency_base import SalienceMapExplainer

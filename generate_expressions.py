@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 import os
 import sys
 import threading
@@ -24,11 +24,11 @@ from posthoceval.utils import tqdm_parallel
 from posthoceval.utils import dict_product
 from posthoceval.utils import prod
 
-# === DEBUG ===
+
 from posthoceval.profile import profile
 from posthoceval.profile import mem_profile
 from posthoceval.profile import set_profile
-# === DEBUG ===
+
 
 from posthoceval.results import ExprResult
 
@@ -36,7 +36,7 @@ _RUNNING_PERIODICITY_IDS = {}
 
 
 def periodicity_wrapper(func):
-    """A hacky fix for https://github.com/sympy/sympy/issues/20566"""
+    
     ret_val = [None]
     raise_error = [False]
     other_exception = [None]
@@ -67,12 +67,12 @@ def periodicity_wrapper(func):
             return ret
         else:
             kwargs['_child_'] = True
-            # print(f'Enter new periodicity thread {ident}')
+            
             thread = threading.Thread(target=wrapper, args=args, kwargs=kwargs)
             thread.start()
             thread_ident = thread.ident
             thread.join()
-            # print(f'Exit periodicity thread {ident}')
+            
             if thread_ident in _RUNNING_PERIODICITY_IDS:
                 del _RUNNING_PERIODICITY_IDS[thread_ident]
             if raise_error[0]:
@@ -87,26 +87,26 @@ def periodicity_wrapper(func):
     return wrapper
 
 
-# 🔧 MONKEY PATCH 🔧
-#      _...._
-#    .-.     /
-#   /o.o\ ):.\
-#   \   / `- .`--._
-#   // /            `-.
-#  '...\     .         `.
-#   `--''.    '          `.
-#       .'   .'            `-.
-#    .-'    /`-.._            \
-#  .'    _.'      :      .-'"'/
-# | _,--`       .'     .'    /
-# \ \          /     .'     /
-#  \///        |    ' |    /
-#              \   (  `.   ``-.
-#               \   \   `._    \
-#             _.-`   )    .'    )
-#             `.__.-'  .-' _-.-'
-#                      `.__,'
-# ascii credit: https://www.asciiart.eu/animals/monkeys
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 sp.periodicity = sp.calculus.util.periodicity = sp.calculus.periodicity = \
     periodicity_wrapper(sp.periodicity)
 
@@ -118,13 +118,13 @@ def tqdm_write(*args, sep=' ', **kwargs):
 @profile
 @mem_profile
 def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
-    """kwargs: see `generate_additive_expression`"""
-    # sympy uses python random module in spots, set seed for reproducibility
+    
+    
     random.seed(seed, version=2)
-    # I can't prove it but I think sympy also uses default numpy generator in
-    # spots...
+    
+    
     np.random.seed(seed)
-    # reproducibility, reseeded per job
+    
     rs = as_random_state(seed)
 
     interval = sp.Interval(-1, +1)
@@ -142,8 +142,8 @@ def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
                 validate_kwargs=validate_kwargs, **kwargs
             )
             tqdm_write('Attempting to find valid domains...')
-            # some or all terms redundant with validate in expr gen,
-            # but results should be cached (with same args)
+            
+            
             domains = valid_variable_domains(expr, fail_action='error',
                                              **validate_kwargs)
         except (RuntimeError, RecursionError, TimeoutError) as e:
@@ -165,7 +165,7 @@ def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
         symbols=symbols,
         expr=expr,
         domains=domains,
-        state=rs.__getstate__(),  # TODO: get state before run.... -_-
+        state=rs.__getstate__(),  
         kwargs=kwargs
     )
 
@@ -173,7 +173,7 @@ def generate_expression(symbols, seed, verbose=0, timeout=None, **kwargs):
 def run(n_feats_range, n_runs, out_dir, seed, kwargs, n_jobs=-1, timeout=30):
     os.makedirs(out_dir, exist_ok=True)
 
-    # default kwargs
+    
     default_kwargs = dict(
         n_main=None,
         n_uniq_main=None,
@@ -181,8 +181,8 @@ def run(n_feats_range, n_runs, out_dir, seed, kwargs, n_jobs=-1, timeout=30):
         n_uniq_interaction=None,
         interaction_ord=None,
         n_dummy=0,
-        pct_nonlinear=None,  # default is 0.5
-        nonlinear_multiplier=None,  # default depends on pct_nonlinear
+        pct_nonlinear=None,  
+        nonlinear_multiplier=None,  
         nonlinear_shift=0,
         nonlinear_skew=0,
         nonlinear_interaction_additivity=.5,
@@ -203,7 +203,7 @@ def run(n_feats_range, n_runs, out_dir, seed, kwargs, n_jobs=-1, timeout=30):
                             total=total_expressions)) as pbar:
         import inspect
 
-        # TODO: deal with this....
+        
         inspect.builtins.print = tqdm_write
 
         def jobs():
@@ -221,11 +221,11 @@ def run(n_feats_range, n_runs, out_dir, seed, kwargs, n_jobs=-1, timeout=30):
                     for _ in range(n_runs):
                         yield delayed(generate_expression)(
                             symbols, seed, timeout=timeout, **job_kwargs)
-                        # increment seed (don't have same RNG state per job)
+                        
                         seed += 1
 
         if n_jobs == 1:
-            # TODO: this doesn't update tqdm
+            
             results = [f(*a, **kw) for f, a, kw in jobs()]
         else:
             results = Parallel(n_jobs=n_jobs)(jobs())
@@ -240,7 +240,7 @@ def run(n_feats_range, n_runs, out_dir, seed, kwargs, n_jobs=-1, timeout=30):
     with open(out_file, 'wb') as f:
         pickle.dump(
             results, f,
-            protocol=4  # 4 is compatible with python 3.3+, 5 with 3.8+
+            protocol=4  
         )
 
 
@@ -251,19 +251,19 @@ if __name__ == '__main__':
     from math import sqrt
 
     rx_range_t = re.compile(
-        # a: int/float
+        
         r'^\s*'
         r'([-+]?\d+\.?(?:\d+)?|(?:\d+)?\.?\d+)'
         r'\s*'
-        # b: int/float (optional, default: None, range comprises `a` only)
+        
         r'(?:,\s*'
         r'([-+]?\d+\.?(?:\d+)?|(?:\d+)?\.?\d+)'
         r'\s*'
-        # n: int (optional, default: infer)
+        
         r'(?:,\s*'
         r'(\d+)'
         r'\s*)?'
-        # scale: str (optional, default: linear)
+        
         r'(?:,\s*(log|linear))?'
         r'\s*)?'
         r'$'
@@ -338,7 +338,7 @@ if __name__ == '__main__':
                 if not is_int:
                     sys.exit(f'Cannot infer the number of samples from a '
                              f'space with float dtype for range {range_msg}')
-                # otherwise
+                
                 n = int(b - a + 1)
             space = np.linspace(a, b, n)
         elif scale == 'log':
@@ -356,7 +356,7 @@ if __name__ == '__main__':
 
 
     def main():
-        parser = argparse.ArgumentParser(  # noqa
+        parser = argparse.ArgumentParser(  
             description='Generate expressions and save to file',
             formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
@@ -370,7 +370,7 @@ if __name__ == '__main__':
             help=f'Range of number of features in expressions. '
                  f'Expected format: {range_pattern}'
         )
-        # TODO: interaction_ord, all ops args
+        
         parser.add_argument(
             '--kwarg', required=True, action='append',
             choices=['n_main', 'n_uniq_main', 'n_interaction',

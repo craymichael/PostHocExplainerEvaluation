@@ -20,7 +20,7 @@ Contribs = Union[np.ndarray, List[np.ndarray],
 
 
 class _TabularExplainerModel(AdditiveModel):
-    """Wrapper for models used in tabular-only explainers"""
+    
 
     def __init__(
             self,
@@ -37,7 +37,7 @@ class _TabularExplainerModel(AdditiveModel):
     def set_input_shape(self, input_shape: Tuple[int, ...]):
         self._input_shape = input_shape
 
-    # noinspection PyPep8Naming
+    
     def _handle_X(self, X: np.ndarray) -> np.ndarray:
         return X.reshape(X.shape[0], *self._input_shape)
 
@@ -54,9 +54,9 @@ class _TabularExplainerModel(AdditiveModel):
         return self._model.predict_proba(X)
 
     def feature_contributions(self, X: np.ndarray):
-        # This should never be called, it does not make sense for an explainer
-        #  to do so, and a private attribute should not have been called by
-        #  something else...
+        
+        
+        
         raise RuntimeError(
             f'The tabular explainer wrapping {self._model.__class__.__name__} '
             f'should never call the model method feature_contributions!'
@@ -74,8 +74,8 @@ class BaseExplainer(ABC):
                  verbose: Union[int, bool] = 1):
 
         task = task.lower()
-        # TODO: formalize tasks among all relevant objects in project (e.g.
-        #  dataset/model)
+        
+        
         if task not in ['regression', 'classification']:
             raise ValueError(f'Invalid task name: {task}')
         self.task = task
@@ -88,7 +88,7 @@ class BaseExplainer(ABC):
         self.verbose = verbose
         self.seed = seed
 
-        # initialized in fit
+        
         self._explainer = None
         self._fitted = False
 
@@ -102,7 +102,7 @@ class BaseExplainer(ABC):
     ) -> None:
         raise NotImplementedError
 
-    # noinspection PyPep8Naming
+    
     def fit(
             self,
             X: Union[np.ndarray, Dataset],
@@ -111,22 +111,22 @@ class BaseExplainer(ABC):
                 List[Union[str, Tuple[str, List[Any]]]]] = None,
             **kwargs,
     ) -> 'BaseExplainer':
-        """"""
+        
         if isinstance(X, Dataset):
             assert grouped_feature_names is None, (
                 'Cannot provide both grouped_feature_names and a Dataset '
                 'object for X')
-            # assert y is None, (
-            #     'Cannot provide both y and a Dataset object for X')
+            
+            
             grouped_feature_names = X.grouped_feature_names
-            # y = X.y
+            
             X = X.X
         if self._tabular:
             if isinstance(self.model, _TabularExplainerModel):
                 self.model.set_input_shape(X.shape[1:])
             if X.ndim > 2:
                 X = X.reshape(X.shape[0], -1)
-        # noinspection PyArgumentList
+        
         self._fit(X=X, y=y, grouped_feature_names=grouped_feature_names,
                   **kwargs)
         self._fitted = True
@@ -134,9 +134,9 @@ class BaseExplainer(ABC):
 
     @abstractmethod
     def predict(self, X: Union[np.ndarray, Dataset]) -> np.ndarray:
-        # TODO: predict abstract --> _predict abstract
-        #  predict calls _predict
-        #  predict checks self._fitted
+        
+        
+        
         raise NotImplementedError
 
     @abstractmethod
@@ -144,11 +144,6 @@ class BaseExplainer(ABC):
             self,
             X: np.ndarray,
     ) -> Dict[str, Any]:
-        """
-        Contribs: ->
-             Union[np.ndarray, List[np.ndarray],
-                   Dict[Any, np.ndarray], List[Dict[Any, np.ndarray]]]:
-        """
         raise NotImplementedError
 
     def feature_contributions(
@@ -208,7 +203,7 @@ class BaseExplainer(ABC):
                     f'{contribs_input_shape} incompatible with {orig_shape}')
                 contribs = contribs.reshape(contribs.shape[0], *orig_shape)
         else:
-            # hope that children allow us to make this assumption...
+             
             is_dict = isinstance(contribs[0], dict)
             if not is_dict:
                 contribs_input_shape = contribs[0].shape[1:]
@@ -223,19 +218,19 @@ class BaseExplainer(ABC):
                 contribs = {standardize_effect(k): v
                             for k, v in contribs.items()}
             else:
-                # classification task should return a list of contribs, one for
-                #  each class
+                 
+                 
                 contribs = [{standardize_effect(k): v
                              for k, v in contribs_k.items()}
                             for contribs_k in contribs]
 
-        if as_dict is None:  # give whatever child gave us
+        if as_dict is None:   
             return contribs
 
         symbols = [*map(standardize_effect, self.model.symbols)]
 
-        # Note: this assumes per-feature attribution, which is the only
-        #  case where this a non-dict is legal
+         
+         
         if is_dict and not as_dict:
             if self.task == 'regression':
                 contribs = self._single_contribs_from_dict(
@@ -254,24 +249,24 @@ class BaseExplainer(ABC):
                     self._single_contribs_to_dict(contribs_k, symbols)
                     for contribs_k in contribs
                 ]
-        # else, contribs is already in the requested format
+         
 
         return contribs
 
-    # noinspection PyMethodMayBeStatic
+     
     def _single_contribs_to_dict(
             self,
             contribs: np.ndarray,
             symbols: List[Tuple[Any, ...]],
     ):
         contribs = contribs.reshape(contribs.shape[0], -1)
-        # TODO: n_features in case on nd...?
+         
         n_features = contribs.shape[1]
         assert len(symbols) == n_features
-        # Contribs: feature: ndarray[n_samples]
+         
         return dict(zip(symbols, contribs.T))
 
-    # noinspection PyMethodMayBeStatic
+     
     def _single_contribs_from_dict(
             self,
             contribs: Dict[Any, np.ndarray],
@@ -283,8 +278,8 @@ class BaseExplainer(ABC):
         one_contrib = next(iter(contribs.values()))
         n_explained = len(one_contrib)
         dtype = one_contrib.dtype
-        # This will raise a KeyError if the contribs are invalid
-        # Contribs: ndarray[n_samples x (n_features)]
+         
+         
         return np.asarray([
             contribs.get(sym, np.zeros(n_explained, dtype=dtype))
             for sym in symbols

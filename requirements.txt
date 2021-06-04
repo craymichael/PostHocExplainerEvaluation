@@ -8,7 +8,6 @@ numexpr
 seaborn
 statsmodels
 scikit-image
-interpret  # we do not actually use this one right now...future work
 lime
 pdpbox
 scikit-learn
@@ -21,17 +20,17 @@ pydot
 memory_profiler
 alibi
 alibi[ray]
--e git+https://github.com/craymichael/sympy.git@2f418a9f9702db0c089efc5af711049ca258f367#egg=sympy
+
+# reviewers: there are some scripts that run into issues with this version - we have a fork of sympy that fixes
+#  some issues, but have not included it for the sake of anonymity
+sympy
+
 saliency
 
-# r interface (requires R installed)
+# r interface (requires R installed) - also, please install shapr within R before running SHAPR
 rpy2
 
-# pygam things:
 pygam
-# currently broken...
-# scikit-sparse
-# nose
 
 mpmath
 gmpy
