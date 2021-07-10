@@ -9,6 +9,8 @@ Copyright (C) The original authors (see above)
     2021  Modified by Zach Carmichael
 """
 from typing import Optional
+from typing import List
+from typing import Union
 
 import numpy as np
 
@@ -20,6 +22,8 @@ from sklearn.model_selection import train_test_split
 
 from posthoceval.explainers._base import BaseExplainer
 from posthoceval.models.model import AdditiveModel
+from posthoceval.rand import as_random_state
+from posthoceval.rand import randint
 
 
 class _MAPLE:
@@ -187,13 +191,14 @@ class _MAPLE:
 
 
 class MAPLEExplainer(BaseExplainer):
-    _explainer: Optional[_MAPLE]
+    _explainer: Optional[Union[List[_MAPLE], _MAPLE]]
 
     def __init__(self,
                  model: AdditiveModel,
                  train_size: float = 2 / 3,
                  seed: Optional[int] = None,
                  task: str = 'regression',
+                 max_samples: int = 10000,
                  **kwargs):
         super().__init__(
             model=model,
@@ -203,13 +208,10 @@ class MAPLEExplainer(BaseExplainer):
             verbose=False,
         )
 
-        if self.task != 'regression':
-            raise NotImplementedError(self.task)
-
         # at 7cecf35621859a9ce915da1947a5fb90ee313f08, MAPLE uses 2/3
         #  train/val split in Code/Misc.py
         self.train_size = train_size
-
+        self.max_samples = max_samples
         self.explainer_kwargs = kwargs
 
     def _fit(
@@ -218,8 +220,18 @@ class MAPLEExplainer(BaseExplainer):
             y: Optional[np.ndarray] = None,
             grouped_feature_names=None,
     ):
+        # TODO....same thing as PDP
+        n_samples = round(self.max_samples * 25 / X.shape[1])
+        sample_idxs = None
+        if len(X) > n_samples:
+            rng = as_random_state(self.seed)
+            sample_idxs = randint(0, len(X), size=n_samples, seed=rng)
+            X = X[sample_idxs]
+
         if y is None:
             y = self.model(X)
+        elif sample_idxs is not None:
+            y = y[sample_idxs]
 
         if self.task == 'regression' and y.ndim == 2:
             y = np.squeeze(y, axis=1)
@@ -230,20 +242,33 @@ class MAPLEExplainer(BaseExplainer):
         X_train, X_val, y_train, y_val = train_test_split(
             X, y, train_size=self.train_size, random_state=self.seed)
 
-        self._explainer = _MAPLE(
-            X_train=X_train,
-            MR_train=y_train,
-            X_val=X_val,
-            MR_val=y_val,
-            seed=self.seed,
-            **self.explainer_kwargs,
-        )
+        if self.task == 'regression':
+            self._explainer = _MAPLE(
+                X_train=X_train,
+                MR_train=y_train,
+                X_val=X_val,
+                MR_val=y_val,
+                seed=self.seed,
+                **self.explainer_kwargs,
+            )
+        else:
+            self._explainer = [_MAPLE(
+                X_train=X_train,
+                MR_train=y_train[:, k],
+                X_val=X_val,
+                MR_val=y_val[:, k],
+                seed=self.seed,
+                **self.explainer_kwargs,
+            ) for k in range(y.shape[1])]
 
     def predict(self, X):
         if self._explainer is None:
             raise RuntimeError('Must call fit() before predict()')
 
-        return self._explainer.predict(X)
+        if self.task == 'regression':
+            return self._explainer.predict(X)
+        else:
+            raise NotImplementedError  # TODO
 
     def _call_explainer(self, X):
         if self._explainer is None:
@@ -254,19 +279,39 @@ class MAPLEExplainer(BaseExplainer):
         intercepts = []
         y_maple = []
         for xi in X:
-            explanation = self._explainer.explain(xi)
-            coefs = explanation['coefs']
-            contribs_maple.append(
-                coefs[1:] * xi
-            )
-            intercepts.append(coefs[0])
-            y_maple.append(explanation['pred'])
+            if self.task == 'regression':
+                contribs_i, intercepts_i, pred_i = (
+                    self._call_explainer_one_class(self._explainer, xi))
+            else:
+                contribs_i = []
+                intercepts_i = []
+                pred_i = []
+                for explainer in self._explainer:
+                    contrib, intercept, pred = self._call_explainer_one_class(
+                        explainer, xi)
+                    contribs_i.append(contrib)
+                    intercepts_i.append(intercept)
+                    pred_i.append(pred)
+            contribs_maple.append(contribs_i)
+            intercepts.append(intercepts_i)
+            y_maple.append(pred_i)
 
         contribs_maple = np.asarray(contribs_maple)
+        if self.task == 'classification':
+            contribs_maple = np.moveaxis(contribs_maple, 0, 1)
 
-        y_maple = np.concatenate(y_maple, axis=0)
-        if self.task == 'regression':
-            y_maple = y_maple.squeeze(axis=1)
+        y_maple = np.stack(y_maple).squeeze(axis=-1)
+        if self.task == 'classification':
+            y_maple = y_maple.T
 
         return {'contribs': contribs_maple, 'intercepts': intercepts,
                 'predictions': y_maple}
+
+    @staticmethod
+    def _call_explainer_one_class(explainer, xi):
+        explanation = explainer.explain(xi)
+        coefs = explanation['coefs']
+        contrib = coefs[1:] * xi
+        intercept = coefs[0]
+        pred = explanation['pred']
+        return contrib, intercept, pred

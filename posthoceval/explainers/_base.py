@@ -116,10 +116,10 @@ class BaseExplainer(ABC):
             assert grouped_feature_names is None, (
                 'Cannot provide both grouped_feature_names and a Dataset '
                 'object for X')
-            assert y is None, (
-                'Cannot provide both y and a Dataset object for X')
+            # assert y is None, (
+            #     'Cannot provide both y and a Dataset object for X')
             grouped_feature_names = X.grouped_feature_names
-            y = X.y
+            # y = X.y
             X = X.X
         if self._tabular:
             if isinstance(self.model, _TabularExplainerModel):
