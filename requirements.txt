@@ -1,37 +1,47 @@
+# linalg & common
 numpy
-matplotlib
-pyqt5
-joblib
 scipy
-theano
+
+# computation backends
 numexpr
+mpmath
+gmpy
+
+# progress bars
+tqdm >= 4.56.2
+
+# plotting
+matplotlib
 seaborn
+pyqt5
 statsmodels
+graphviz
+
+# multiprocessing
+joblib
+
+# deep/machine learning frameworks
+theano
+# https://github.com/NVIDIA/framework-determinism
+tensorflow-gpu >= 2.3.0
+scikit-learn
 scikit-image
+
+# patched version of sympy (TODO remove me when my PRs are accepted by SymPy)
+-e git+https://github.com/craymichael/sympy.git@2f418a9f9702db0c089efc5af711049ca258f367#egg=sympy
+fastcache  # faster sympy caching
+
+# profiling
+memory_profiler
+
+# XAI frameworks
 interpret  # we do not actually use this one right now...future work
 lime
 pdpbox
-scikit-learn
-fastcache
-tqdm >= 4.56.2
-# https://github.com/NVIDIA/framework-determinism
-tensorflow-gpu >= 2.3.0
-graphviz
 pydot
-memory_profiler
-alibi
 alibi[ray]
--e git+https://github.com/craymichael/sympy.git@2f418a9f9702db0c089efc5af711049ca258f367#egg=sympy
 saliency
+pygam
 
 # r interface (requires R installed)
 rpy2
-
-# pygam things:
-pygam
-# currently broken...
-# scikit-sparse
-# nose
-
-mpmath
-gmpy
