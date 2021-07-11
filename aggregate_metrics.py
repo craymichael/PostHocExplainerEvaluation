@@ -16,7 +16,8 @@ import sympy as sp
 from joblib import Parallel
 from joblib import delayed
 
-from posthoceval.expl_utils import TRUE_CONTRIBS_NAME, standardize_contributions
+from posthoceval.expl_utils import TRUE_CONTRIBS_NAME
+from posthoceval.expl_utils import standardize_contributions
 from posthoceval.expl_utils import is_mean_centered
 from posthoceval.expl_utils import clean_explanations
 from posthoceval.expl_utils import load_explanation
@@ -24,7 +25,8 @@ from posthoceval.expl_utils import save_explanation
 from posthoceval.expl_utils import CompatUnpickler
 from posthoceval import metrics
 from posthoceval.models.synthetic import SyntheticModel
-from posthoceval.utils import tqdm_parallel, CustomJSONEncoder
+from posthoceval.utils import tqdm_parallel
+from posthoceval.utils import CustomJSONEncoder
 from posthoceval.utils import at_high_precision
 from posthoceval.utils import atomic_write_exclusive
 from posthoceval.results import ExprResult
