@@ -29,7 +29,6 @@ __all__ = [
     'GradCAMExplainer',
     'GradientsXInputsExplainer',
     'IntegratedGradientsExplainer',
-    'BlurIGExplainer',
     'LIMETabularExplainer',
     'LIMEExplainer',
     'MAPLEExplainer',

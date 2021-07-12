@@ -28,7 +28,6 @@ class AdditiveModel(ABC):
             n_features: Optional[int] = None,
             symbols: Optional[List[T]] = None,
     ):
-        # TODO: nd input shapes...
         # validate inputs
         if symbol_names is None:
             if symbols is None:

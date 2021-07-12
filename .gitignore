@@ -15,7 +15,7 @@ archive.ics.uci.edu/
 experiment_data/**/*.json
 
 # paper figures
-figures/
+figures_*/
 
 # profiling files
 *.pstat
