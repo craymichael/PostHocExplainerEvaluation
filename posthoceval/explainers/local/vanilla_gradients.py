@@ -8,6 +8,7 @@ from posthoceval.explainers.local.saliency_base import SalienceMapExplainer
 
 
 class VanillaGradientsExplainer(SalienceMapExplainer):
+    """Vanilla gradients explainer"""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

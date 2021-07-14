@@ -8,6 +8,7 @@ from posthoceval.explainers.local.saliency_base import SalienceMapExplainer
 
 
 class GradCAMExplainer(SalienceMapExplainer):
+    """GradCAM explainer"""
 
     def __init__(self,
                  *args,

@@ -7,6 +7,7 @@ from posthoceval.explainers.local.vanilla_gradients import (
 
 
 class GradientsXInputsExplainer(VanillaGradientsExplainer):
+    """Gradients times inputs explainer"""
 
     def __init__(self, *args, **kwargs):
         """"""

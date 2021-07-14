@@ -17,6 +17,7 @@ from posthoceval.models.model import AdditiveModel
 
 
 class ParzenWindowExplainer(BaseExplainer):
+    """Very much not part of any notion of a public API."""
 
     def __init__(self,
                  model: AdditiveModel,

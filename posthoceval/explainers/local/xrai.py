@@ -8,6 +8,7 @@ from posthoceval.explainers.local.saliency_base import SalienceMapExplainer
 
 
 class XRAIExplainer(SalienceMapExplainer):
+    """XRAI Explainer"""
 
     def __init__(self, *args, **kwargs):
         """"""

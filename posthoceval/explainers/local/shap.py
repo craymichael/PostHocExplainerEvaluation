@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 def init_ray():
+    """Initialize the ray library, if installed"""
     global _HAS_RAY
 
     if _HAS_RAY is not None:
@@ -45,6 +46,7 @@ def init_ray():
 
 class KernelSHAPExplainer(BaseExplainer):
     """
+    The KernelSHAP explainer
     https://github.com/slundberg/shap/issues/624
     https://github.com/slundberg/shap/blob/e1d0314e5eed0825fb99d8ef01e8cab5b3d45d54/notebooks/kernel_explainer/Squashing%20Effect.ipynb
     """
@@ -59,7 +61,23 @@ class KernelSHAPExplainer(BaseExplainer):
                  group_categorical: bool = False,
                  verbose: Union[int, bool] = 1,
                  **explainer_kwargs):
-        """"""
+        """
+        The KernelSHAP explainer
+
+        :param model: the model to explain
+        :param n_background_samples: the number of background samples to use
+            instead of the full dataset (number remaining after summarization)
+        :param n_cpus: the number of jobs to submit if ray is installed
+        :param task: the task, either "classification" or "regression"
+        :param link: the link function (either "logit" or "identity", will be
+            inferred if not provided)
+        :param seed: the RNG seed for reproducibility
+        :param group_categorical: whether to produce a single value for each
+            categorical feature, or instead give a value for each one-hot
+            encoded categorical feature value
+        :param verbose: print more messages
+        :param explainer_kwargs: kwargs that are passed to the explainer
+        """
         super().__init__(
             model=model,
             tabular=True,

@@ -19,6 +19,8 @@ from posthoceval.evaluate import symbolic_evaluate_func
 
 
 class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
+    """Base class for any salience map-based explainer in this library, based
+    around the fantastic `salience` library."""
     _explainer: saliency.CoreSaliency
 
     def __init__(self,
@@ -29,6 +31,20 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
                  smooth: bool = False,
                  multiply_by_input: bool = False,
                  **explain_kwargs):
+        """
+
+        :param model: the model to explain
+        :param seed: the RNG seed for reproducibility
+        :param task: the task, either "classification" or "regression"
+        :param verbose: print more messages
+        :param smooth: whether to apply SmoothGrad to the salience map method
+        :param multiply_by_input: whether to multiple the salience value by
+            the input data (this is used in the GradientsXInputs
+            implementation, for instance)
+        :param explain_kwargs: additional kwargs that are passed to the
+            salience library explainer method GetSmoothedMask if smooth is True
+            else GetMask
+        """
         super().__init__(
             model=model,
             tabular=False,
@@ -50,9 +66,11 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
 
     @classmethod
     def smooth_grad(cls, *args, **kwargs):
+        """Version of the explainer with SmoothGrad enabled"""
         return cls(*args, smooth=True, **kwargs)
 
     def predict(self, X):
+        """Prediction is not applicable to salience map explainers"""
         raise TypeError('Salience map explainers are not model-based: '
                         'predict() is unavailable.')
 
@@ -120,6 +138,7 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
 
     @staticmethod
     def _infer_n_classes(output_shape):
+        """Infer the number of classes given the output shape of the model"""
         if len(output_shape) < 2:
             n_classes = 1
         elif len(output_shape) == 2:
@@ -130,6 +149,9 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
         return n_classes
 
     def _shape_handler(self, x):
+        """Ensures that the given input is at least nd for compatibility with
+        salience library explainers. Especially necessary when not working with
+        image data."""
         return (np.atleast_3d(x) if self._atleast_3d else
                 np.atleast_2d(x) if self._atleast_2d else
                 x)
@@ -186,10 +208,12 @@ class SalienceMapExplainer(BaseExplainer, metaclass=ABCMeta):
         # Value of the output being explained (the logit/softmax value).
         OUTPUT_LAYER_VALUES = 'OUTPUT_LAYER_VALUES'
 
-        :param data:
-        :param call_model_args:
-        :param expected_keys:
-        :return:
+        :param data: the data being explained
+        :param call_model_args: dict containing the target class index and the
+            original shape of the data
+        :param expected_keys: the expected keys from the explainer, some of
+            which may raise not implemented errors
+        :return: dict containing the requested key-value pairs
         """
         # lazy load
         import tensorflow as tf

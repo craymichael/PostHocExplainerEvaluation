@@ -8,6 +8,7 @@ from posthoceval.explainers.local.saliency_base import SalienceMapExplainer
 
 
 class OcclusionExplainer(SalienceMapExplainer):
+    """Occlusion explainer"""
 
     def __init__(self, *args, **kwargs):
         """"""

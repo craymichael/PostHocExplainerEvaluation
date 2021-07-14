@@ -8,6 +8,7 @@ from posthoceval.explainers.local.saliency_base import SalienceMapExplainer
 
 
 class IntegratedGradientsExplainer(SalienceMapExplainer):
+    """Integrated Gradients (IG) Explainer"""
 
     def __init__(self, *args, **kwargs):
         """"""

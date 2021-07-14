@@ -13,8 +13,6 @@ import gc
 from collections import OrderedDict
 from multiprocessing import Lock
 
-from math import ceil
-
 import numpy as np
 import pandas as pd
 
@@ -38,10 +36,12 @@ _make_wrapped_model_r_inner_lock = Lock()
 
 
 class SHAPRExplainer(BaseExplainer):
-    """Explain the output of machine learning models with more accurately
+    """
+    SHAPR Explainer
+
+    Explain the output of machine learning models with more accurately
     estimated Shapley values
 
-    TODO...
     shapr/R/features.R
     ```R
       if (m > 13 & is.null(n_combinations)) {
@@ -101,6 +101,20 @@ class SHAPRExplainer(BaseExplainer):
                  task: str = 'regression',
                  verbose=True,
                  **kwargs):
+        """
+        SHAPR explainer. rpy2 used to provide interface to R implementation
+        through Python. You must have R and the R package shapr installed
+        in order for this class to work properly. Don't worry, it'll yell at
+        you if you don't. See the README for this library for more details.
+
+
+        :param model: the model to explain
+        :param seed: the RNG seed for reproducibility
+        :param task: the task, either "classification" or "regression"
+        :param verbose: print more messages
+        :param approach: the shapr approach to use (assumption of conditional
+            distribution, see SHAPR docs). Default: "empirical"
+        """
         # keep imports to inside class to avoid some multiprocessing issues
         from rpy2.robjects import numpy2ri
         from rpy2.robjects import pandas2ri

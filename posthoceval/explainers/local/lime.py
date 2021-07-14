@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class LIMETabularExplainer(BaseExplainer):
-    """"""
+    """LIME explainer for tabular data"""
 
     def __init__(self,
                  model: AdditiveModel,
@@ -25,7 +25,16 @@ class LIMETabularExplainer(BaseExplainer):
                  task: str = 'regression',
                  num_samples: int = 5000,
                  verbose: Union[int, bool] = 1):
-        """"""
+        """
+        LIME explainer for tabular data.
+
+        :param model: the model to explain
+        :param seed: the RNG seed for reproducibility
+        :param task: the task, either "classification" or "regression"
+        :param num_samples: the size of the neighborhood to learn the linear
+            model
+        :param verbose: print more messages if True
+        """
         super().__init__(
             model=model,
             tabular=True,
@@ -43,12 +52,12 @@ class LIMETabularExplainer(BaseExplainer):
             self,
             X: np.ndarray,
             y: Optional[np.ndarray] = None,
-            grouped_feature_names=None,  # TODO: use for cat stuff
+            grouped_feature_names=None,
     ):
         if self.verbose > 0:
             logger.info('Fitting LIME')
 
-        # TODO:
+        # TODO: (using grouped_feature_names)
         #  categorical_features: list of indices (ints) corresponding to the
         #    categorical columns. Everything else will be considered
         #    continuous. Values in these columns MUST be integers.

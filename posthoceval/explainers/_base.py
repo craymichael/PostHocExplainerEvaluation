@@ -64,6 +64,7 @@ class _TabularExplainerModel(AdditiveModel):
 
 
 class BaseExplainer(ABC):
+    """Base explainer class"""
     model: Union[AdditiveModel, _TabularExplainerModel]
 
     def __init__(self,
@@ -72,7 +73,19 @@ class BaseExplainer(ABC):
                  seed: Optional[int] = None,
                  task: str = 'regression',
                  verbose: Union[int, bool] = 1):
+        """
+        Base explainer class
 
+
+        :param model: the model to explain
+        :param tabular: this should be set by subclasses. This flag informs
+            that the wrapped or implemented explainer only supports tabular
+            data. To support these explainers for non-tabular data, we simply
+            flatten the data and restore shapes during execution.
+        :param seed: the RNG seed for reproducibility
+        :param task: the task, either "classification" or "regression"
+        :param verbose: print more messages if True
+        """
         task = task.lower()
         # TODO: formalize tasks among all relevant objects in project (e.g.
         #  dataset/model)
@@ -111,7 +124,16 @@ class BaseExplainer(ABC):
                 List[Union[str, Tuple[str, List[Any]]]]] = None,
             **kwargs,
     ) -> 'BaseExplainer':
-        """"""
+        """
+        Fits the explainer given a dataset.
+
+        :param X: The features or Dataset to explain for the given model
+        :param y: The labels of the dataset (optional, unused by most
+            explainers)
+        :param grouped_feature_names: The grouped feature names
+        :param kwargs: passed to the subclass implementation of _fit
+        :return: self
+        """
         if isinstance(X, Dataset):
             assert grouped_feature_names is None, (
                 'Cannot provide both grouped_feature_names and a Dataset '
@@ -134,6 +156,12 @@ class BaseExplainer(ABC):
 
     @abstractmethod
     def predict(self, X: Union[np.ndarray, Dataset]) -> np.ndarray:
+        """
+        Predict for the given data
+
+        :param X: the input data or dataset
+        :return: predicted model output
+        """
         # TODO: predict abstract --> _predict abstract
         #  predict calls _predict
         #  predict checks self._fitted
@@ -159,6 +187,22 @@ class BaseExplainer(ABC):
             return_predictions: bool = False,
             as_dict: Optional[bool] = None,
     ):
+        """
+        Estimate feature contributions for the provided data and model.
+
+        :param X: the input data or Dataset object
+        :param return_y: whether to also return the model output
+        :param return_intercepts: whether to also return the explainer
+            intercepts. This will be None if not applicable to the explainer
+        :param return_predictions: whether to also return the explainer
+            predictions
+        :param as_dict: Whether to return the estimated feature contributions
+            as a dict. By default this is inferred by what the explainer
+            returns. Returning not as a dict may not always be possible, i.e.,
+            if the explainer estimates interaction effects.
+        :return: explained feature contributions[, [y, [intercepts,
+            [predictions]]]]
+        """
         if not self._fitted:
             raise RuntimeError('You must call fit() before calling '
                                'feature_contributions()')

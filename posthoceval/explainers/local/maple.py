@@ -27,8 +27,8 @@ from posthoceval.rand import randint
 
 
 class _MAPLE:
-    """see header of file for attribution. this class has been modified and
-    reformatted without changing any functionality"""
+    """see header of file for attribution. this class has been modified for
+    clarity/conventions and reformatted without changing any functionality"""
 
     def __init__(self, X_train, MR_train, X_val, MR_val, fe_type='rf',
                  n_estimators=200, max_features=0.5, min_samples_leaf=10,
@@ -191,6 +191,7 @@ class _MAPLE:
 
 
 class MAPLEExplainer(BaseExplainer):
+    """MAPLE Explainer"""
     _explainer: Optional[Union[List[_MAPLE], _MAPLE]]
 
     def __init__(self,
@@ -200,6 +201,17 @@ class MAPLEExplainer(BaseExplainer):
                  task: str = 'regression',
                  max_samples: int = 10000,
                  **kwargs):
+        """
+        MAPLE explainer
+
+        :param model: the model to explain
+        :param train_size: proportion of the data to use in the training set
+        :param seed: the RNG seed for reproducibility
+        :param task: the task, either "classification" or "regression"
+        :param max_samples: the maximum number of samples to use in learning
+            the explainer
+        :param kwargs: passed to _MAPLE
+        """
         super().__init__(
             model=model,
             tabular=True,
