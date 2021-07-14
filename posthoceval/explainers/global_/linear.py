@@ -14,6 +14,7 @@ from posthoceval import metrics
 
 
 def linear_explain(model, data_train, data_test):
+    """Very much not part of any notion of a public API."""
     expected_value = np.mean(data_train)
 
     y_train = model(data_train)

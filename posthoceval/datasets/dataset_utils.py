@@ -9,10 +9,19 @@ import pandas as pd
 
 import posthoceval
 
+# Path to data shipped with the library
 LOCAL_DATA_PATH = Path(posthoceval.__file__).parent.parent / 'data'
 
 
 def show_crop_stats(X, verbose=True):
+    """
+    Used to heuristically determine a less destructive crop of the MNIST
+    dataset, but can be used for any image-based dataset.
+
+    :param X: the dataset
+    :param verbose: whether to print stats about the dataset
+    :return: dataframe with crop statistics
+    """
     nonzero = X.astype(bool)
     nonzero_tot = nonzero.sum()
 

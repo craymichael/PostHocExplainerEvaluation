@@ -26,8 +26,16 @@ fetch_openml = fetch_openml_memory.cache(uncached_fetch_openml)
 
 
 class TinyMNISTDataset(Dataset):
+    """The Tiny MNIST dataset"""
 
     def __init__(self, task='classification', *args, **kwargs):
+        """
+        The Tiny MNIST dataset
+
+        :param task: must be "classification".
+        :param args: args are passed to load_tiny_mnist
+        :param kwargs: kwargs are passed to load_tiny_mnist
+        """
         super().__init__(task=task)
         if not self.is_classification:
             self._raise_bad_task()

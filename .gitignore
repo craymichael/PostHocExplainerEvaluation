@@ -12,6 +12,8 @@ archive.ics.uci.edu/
 # data
 *.npz
 *.pkl
+*.pdf
+*.zip
 experiment_data/**/*.json
 
 # paper figures

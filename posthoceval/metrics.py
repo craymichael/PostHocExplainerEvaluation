@@ -95,6 +95,8 @@ def generous_eval(
         maybe_exact=False
 ) -> Tuple[List[Tuple[List[Tuple], List[Tuple]]], List[float]]:
     """
+    This is performs the MATCHEFFECTS algorithm between true contributions and
+    explained contributions (effect->contribution mappings).
 
     :param y_true:
     :param y_pred:

@@ -11,10 +11,17 @@ from posthoceval.datasets.dataset_utils import LOCAL_DATA_PATH
 
 
 class COMPASDataset(Dataset):
+    """The COMPAS recidivism dataset"""
+
     def __init__(self, task='regression'):
+        """
+        The COMPAS recidivism dataset
+
+        :param task: either "classification" or "regression"
+        """
         super().__init__(task=task)
 
-    def _load(self):
+    def _load(self) -> None:
         data_path = LOCAL_DATA_PATH / 'compas_two_year_filtered.csv'
         data_df = pd.read_csv(data_path)
 

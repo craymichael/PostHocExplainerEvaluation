@@ -11,6 +11,7 @@ from posthoceval import metrics
 
 
 def ebm_explain(model, data_train, data_test):
+    """Very much not part of any notion of a public API."""
     y_train = model(data_train)
     y_test = model(data_test)
 

@@ -9,12 +9,19 @@ from posthoceval.datasets.dataset_utils import LOCAL_DATA_PATH
 
 
 class HELOCDataset(Dataset):
+    """The FICO HELOC dataset"""
+
     def __init__(self, task='classification'):
+        """
+        The FICO HELOC dataset
+
+        :param task: Must be "classification".
+        """
         super().__init__(task=task)
         if not self.is_classification:
             self._raise_bad_task()
 
-    def _load(self):
+    def _load(self) -> None:
         data_path = LOCAL_DATA_PATH / 'HELOC' / 'heloc_dataset_v1.csv'
         # special handling:
         # -9 No Bureau Record or No Investigation

@@ -18,6 +18,7 @@ from tqdm.auto import tqdm
 from pdpbox.pdp import pdp_isolate
 # from pdpbox.pdp import pdp_interact  # TODO- future work...
 
+
 from posthoceval.rand import as_random_state
 from posthoceval.rand import randint
 from posthoceval.explainers._base import BaseExplainer
@@ -28,6 +29,8 @@ from posthoceval.models.model import AdditiveModel
 
 class _PDPBoxModelCompatRegression(object):
     """
+    Compatibility class for the PDPBox library...
+
     From pdpbox/utils.py:
 
     def _check_model(model):
@@ -58,6 +61,8 @@ class _PDPBoxModelCompatRegression(object):
 
 
 class _PDPBoxModelCompatClassification(_PDPBoxModelCompatRegression):
+    """Compatibility class for the PDPBox library (classification version)"""
+
     def __init__(self, model: AdditiveModel, X: np.ndarray):
         super().__init__(model=model)
         # sniff the number of classes
@@ -90,6 +95,21 @@ class PDPExplainer(BaseExplainer):
                  n_jobs: int = 1,  # TODO memory_limit=.9...
                  max_samples: int = 10000,
                  verbose=True):
+        """
+        Use PDPBox to estimate PD for a specified model. After estimation,
+        unseen values of data are estimated using interpolation based on the PD
+        values.
+
+        :param model: the model to explain
+        :param seed: the RNG seed for reproducibility
+        :param task: the task, either "classification" or "regression"
+        :param n_grid_points: the number of grid points for PDPBox
+        :param interpolation: the interpolation method (see
+            MultivariateInterpolation)
+        :param n_jobs: the number of parallel jobs to run
+        :param max_samples: the maximum number of samples to use to estimate PD
+        :param verbose: print more messages if True
+        """
         super().__init__(
             tabular=True,
             model=model,
@@ -108,6 +128,13 @@ class PDPExplainer(BaseExplainer):
             y: Optional[np.ndarray] = None,
             grouped_feature_names=None,
     ) -> None:
+        """
+        Fit the explainer
+
+        :param X: features
+        :param y: labels
+        :param grouped_feature_names: hierarchical feature names
+        """
         # needs to be list, not tuple
         feature_names = [*self.model.symbol_names]
         if grouped_feature_names is None:

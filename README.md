@@ -133,7 +133,7 @@ to generate data for them. Assuming the generated `.pkl` file is in the default 
 the command will look something like:
 ```shell
 ./generate_data.py \
-    "experiment_data/expr/generated_expressions_n_dummy-vs-n_interaction-vs-interaction_ord-vs-nonlinear_multiplier_<timestamp>.pkl"
+    "experiment_data/expr/generated_expressions_<...>_<timestamp>.pkl"
 ```
 This script will use some heuristics to generate data that is within the valid domains
 of each expression to avoid NaNs and Infs in the output range. By default, the number of
@@ -148,17 +148,25 @@ number of samples in the data deterministically and consistently; each explainer
 explains the same samples.
 ```shell
 ./evaluate_explainers.py \
-    "experiment_data/expr/generated_expressions_n_dummy-vs-n_interaction-vs-interaction_ord-vs-nonlinear_multiplier_<timestamp>.pkl" \
+    "experiment_data/expr/generated_expressions_<...>_<timestamp>.pkl" \
     --max-explain 1000
 ```
 The explanations from each explainer for each generated model/dataset will be saved.
 Explanations will not be rerun if they are already on disk in the expected output path.
 
 ### Aggregating Metrics Across the Explainer Results
+Finally, the `aggregate_metrics.py` takes the generated explanations and performs the
+following:
+- Execute the matching algorithm (MATCHEFFECTS in the text) to establish the effects for
+  direct, objective comparison
+- Yield MaIoU "goodness" score of the matching
+- Compute sample-wise and effect-wise errors
+- Compute effect detection error
 ```shell
 ./aggregate_metrics.py \
-    "experiment_data/expr/generated_expressions_n_dummy-vs-n_interaction-vs-interaction_ord-vs-nonlinear_multiplier_<timestamp>.pkl"
+    "experiment_data/expr/generated_expressions_<...>_<timestamp>.pkl"
 ```
+The scores will be saved in a JSON file and renamed as to not overwrite a previous result.
 
 ### Final Notes
 Some of these scripts accept the argument `--n-jobs` which should be set to use

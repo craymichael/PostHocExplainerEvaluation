@@ -9,7 +9,17 @@ from posthoceval.datasets.dataset_utils import LOCAL_DATA_PATH
 
 
 class BostonDataset(Dataset):
+    """The Boston Housing dataset"""
+
     def __init__(self, task='regression', medv_threshold=None):
+        """
+        Boston Housing dataset
+
+        :param task: either "classification" or "regression"
+        :param medv_threshold: threshold for classification tasks of the label,
+            MEDV, the median house price in a neighborhood. If classification
+            is the selected task, then this defaults to 22.5
+        """
         super().__init__(
             task=task,
         )
@@ -23,7 +33,7 @@ class BostonDataset(Dataset):
 
         self.medv_threshold = medv_threshold
 
-    def _load(self):
+    def _load(self) -> None:
         data_path = LOCAL_DATA_PATH / 'boston'
         data_df = pd.read_csv(data_path, delimiter=' ')
         if self.is_classification:

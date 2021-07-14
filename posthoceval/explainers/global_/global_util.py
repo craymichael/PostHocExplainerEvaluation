@@ -20,13 +20,19 @@ def _get_unary_func(scalar_value):
 
 
 class MultivariateInterpolation(object):
+    """Multivariate interpolation: a wrapper around interpolation and
+    extrapolation for multiple features"""
 
     def __init__(self,
                  x: np.ndarray,
                  y: np.ndarray,
                  interpolation: Union[str, Callable] = 'linear'):
         """
+        Multivariate interpolation: a wrapper around interpolation and
+        extrapolation for multiple features
 
+        :param x: the input of an unspecified function
+        :param y: the output of an unspecified function
         :param interpolation: 'linear', 'nearest', 'zero', 'slinear',
             'quadratic', 'cubic', 'previous', 'next', or a callable
         """
@@ -78,6 +84,12 @@ class MultivariateInterpolation(object):
         self.interp_funcs = interp_funcs
 
     def interpolate(self, x: np.ndarray):
+        """
+        Interpolates y given x
+
+        :param x: ndarray of input values of the interpolated function
+        :return: interpolated values y for each feature
+        """
         utils.assert_shape(x, (None, len(self.interp_funcs)), name='x')
 
         y_interp = [

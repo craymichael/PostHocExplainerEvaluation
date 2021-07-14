@@ -33,6 +33,14 @@ logger = logging.getLogger(__name__)
 
 
 def _needs_load(f):
+    """
+    Wrapper for properties that require than `_load()` be called exactly once
+    before a property is accessed. Specific for Dataset objects
+
+    :param f: the property method
+    :return: wrapper that calls `_load()`
+    """
+
     def inner(self: 'Dataset', *args, **kwargs):
         # Call _load() if not called before
         if not self.__load_called__:
@@ -47,12 +55,17 @@ def _needs_load(f):
 
 
 class Dataset(ABC):
-    """"""
+    """Base Dataset object"""
 
     __expect_keys = ['label_col', 'grouped_feature_names', 'feature_names',
                      'feature_types', 'X', 'y', 'data']
 
     def __init__(self, task: str):
+        """
+        Base Dataset object
+
+        :param task: either "classification" or "regression"
+        """
         # TODO: standardize tasks between data and models
         task = task.lower()
         if task not in ['classification', 'regression']:
@@ -74,10 +87,14 @@ class Dataset(ABC):
         self.__load_called__ = False
 
     def _raise_bad_task(self) -> NoReturn:
+        """Raise exception stating specified task is unsupported"""
         raise ValueError(f'{self.task} is not supported for '
                          f'{self.__class__.__name__}')
 
     def __len__(self) -> int:
+        """
+        :return: number of samples in the dataset
+        """
         # return length without triggering lazy-loading, if possible
         if self._y is not None:
             return len(self.y)
@@ -88,6 +105,14 @@ class Dataset(ABC):
 
     @classmethod
     def from_data(cls, task: str, *args, **kwargs) -> 'Dataset':
+        """
+        Creates a new dataset from the provided data
+
+        :param task: either "classification" or "regression"
+        :param args: data, see _load documentation
+        :param kwargs: data, see _load documentation
+        :return: a new Dataset instance
+        """
         dataset = cls(task=task)
         # >:)
         dataset.__load_called__ = True
@@ -95,26 +120,45 @@ class Dataset(ABC):
         return dataset
 
     def copy(self) -> 'Dataset':
+        """
+        :return: deep copy of the dataset
+        """
         return deepcopy(self)
 
     @property
     def is_classification(self) -> bool:
+        """
+        :return: whether the task is classification
+        """
         return self.task == 'classification'
 
     @property
     def is_regression(self) -> bool:
+        """
+        :return: whether the task is regression
+        """
         return self.task == 'regression'
 
     @property
     def n_features(self) -> int:
+        """
+        :return: the number of features in the dataset
+        """
         return prod(self.input_shape)
 
     @property
     def input_shape(self) -> Tuple[int, ...]:
+        """
+        :return: the shape of a data sample
+        """
         return self.X.shape[1:]
 
     @property
     def categorical_features(self) -> List[str]:
+        """
+
+        :return: list of categorical feature names
+        """
         return [
             feat_name
             for feat_name, feat_type in zip(
@@ -124,6 +168,10 @@ class Dataset(ABC):
 
     @property
     def numerical_features(self) -> List[str]:
+        """
+
+        :return: list of numerical feature names
+        """
         return [
             feat_name
             for feat_name, feat_type in zip(
@@ -133,6 +181,12 @@ class Dataset(ABC):
 
     @property
     def X_df(self) -> pd.DataFrame:  # noqa
+        """
+        Returns the data without labels as a pandas DataFrame. If the data
+        is not tabular, then the data is flattened first
+
+        :return: the dataset as a tabular dataframe
+        """
         if self._X_df is None:
             self._X_df = self.data[self.feature_names]
         return self._X_df
@@ -140,6 +194,10 @@ class Dataset(ABC):
     @property
     @_needs_load
     def X(self) -> np.ndarray:  # noqa
+        """
+
+        :return: the dataset without labels
+        """
         if self._X is None:  # infer
             self.X = self.data[self.feature_names].values
 
@@ -147,6 +205,11 @@ class Dataset(ABC):
 
     @X.setter
     def X(self, val: Union[pd.DataFrame, np.ndarray]):  # noqa
+        """
+        Update and validate X
+
+        :param val: value which will update X
+        """
         if is_pandas(val):
             val = val.values
         else:
@@ -163,12 +226,21 @@ class Dataset(ABC):
     @property
     @_needs_load
     def y(self) -> np.ndarray:
+        """
+
+        :return: the labels of the dataset
+        """
         if self._y is None:  # infer
             self.y = self.data[self.label_col].values
         return self._y
 
     @y.setter
     def y(self, val: Union[pd.Series, pd.DataFrame, np.ndarray]):
+        """
+        Update and validate y
+
+        :param val: the values which will update the labels
+        """
         if is_pandas(val):
             val = val.values
         else:
@@ -193,6 +265,12 @@ class Dataset(ABC):
     @property
     @_needs_load
     def data(self) -> pd.DataFrame:
+        """
+        Returns the dataset as a pandas DataFrame. This includes X values, y
+        values (labels), and potentially other columns depending on the dataset
+
+        :return: the dataset as a pandas DataFrame
+        """
         if self._data is None:  # infer
             data = pd.DataFrame(
                 columns=self.feature_names,
@@ -204,6 +282,11 @@ class Dataset(ABC):
 
     @data.setter
     def data(self, val: pd.DataFrame):
+        """
+        Update and validate data
+
+        :param val: the DataFrame to update data with
+        """
         assert is_df(val), 'val is not df'
 
         self._data = val
@@ -217,6 +300,10 @@ class Dataset(ABC):
     @property
     @_needs_load
     def feature_names(self) -> List[str]:
+        """
+
+        :return: the names of all features
+        """
         if self._feature_names is None:  # infer
             if self._data is None:
                 self.feature_names = [*map(str, range(self.n_features))]
@@ -227,6 +314,11 @@ class Dataset(ABC):
 
     @feature_names.setter
     def feature_names(self, val: Iterable[str]):
+        """
+        Update and validate feature names
+
+        :param val: values to update the feature names
+        """
         val = [*val]
         assert all(isinstance(v, str) for v in val), 'feat names not all str'
         assert len(val) == len(set(val)), 'non-unique feat names'
@@ -236,7 +328,19 @@ class Dataset(ABC):
     @property
     @_needs_load
     def grouped_feature_names(
-            self) -> List[Union[str, Tuple[str, List[Any]]]]:
+            self,
+    ) -> List[Union[str, Tuple[str, List[Any]]]]:
+        """
+        Grouped feature names. These are the feature names with hierarchical
+        structure in the case it is present in the dataset. The most common
+        use case in this library is for grouped feature names is one-hot
+        encoded categorical features where each element is either a string
+        (feature name) or a size-2 tuple (feature name, list of feature names).
+        The order of these features corresponds to the order of the features in
+        the data.
+
+        :return: grouped feature names
+        """
         if self._grouped_feature_names is None:  # infer
             self.grouped_feature_names = self.feature_names.copy()
         return self._grouped_feature_names
@@ -246,6 +350,11 @@ class Dataset(ABC):
             self,
             val: Iterable[Union[str, Tuple[str, Sequence[Any]]]]
     ):
+        """
+        Update and validate feature names
+
+        :param val: value with which to update grouped_feature_names
+        """
         val = [v if isinstance(v, str) else (v[0], [*v[1]])
                for v in val]
         self._grouped_feature_names = val
@@ -254,6 +363,10 @@ class Dataset(ABC):
     @property
     @_needs_load
     def feature_types(self) -> List[str]:
+        """
+
+        :return: the type of each feature (either "numerical" or "categorical")
+        """
         if self._feature_types is None:  # infer
             # TODO: dtypes do
             self.feature_types = ['numerical'] * self.n_features
@@ -261,6 +374,11 @@ class Dataset(ABC):
 
     @feature_types.setter
     def feature_types(self, val: Iterable[str]):
+        """
+        Update and validate feature types
+
+        :param val: values with which to update the feature types
+        """
         valid_types = ['numerical', 'categorical']
         val = [*val]
         assert all(v in valid_types for v in val)
@@ -270,6 +388,9 @@ class Dataset(ABC):
     @property
     @_needs_load
     def label_col(self) -> str:
+        """
+        :return: The label column name
+        """
         if self._label_col is None:  # infer
             assert self._data is None, 'data is not None'
             self.label_col = 'target'
@@ -277,10 +398,16 @@ class Dataset(ABC):
 
     @label_col.setter
     def label_col(self, val: str):
+        """
+        Update and validate label_col
+
+        :param val: value with which to update label_col
+        """
         assert isinstance(val, str), 'val is not str'
         self._label_col = val
 
     def _validate_sizes(self):
+        """Validates the sizes of all dynamically set/loaded dataset values"""
         if self._X is not None:
             if self._y is not None:
                 assert len(self._X) == len(self._y), 'X and y lengths differ'
@@ -309,6 +436,38 @@ class Dataset(ABC):
 
     @abstractmethod
     def _load(self, *args, **kwargs) -> None:
+        """
+        Loads the dataset according to provided arguments. Loading will lazily
+        load attributes that are not provided, but ensure that enough data has
+        been provided to infer unprovided attributes.
+
+        Subclasses should override this method and can call super() in any of
+        the following ways:
+
+        1.
+        >>> super()._load(X=X, y=y, ...)
+        2.
+        >>> load_dict = dict(X=X, y=y, ...)
+        >>> super()._load(load_dict=load_dict)
+        3.
+        >>> load_dict = dict(X=X, y=y, ...)
+        >>> super()._load(load_dict)
+
+        Valid kwargs that can be provided:
+            X, y, X_df, label_col, feature_names, feature_types,
+            grouped_feature_names, data
+
+        Enough kwargs need to be provided to infer what is needed in the task.
+        For example, the following are minimally sufficient for supervised
+        learning:
+            - data, feature_names, label_col
+            - X, y
+            - X_df, y
+            - data, X, label_col
+
+        :param args: load_dict or nothing
+        :param kwargs: just load_dict or any of the above specified attributes
+        """
         if not args:
             assert kwargs, 'need kwargs if no load_dict'
             maybe_load_dict = kwargs.get('load_dict')
