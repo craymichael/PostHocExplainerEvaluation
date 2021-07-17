@@ -17,14 +17,26 @@ from posthoceval.utils import prod
 
 
 class BaseAdditiveDNN(AdditiveModel, metaclass=ABCMeta):
+    """Base class for additive DNNs"""
+
     def __init__(
             self,
-            task,
+            task: str,
             input_shape=None,
             n_features=None,
             symbols=None,
             symbol_names=None,
     ):
+        """Base class for additive DNNs
+
+        :param task: the task, either "classification" or "regression"
+        :param input_shape: the shape of a data sample
+        :param n_features: the number of features
+        :param symbols: sequence of symbols, one for each feature
+        :param symbol_names: the name of each feature/symbol
+        """
+        # TODO: symbol --> feature/variable/something less confusing
+
         from tensorflow.keras.models import Model
         from tensorflow.keras.layers import Input
 
@@ -74,6 +86,8 @@ class BaseAdditiveDNN(AdditiveModel, metaclass=ABCMeta):
                    rankdir='TB',
                    expand_nested=False,
                    dpi=96):
+        """Plot the model. See `tensorflow.keras.utils.plot_model` for
+        more details. Needs graphviz installed."""
         # lazy load
         from tensorflow.keras.utils import plot_model
 
@@ -87,6 +101,12 @@ class BaseAdditiveDNN(AdditiveModel, metaclass=ABCMeta):
                           dpi=dpi)
 
     def __call__(self, X):
+        """
+        Calls the underlying DNN model
+
+        :param X: The input data
+        :return: The model output
+        """
         ret = self._dnn(X).numpy()
         if self.task == 'regression' and ret.ndim == 2:
             ret = ret.squeeze(axis=1)
@@ -110,6 +130,16 @@ class BaseAdditiveDNN(AdditiveModel, metaclass=ABCMeta):
         return y
 
     def fit(self, X, y, optimizer='adam', loss=None, **kwargs):
+        """
+        Fit the model with provided data, optimizer, and loss
+
+        :param X: The input data (features)
+        :param y: The output labels
+        :param optimizer: The optimizer compatible with keras Model compile
+        :param loss: The loss compatible with keras Model compile
+        :param kwargs: Additional arguments passed to keras Model fit
+        :return: self
+        """
         if loss is None:
             from tensorflow.keras.losses import CategoricalCrossentropy
             loss = ('mean_squared_error' if self.task == 'regression' else
@@ -124,6 +154,14 @@ class BaseAdditiveDNN(AdditiveModel, metaclass=ABCMeta):
         return self
 
     def feature_contributions(self, X):
+        """
+        Produce the ground truth feature contributions of each effect of the
+        underlying DNN model.
+
+        :param X: The input data
+        :return: The ground truth additive feature contributions as a dict
+            for the underlying DNN model
+        """
         # lazy load
         from tensorflow.keras.models import Model
 
@@ -145,12 +183,26 @@ class BaseAdditiveDNN(AdditiveModel, metaclass=ABCMeta):
         return contribs
 
     def predict(self, X: np.ndarray) -> np.ndarray:
+        """
+        Make a prediction given data. This will be a class index if
+        classification, otherwise a real value for regression.
+
+        :param X: data
+        :return: predictions
+        """
         preds = self._dnn.predict(X)
         if self.task == 'classification' and preds.ndim > 1:
             preds = np.argmax(preds, axis=1)
         return preds
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        """
+        Make a prediction given data. Not applicable to regression tasks.
+        Returns the "probability" (softmax-normalized value) for each class.
+
+        :param X: data
+        :return: predicted "probabilities"
+        """
         if self.task != 'classification':
             raise TypeError(f'predict_proba does not make sense for a '
                             f'{self.task} task')

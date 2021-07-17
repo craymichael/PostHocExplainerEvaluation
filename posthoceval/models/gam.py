@@ -33,6 +33,7 @@ __all__ = ['LinearGAM', 'MultiClassLogisticGAM', 'Terms', 'T']
 
 
 class Terms:
+    """Wrapper around PyGAM terms"""
     __slots__ = ()
 
     te = pygam_terms.te
@@ -44,7 +45,16 @@ T = Terms
 
 
 class LogisticGAM(_LogisticGAM):
+    """Wrapper around the PyGAM Logistic GAM class that is compatible with
+    sklearn"""
+
     def predict_proba(self, X):
+        """
+        Binary logistic regression predicted probabilities
+
+        :param X: the 2D input data (N x F)
+        :return: predicted probabilities
+        """
         probas = super().predict_proba(X)
         return np.stack([1 - probas, probas], axis=1)
 
@@ -58,6 +68,15 @@ class BaseGAM(AdditiveModel, metaclass=ABCMeta):
             terms: Union[str, List] = 'auto',
             **kwargs,
     ):
+        """
+        The base GAM class compatible with PyGAM models
+
+        :param n_features: the number of features
+        :param symbols: sequence of symbols, one for each feature
+        :param symbol_names: the name of each feature/symbol
+        :param terms: each term is a sequence of indices of features (symbols)
+        :param kwargs: passed to underlying PyGAM model
+        """
         super().__init__(
             symbol_names=symbol_names,
             symbols=symbols,
@@ -86,6 +105,7 @@ class BaseGAM(AdditiveModel, metaclass=ABCMeta):
     @property
     @abstractmethod
     def is_classifier(self):
+        """Set by children - whether model is a classifier"""
         raise NotImplementedError
 
     @property
@@ -96,6 +116,7 @@ class BaseGAM(AdditiveModel, metaclass=ABCMeta):
 
     @abstractmethod
     def __call__(self, X):
+        """Call the PyGAM model"""
         raise NotImplementedError
 
     @property
@@ -106,6 +127,14 @@ class BaseGAM(AdditiveModel, metaclass=ABCMeta):
 
     @abstractmethod
     def fit(self, X, y, weights=None):
+        """
+        Fit the model to the training data.
+
+        :param X: 2D input data (N x F)
+        :param y: labels
+        :param weights: sample weights
+        :return: self
+        """
         for i, estimator in enumerate(self._estimator):
             self._do_fit(estimator, i, X, y, weights=weights)
 
@@ -118,6 +147,14 @@ class BaseGAM(AdditiveModel, metaclass=ABCMeta):
             estimator.fit(X, y, weights=weights)
 
     def feature_contributions(self, X, return_intercepts=False, **kwargs):
+        """
+        Return the feature contributions of each term of the GAM.
+
+        :param X: 2d data (N x F)
+        :param return_intercepts: also return the GAM intercepts
+        :param kwargs: ignored
+        :return:
+        """
         if kwargs:
             warnings.warn(f'Ignoring all kwargs {kwargs} - these are N/A '
                           f'here.')
@@ -163,6 +200,12 @@ class BaseGAM(AdditiveModel, metaclass=ABCMeta):
         return contribs
 
     def predict(self, X):
+        """
+        Make predictions on the data
+
+        :param X: 2d input data (N x F)
+        :return: predictions
+        """
         assert self._is_fitted
 
         y_pred = self(X)
@@ -171,6 +214,12 @@ class BaseGAM(AdditiveModel, metaclass=ABCMeta):
         return y_pred
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        """
+        Make predictions for classifiers, raises a TypeError if a regressor
+
+        :param X: 2d input data (N x F)
+        :return: predicted probabilities
+        """
         if self.is_classifier:
             return self(X)
         else:
@@ -178,6 +227,8 @@ class BaseGAM(AdditiveModel, metaclass=ABCMeta):
 
 
 class MultiClassLogisticGAM(BaseGAM):
+    """GAM for multi-class logistic classification"""
+
     def __init__(
             self,
             n_features=None,
@@ -185,6 +236,15 @@ class MultiClassLogisticGAM(BaseGAM):
             symbol_names=None,
             **kwargs,
     ):
+        """
+        GAM for multi-class logistic classification
+
+        :param n_features: the number of features
+        :param symbols: sequence of symbols, one for each feature
+        :param symbol_names: the name of each feature/symbol
+        :param terms: each term is a sequence of indices of features (symbols)
+        :param kwargs: passed to BaseGAM
+        """
         super().__init__(n_features=n_features, symbols=symbols,
                          symbol_names=symbol_names, **kwargs)
 
@@ -216,6 +276,14 @@ class MultiClassLogisticGAM(BaseGAM):
         return y
 
     def fit(self, X, y, weights=None):
+        """
+        Fit the model to the training data.
+
+        :param X: 2D input data (N x F)
+        :param y: labels
+        :param weights: sample weights
+        :return: self
+        """
         y = self._standardize_y(y)
         self._estimator_ = [LogisticGAM(**self._estimator_kwargs)
                             for _ in range(self._n_classes)]
@@ -228,6 +296,12 @@ class MultiClassLogisticGAM(BaseGAM):
         super()._do_fit(estimator, i, X, yi, weights=weights)
 
     def predict_proba(self, X):
+        """
+        Make predictions for classifiers
+
+        :param X: 2d input data (N x F)
+        :return: predicted probabilities
+        """
         # y : np.array of shape (n_samples,)
         assert self._is_fitted
 
@@ -253,6 +327,7 @@ def inverse_log_odd(values):
 
 
 class LinearGAM(BaseGAM):
+    """Linear GAM for regression"""
 
     @property
     def is_classifier(self):
@@ -262,6 +337,14 @@ class LinearGAM(BaseGAM):
         return self._estimator_.predict(X)
 
     def fit(self, X, y, weights=None):
+        """
+        Fit the model to the training data.
+
+        :param X: 2D input data (N x F)
+        :param y: labels
+        :param weights: sample weights
+        :return: self
+        """
         self._estimator_ = _LinearGAM(**self._estimator_kwargs)
 
         return super().fit(X, y, weights=weights)

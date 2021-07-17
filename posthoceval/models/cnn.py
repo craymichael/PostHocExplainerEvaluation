@@ -23,6 +23,20 @@ class AdditiveCNN(BaseAdditiveDNN):
             padding='SAME',
             activation='relu',
     ):
+        """
+        Basic additive CNN with recoverable non-unary effects
+
+        :param task: the task, either "classification" or "regression"
+        :param input_shape: the shape of a data sample
+        :param n_features: the number of features
+        :param symbols: sequence of symbols, one for each feature
+        :param symbol_names: the name of each feature/symbol
+        :param filters: the number of convolutional filters
+        :param kernel_size: the size of the convolutional kernel
+        :param strides: the strides of the convolutional kernel
+        :param padding: the padding of the convolutional kernel
+        :param activation: the activation after the convolutional layer
+        """
         super().__init__(
             task=task,
             input_shape=input_shape,

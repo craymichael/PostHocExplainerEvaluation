@@ -2,22 +2,40 @@
 dnn.py - A PostHocExplainerEvaluation file
 Copyright (C) 2021  Zach Carmichael
 """
+from typing import Sequence
+
 from posthoceval.expl_utils import standardize_effect
 from posthoceval.models.base_dnn import BaseAdditiveDNN
 
 
 class AdditiveDNN(BaseAdditiveDNN):
+    """Additive feedforward DNN"""
+
     def __init__(
             self,
-            terms,
-            task='regression',
+            terms: Sequence[Sequence[int]],
+            task: str = 'regression',
             input_shape=None,
             n_features=None,
             symbols=None,
             symbol_names=None,
-            n_units=64,
+            n_units: int = 64,
             activation='relu',
     ):
+        """
+        Additive feedforward DNN
+
+        :param terms: each term is a sequence of indices of features (symbols)
+        :param task: the task, either "classification" or "regression"
+        :param input_shape: the shape of a data sample
+        :param n_features: the number of features
+        :param symbols: sequence of symbols, one for each feature
+        :param symbol_names: the name of each feature/symbol
+        :param n_units: the base number of units in each feedforward layer, see
+            _make_branch for branch architecture
+        :param activation: the Keras-compatible activation function (string),
+            see _make_branch for branch architecture
+        """
         super().__init__(
             task=task,
             input_shape=input_shape,
