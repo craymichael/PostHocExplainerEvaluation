@@ -34,6 +34,17 @@ def _get_uniform_args(distribution):
 
 def sample(variables, distribution, n_samples, constraints=None, cov=None,
            seed=None):
+    """
+    Sample variables from the given distribution and constraints
+
+    :param variables: the random variables to sample
+    :param distribution: the distribution to sample from
+    :param n_samples: the number of samples to draw
+    :param constraints: the constraints to impose on drawn samples
+    :param cov: covariance (not implemented yet)
+    :param seed: random seed
+    :return: drawn samples
+    """
     if seed is not None:
         # TODO: setting seed may not be possible...until 1.7.1
         #  https://github.com/sympy/sympy/pull/20528/

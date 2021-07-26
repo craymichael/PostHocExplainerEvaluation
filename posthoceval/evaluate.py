@@ -221,6 +221,18 @@ def replace_unsupported_functions(expr):
 
 
 def symbolic_evaluate_func(expr, symbols, x=None, backend=None, **kwargs):
+    """
+    Create a symbolic evaluation function (that is much faster than native
+    sympy numerical evaluation) for the given backend.
+
+    :param expr: sympy expression
+    :param symbols: sympy symbols
+    :param x: ignored
+    :param backend: name of the backend (otherwise automatically inferred
+        based on installed packages and number of features)
+    :param kwargs: passed to the backend evaluation function
+    :return: symbolic evaluation function
+    """
     if backend is None:
         # if len(symbols) >= 32:
         if len(symbols) >= np.MAXDIMS:

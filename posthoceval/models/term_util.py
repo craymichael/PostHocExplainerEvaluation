@@ -17,6 +17,18 @@ def generate_terms(
         max_order=None,
         seed=None,
 ):
+    """
+    Utility to generate terms given various parameters
+
+    :param n_features: number of features
+    :param n_main: number of main effects
+    :param n_interact: number of interaction effects
+    :param desired_interactions: the specific interaction terms desired
+    :param min_order: the minimum order of interactions
+    :param max_order: the maximum order of interactions
+    :param seed: the random seed for reproducibility
+    :return: list of terms that can be used to generate an additive model
+    """
     seed = as_random_state(seed)
     if n_interact is not None and desired_interactions is not None:
         raise ValueError('Cannot specify both n_interact and '

@@ -18,6 +18,8 @@ T = TypeVar('T')
 
 
 class AdditiveModel(ABC):
+    """Base Additive Model"""
+
     # TODO: symbol_names --> feature_names
     # TODO: symbols --> features
     # TODO: gen_symbol_names --> gen_feature_names
@@ -28,6 +30,13 @@ class AdditiveModel(ABC):
             n_features: Optional[int] = None,
             symbols: Optional[List[T]] = None,
     ):
+        """
+        Base Additive Model
+
+        :param symbol_names: the name of each feature/symbol
+        :param n_features: the number of features
+        :param symbols: sequence of symbols, one for each feature
+        """
         # validate inputs
         if symbol_names is None:
             if symbols is None:
@@ -52,16 +61,29 @@ class AdditiveModel(ABC):
 
     @property
     def symbols(self) -> List[T]:
+        """
+        :return: The model symbols
+        """
         if self._symbols is None:
             self.symbols = self.symbol_names.copy()
         return self._symbols
 
     @symbols.setter
     def symbols(self, value: List[T]) -> None:
+        """
+        :param value: new symbols
+        """
         assert len(value) == self.n_features
         self._symbols = value
 
     def get_symbol(self, symbol_name: str) -> T:
+        """
+        Converts a symbol name to a model symbol object. For example, could be
+        a string mapped to sympy symbol for symbolic models.
+
+        :param symbol_name: name of the symbol
+        :return: the symbol corresponding to symbol_name
+        """
         if self._symbol_map is None:
             self._symbol_map = dict(zip(self.symbol_names, self.symbols))
         return self._symbol_map[symbol_name]
@@ -71,14 +93,33 @@ class AdditiveModel(ABC):
             self,
             X: np.ndarray,
     ) -> np.ndarray:
+        """
+        Run the input X through the model
+
+        :param X: input data
+        :return: model output
+        """
         raise NotImplementedError
 
     @abstractmethod
     def predict(self, X: np.ndarray) -> np.ndarray:  # sklearn compat
+        """
+        Make predictions. Compatible with some sklearn-like APIs
+
+        :param X: input data
+        :return: predictions by the model
+        """
         raise NotImplementedError
 
     @abstractmethod
     def predict_proba(self, X: np.ndarray) -> np.ndarray:  # sklearn compat
+        """
+        Make predictions (classification only). Compatible with some
+        sklearn-like APIs
+
+        :param X: input data
+        :return: prediction probabilities per class by the model
+        """
         raise NotImplementedError
 
     @abstractmethod
@@ -86,6 +127,13 @@ class AdditiveModel(ABC):
             self,
             X: np.ndarray,
     ):  # TODO: -> Explanation.......
+        """
+        Feature contributions by the model
+
+        :param X: the input data
+        :return: the contributions of each feature or subset of features to the
+            model output
+        """
         raise NotImplementedError
 
 

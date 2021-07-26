@@ -39,7 +39,6 @@ class tqdm_:
         @wraps(func)
         def wrapper(*args, **kwargs):
             with TQDM_COUNT_LOCK:
-                print('Aidsicles')
                 return func(*args, **kwargs)
 
         return wrapper

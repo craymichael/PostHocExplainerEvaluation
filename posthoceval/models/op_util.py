@@ -14,6 +14,13 @@ from posthoceval.expl_utils import standardize_effect
 
 
 def pair(val):
+    """
+    Make a pair as a tuple - size-2 inputs are returned, otherwise (val, val)
+    is returned
+
+    :param val: single-value or a tuple pair
+    :return: a pair
+    """
     if not isinstance(val, str) and isinstance(val, Iterable):
         ret = tuple(val)
         if len(ret) != 2:
@@ -25,6 +32,7 @@ def pair(val):
 
 
 def _unsupported_tf_arg(arg, default, provided):
+    """Raise an exception for unsupported args (deviate from TF default)"""
     if default != provided:
         raise NotImplementedError(
             f'{arg}={provided} not yet supported! Please keep the default of '
@@ -32,7 +40,13 @@ def _unsupported_tf_arg(arg, default, provided):
         )
 
 
-def tuplize(npy_data):
+def tuplize(npy_data: np.ndarray):
+    """
+    Flattens a numpy ndarray to a tuple of tuples
+
+    :param npy_data: input ndarray of symbols
+    :return: flat tuple of tuples
+    """
     return tuple(
         chain.from_iterable(x if isinstance(x, tuple) else (x,)
                             for x in npy_data.flat)
@@ -49,6 +63,20 @@ def symbolic_conv2d(
         dilation_rate=(1, 1),
         groups=1,
 ):
+    """
+    Symbolic conv2d op
+
+    :param symbols: numpy ndarray of symbols
+    :param filters: number of filters
+    :param kernel_size: single value or pair of ints
+    :param strides: single value or pair of ints
+    :param padding: either 'valid' or 'same'
+    :param data_format: default inferred, otherwise either 'channels_first' or
+        'channels_last'. not implemented
+    :param dilation_rate: single value or pair of ints. not implemented
+    :param groups: not implemented
+    :return: the symbolic output of the op
+    """
     if data_format is None:
         from tensorflow.keras.backend import image_data_format
         data_format = image_data_format()

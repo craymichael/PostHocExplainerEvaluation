@@ -1,3 +1,7 @@
+"""
+synthetic.py - A PostHocExplainerEvaluation file
+Copyright (C) 2021  Zach Carmichael
+"""
 from typing import Sequence
 from typing import Optional
 from typing import Dict
@@ -401,7 +405,7 @@ def generate_additive_expression(
                 for op in alternative_ops:
                     term = op(term)
 
-            # TODO: doc the crap out of this "elegance"
+            # TODO: doc the **** out of this "elegance"
             if not validate:
                 break
             try:
@@ -533,7 +537,7 @@ def generate_additive_expression(
                 seed=seed
             ).to_expression()
 
-            # TODO: doc the crap out of this "elegance"
+            # TODO: doc the **** out of this "elegance"
             if not validate:
                 break
             try:
@@ -823,7 +827,7 @@ def valid_variable_domains(terms, assumptions=None, no_empty_set=True,
     Real domains only! TODO: allow other domains?
     """
     # TODO!!! sympy treats reals as complex - any valid domains *may be in the
-    #  complex domain* - this is crap, and may lead to unexpected errors down
+    #  complex domain* - this is ****, and may lead to unexpected errors down
     #  the road. Is there a way to mitigate this??
 
     if isinstance(terms, sp.Expr):
