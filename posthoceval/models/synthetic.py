@@ -153,7 +153,22 @@ ASSUMPTION_DOMAIN = OrderedDict((
 #  - do by classes of interaction, START WITH POLYNOMIALS
 
 def place_into_bins(n_bins, n_items, shift=0, skew=0):
-    """"""
+    """
+    Determine the number of items per bin with an optional skewed distribution
+    (if shift/skew are non-zero). These parameterize a sigmoid which determines
+    the weights per bin of the distribution of elements.
+
+    desmos:
+    \frac{1}{1\ +\exp\left(-S\cdot x-\left(0.5\ \cdot\ \left(1\ +H\right)\right)\right)}
+
+    :param n_bins: the number of bins
+    :param n_items: the number of items (to place in bins)
+    :param shift: the shift parameter - determines the 0->1 transition of the
+        sigmoid curve
+    :param skew: the skew parameter - determines the severity of the 0->1
+        transition of the sigmoid curve
+    :return: the number of items per bin
+    """
     assert -1. <= shift <= 1.
 
     sigmoid_offset = 0.5 * (1 + shift)
@@ -201,8 +216,9 @@ def generate_additive_expression(
         seed=None,
 ) -> sp.Expr:
     """
+    Creates a random valid SymPy expression based on the given parameters.
 
-    :param symbols:
+    :param symbols: sympy symbols corresponding to each feature
     :param n_main: if None use a heuristic. Main effect terms
     :param n_uniq_main: number of unique main effects
     :param n_interaction: Interaction effect terms
@@ -213,8 +229,37 @@ def generate_additive_expression(
         $x_1 \\times x_2$ would be considered to be linear with respect to a 
         single variable (holding the other constant), whereas $sin(x_1 + x_2)$ 
         would be nonlinear.
-    :param seed: For reproducibility
-    :return:
+    :param validate_tries: the number of attempts to validate an expression
+        (sympy evaluation is non-deterministic and sometimes will converge
+        after a few tries)
+    :param validate_kwargs: the kwargs to pass to the validate function
+    :param validate: whether to perform validation of the expression for a valid
+        input/output domain (e.g. in real domain)
+    :param linear_multi_arg_ops_weights: the weights, one per linear multi-arg
+        operation
+    :param linear_multi_arg_ops: the sympy linear operations that take 2 args
+    :param nonlinear_multi_arg_ops_weights: the weights, one per nonlinear
+        multi-arg operation
+    :param nonlinear_multi_arg_ops: the sympy nonlinear 2-arg operations
+    :param nonlinear_single_arg_ops_weights: the weights, one per nonlinear
+        single-arg operation
+    :param nonlinear_single_arg_ops: the sympy single-arg operations
+    :param nonlinear_single_multi_ratio: the ratio of single-op to multi-op
+        sympy operations
+    :param nonlinear_interaction_additivity: the chance of additive operator
+        used in nonlinear interactions (an additive operator within a nonlinear
+        effect being something like e.g. `sin(x1 + x2)`
+    :param nonlinear_skew: the skew parameter used in selecting nonlinear
+        operators (see place_into_bins)
+    :param nonlinear_shift: the shift parameter used in selecting nonlinear
+        operators (see place_into_bins)
+    :param nonlinear_multiplier: the nonlinear multiplier for operators. A
+        multiplier >1 will see more than 1 operator applied to a term on
+        average, e.g. `sin(exp(x1))`
+    :param interaction_ord: the order of interactions, can be a single integer
+        or tuple of integers for different orders
+    :param seed: random seed for reproducibility
+    :return: the generated sympy expression
     """
     validate_kwargs = validate_kwargs or {}
     assert validate_tries >= 1
@@ -586,6 +631,11 @@ def generate_additive_expression(
 
 
 def independent_terms(expr) -> Tuple[sp.Expr]:
+    """
+    Finds independent terms within a SymPy expression
+    :param expr: the sympy expression
+    :return: the independent terms
+    """
     if isinstance(expr, sp.Add):
         return expr.args
     return expr,  # ',' for tuple return

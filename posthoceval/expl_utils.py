@@ -37,6 +37,15 @@ KNOWN_MEAN_CENTERED = [
 
 
 def is_mean_centered(explainer):
+    """
+    Determine whether the given explainer (by name) has mean-centered
+    explanations. Mean-centered explanations may require additional processing
+    to standardize the explanations. Determines mean-centered by checking the
+    explainer name (uppercase) for membership in the list KNOWN_MEAN_CENTERED.
+
+    :param explainer: explainer name
+    :return: whether explainer explanations are mean-centered
+    """
     # TODO: startswith can be dangerous here...maybe underscore split [0] check
     return any(explainer.upper().startswith(e) for e in KNOWN_MEAN_CENTERED)
 
@@ -46,7 +55,17 @@ def clean_explanations(
         true_expl: Optional[Explanation] = None,
 ) -> Union[Tuple[Explanation, Explanation, int],
            Tuple[Explanation, int]]:
-    """"""
+    """
+    Ensures provided explanations are uniform in length, removes invalid (nan
+    or inf) explanations, and ensures (if provided) true explanations are
+    the same length as predicted (assumes a shorter predicted explanation in
+    terms of samples is truncated).
+
+    :param pred_expl: The predicted explanations
+    :param true_expl: The ground truth explanations (optional)
+    :return: cleaned explanations (two returned if true_expl is provided) and
+        the number of predicted explanations
+    """
     tqdm.write('Start cleaning explanations.')
 
     pred_expl = pred_expl.copy()
@@ -141,6 +160,21 @@ def clean_explanations(
 
 
 def load_explanation(expl_path: str, true_model: AdditiveModel):
+    """
+    Loads an explanation from a path and a provided AdditiveModel instance. The
+    AdditiveModel is used to validate the count of features and map provided
+    explanations to AdditiveModel symbols.
+
+    Explanations can be in one of two formats:
+    - NumPy archive with the 'data' key. The corresponding value is a N x F
+      matrix with N contributions per feature
+    - NumPy archive with one key per effect. Each value is a N-size vector
+
+    :param expl_path: path to the explanation(s)
+    :param true_model: the AdditiveModel that is being explained
+    :return: the loaded and standardized explanation (see
+        standardize_contributions)
+    """
     # TODO: intercept loading...
     if not os.path.exists(expl_path):
         raise FileNotFoundError(f'{expl_path} does not exist!')
@@ -175,7 +209,13 @@ def load_explanation(expl_path: str, true_model: AdditiveModel):
     return expl
 
 
-def save_explanation(expl_path: str, contribs):
+def save_explanation(expl_path: str, contribs: Union[np.ndarray, Dict]):
+    """
+    Save an explanation (contributions per effect) to the given path
+
+    :param expl_path: path to save explanations as a .npz file
+    :param contribs: the contributions (explanation) to save
+    """
     if isinstance(contribs, list):
         raise NotImplementedError('Explanations for classification tasks.')
 
@@ -193,6 +233,26 @@ def save_explanation(expl_path: str, contribs):
 
 def apply_matching(matching, true_expl, pred_expl, n_explained,
                    explainer_name, always_numeric=True):
+    """
+    Apply a matching (as given by e.g. posthoceval.metrics.generous_eval) to
+    the ground truth and predicted explanations to allow for comparison. It
+    usually necessary to apply the matching to the explanations as there won't
+    be a 1:1 correspondence between true and predicted effects that comprise
+    the explanations. The explainer name is used to determine whether
+    correcting for a mean-centered explainer is necessary.
+
+    :param matching: the matching as given by e.g.
+        posthoceval.metrics.generous_eval
+    :param true_expl: the ground truth explanations
+    :param pred_expl: the predicted explanations (by an explainer)
+    :param n_explained: number of samples explained by each set of explanations
+    :param explainer_name: passed to is_mean_centered
+    :param always_numeric: if a matched set of effects is missing from an
+        explanation, then this determines whether zeros or returned (indicating
+        a zero contribution) or `None` (which is not numeric)
+    :return: the matches with key (tuple(match_true), tuple(match_pred)) and
+        value (contribs_true, contribs_pred) - each match being a set of effects
+    """
     matches = {}
     for match_true, match_pred in matching:
         if match_true:
@@ -243,6 +303,7 @@ def standardize_contributions(contribs_dict, remove_zeros=True, atol=1e-5):
 
 
 class CompatUnpickler(pickle.Unpickler):
+    """Custom Unpickler to handle legacy changes in the codebase"""
 
     def find_class(self, module_name: str, global_name: str) -> Any:
         if module_name == '__main__' and global_name == 'ExprResult':
