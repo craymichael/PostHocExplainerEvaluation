@@ -16,8 +16,9 @@
 - [Some Framework-Specific Notes](#some-framework-specific-notes)
 
 This repository provides a toolkit for objectively evaluating post hoc explainers, such as LIME and SHAP. The results
-from our paper,
-[_On the Objective Evaluation of Post Hoc Explainers_](https://arxiv.org/abs/2106.08376), were produced using this
+from our papers,
+[_How Well Do Feature-Additive Explainers Explain Feature-Additive Predictors?_]() (published) and
+[_On the Objective Evaluation of Post Hoc Explainers_](https://arxiv.org/abs/2106.08376) (preprint), were produced using this
 codebase. We avoid the need for proxy metrics or subjective evaluation by deriving ground truth feature contributions
 from arbitrary models. This is made possible by exploiting existing additive structure, which leaves us with the exact
 amount that each effect, comprising one or more features, contributes to the model output. Our proposed algorithm for
@@ -64,14 +65,23 @@ New models can be added by subclassing `posthoceval.models.model.AdditiveModel`
 and completing the abstract methods.
 
 If you use this repository in your work, please reference
-[our paper](https://arxiv.org/abs/2106.08376):
+our papers:
 
 ```text
+@inproceedings{carmichael2023featureadditive,
+  title     = {How Well Do Feature-Additive Explainers Explain Feature-Additive Predictors?},
+  author    = {Carmichael, Zachariah and Scheirer, Walter J},
+  booktitle = {NeurIPS Workshop XAI in Action: Past, Present, and Future Applications},
+  year      = {2023},
+  url       = {}
+}
+
 @article{carmichael2021objective,
-  title={On the Objective Evaluation of Post Hoc Explainers},
-  author={Carmichael, Zachariah and Scheirer, Walter J},
-  journal={arXiv preprint arXiv:2106.08376},
-  year={2021}
+  title   = {On the Objective Evaluation of Post Hoc Explainers},
+  author  = {Carmichael, Zachariah and Scheirer, Walter J},
+  journal = {arXiv preprint arXiv:2106.08376},
+  year    = {2021},
+  url     = {https://arxiv.org/abs/2106.08376}
 }
 ```
 
