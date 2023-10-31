@@ -17,7 +17,7 @@
 
 This repository provides a toolkit for objectively evaluating post hoc explainers, such as LIME and SHAP. The results
 from our papers,
-[_How Well Do Feature-Additive Explainers Explain Feature-Additive Predictors?_]() (published) and
+[_How Well Do Feature-Additive Explainers Explain Feature-Additive Predictors?_](https://arxiv.org/abs/2310.18496) (published) and
 [_On the Objective Evaluation of Post Hoc Explainers_](https://arxiv.org/abs/2106.08376) (preprint), were produced using this
 codebase. We avoid the need for proxy metrics or subjective evaluation by deriving ground truth feature contributions
 from arbitrary models. This is made possible by exploiting existing additive structure, which leaves us with the exact
@@ -73,7 +73,7 @@ our papers:
   author    = {Carmichael, Zachariah and Scheirer, Walter J},
   booktitle = {NeurIPS Workshop XAI in Action: Past, Present, and Future Applications},
   year      = {2023},
-  url       = {}
+  url       = {https://arxiv.org/abs/2310.18496}
 }
 
 @article{carmichael2021objective,
